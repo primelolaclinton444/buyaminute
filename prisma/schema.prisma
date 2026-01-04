@@ -81,6 +81,9 @@ model Call {
   createdAt  DateTime @default(now())
   endedAt    DateTime?
 
+  ratePerSecondTokens Int
+  previewApplied      Boolean @default(false)
+
   participants CallParticipant?
 }
 

@@ -1,5 +1,5 @@
 // ================================
-// BuyAMinute — Calls/Create API
+// BuyAMinute — Calls/Create API (Secured)
 // Phase 7
 // ================================
 
@@ -15,33 +15,41 @@ const prisma = new PrismaClient();
  * {
  *   callerId: string,
  *   receiverId: string,
- *   ratePerSecondTokens: number,
  *   minIntendedSeconds?: number
  * }
  *
- * Notes:
- * - For MVP we accept ratePerSecondTokens from the client, but we LOCK it on the call.
- * - Later you should fetch receiver rate from DB to prevent tampering.
+ * Security:
+ * - rate is fetched server-side from ReceiverProfile
+ * - receiver must be available
  */
 export async function POST(req: Request) {
   const body = await req.json();
-  const {
-    callerId,
-    receiverId,
-    ratePerSecondTokens,
-    minIntendedSeconds,
-  } = body;
+  const { callerId, receiverId, minIntendedSeconds } = body;
 
-  if (!callerId || !receiverId || !ratePerSecondTokens) {
+  if (!callerId || !receiverId) {
     return new Response("Invalid payload", { status: 400 });
-  }
-
-  if (ratePerSecondTokens <= 0) {
-    return new Response("Invalid rate", { status: 400 });
   }
 
   if (minIntendedSeconds !== undefined && minIntendedSeconds <= 0) {
     return new Response("Invalid minIntendedSeconds", { status: 400 });
+  }
+
+  const receiverProfile = await prisma.receiverProfile.findUnique({
+    where: { userId: receiverId },
+  });
+
+  if (!receiverProfile) {
+    return new Response("Receiver profile not found", { status: 404 });
+  }
+
+  if (!receiverProfile.isAvailable) {
+    return new Response("Receiver is not available", { status: 400 });
+  }
+
+  const ratePerSecondTokens = receiverProfile.ratePerSecondTokens;
+
+  if (!ratePerSecondTokens || ratePerSecondTokens <= 0) {
+    return new Response("Receiver rate not set", { status: 400 });
   }
 
   const callerBalance = await getWalletBalance(callerId);
@@ -65,7 +73,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Create call + participant row
   const call = await prisma.call.create({
     data: {
       callerId,
@@ -73,18 +80,9 @@ export async function POST(req: Request) {
       status: "ringing",
       ratePerSecondTokens,
       previewApplied: false, // set later when both connect
-      participants: {
-        create: {},
-      },
-    },
-    include: {
-      participants: true,
+      participants: { create: {} },
     },
   });
 
-  return Response.json({
-    ok: true,
-    callId: call.id,
-    status: call.status,
-  });
+  return Response.json({ ok: true, callId: call.id });
 }

@@ -68,6 +68,48 @@ model WithdrawalRequest {
   @@index([userId])
 }
 
+
+// ================================
+// Calls — Domain Model (Phase 4)
+// ================================
+
+model Call {
+  id         String   @id @default(cuid())
+  callerId   String
+  receiverId String
+  status     CallStatus
+  createdAt  DateTime @default(now())
+  endedAt    DateTime?
+
+  participants CallParticipant?
+}
+
+model CallParticipant {
+  callId               String   @id
+  callerConnectedAt    DateTime?
+  receiverConnectedAt  DateTime?
+  bothConnectedAt      DateTime?
+
+  call Call @relation(fields: [callId], references: [id])
+}
+
+model CallerReceiverPreviewLock {
+  id           String   @id @default(cuid())
+  callerId     String
+  receiverId   String
+  previewUsedAt DateTime
+
+  @@unique([callerId, receiverId])
+  @@index([previewUsedAt])
+}
+
+enum CallStatus {
+  created
+  ringing
+  connected
+  ended
+}
+
 enum WithdrawalStatus {
   pending
   sent

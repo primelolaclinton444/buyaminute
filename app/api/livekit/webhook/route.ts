@@ -4,7 +4,8 @@
 // ================================
 
 import { PrismaClient } from "@prisma/client";
-import { consumePreview } from "../../../../lib/previewLock";
+import { consumePreview, hasActivePreviewLock } from "../../../../lib/previewLock";
+import { settleEndedCall } from "../../../../lib/settlement";
 
 const prisma = new PrismaClient();
 
@@ -74,25 +75,42 @@ export async function POST(req: Request) {
         data: { status: "connected" },
       });
 
+            // Determine preview eligibility BEFORE consuming it
+      const locked = await hasActivePreviewLock({
+        callerId: call.callerId,
+        receiverId: call.receiverId,
+      });
+
+      // previewApplied = true only if NOT locked
+      await prisma.call.update({
+        where: { id: callId },
+        data: { previewApplied: !locked },
+      });
+
       // Consume preview immediately (Rule 6A)
       await consumePreview({
         callerId: call.callerId,
         receiverId: call.receiverId,
       });
+
     }
 
     return Response.json({ ok: true });
   }
 
-  if (event === "participant_disconnected") {
+    if (event === "participant_disconnected") {
     // Disconnect ends session immediately (no stitching)
     await prisma.call.update({
       where: { id: callId },
       data: { status: "ended", endedAt: now },
     });
 
+    // Settle billing deterministically after end
+    await settleEndedCall(callId);
+
     return Response.json({ ok: true });
   }
+
 
   return new Response("Unsupported event", { status: 400 });
 }

@@ -50,3 +50,26 @@ enum LedgerSource {
   crypto_deposit
   withdrawal
 }
+
+// ================================
+// Withdrawals (Manual — MVP)
+// ================================
+
+model WithdrawalRequest {
+  id                    String   @id @default(cuid())
+  userId                String
+  amountTokens          Int
+  destinationTronAddress String
+  status                WithdrawalStatus @default(pending)
+  txHash                String?
+  createdAt             DateTime @default(now())
+  processedAt           DateTime?
+
+  @@index([userId])
+}
+
+enum WithdrawalStatus {
+  pending
+  sent
+  failed
+}

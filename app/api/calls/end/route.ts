@@ -5,6 +5,15 @@
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+import { requireInternalKey } from "@/lib/internalAuth";
+
+export async function POST(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
+
+
 import { prisma } from "@/lib/prisma";
 import { settleEndedCall } from "../../../../lib/settlement";
 /**

@@ -2,12 +2,8 @@
 // BuyAMinute — Preview Lock Logic
 // Phase 4 (Rule 6A)
 // ================================
-
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { PREVIEW_LOCK_HOURS } from "./constants";
-
-const prisma = new PrismaClient();
-
 /**
  * Check whether a caller is eligible for a preview
  * with a given receiver.

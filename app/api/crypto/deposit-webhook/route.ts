@@ -8,6 +8,15 @@ export const dynamic = "force-dynamic";
 
 import { prisma } from "@/lib/prisma";
 
+const secret = process.env.DEPOSIT_WEBHOOK_SECRET;
+if (!secret) {
+  return new Response("Server misconfigured", { status: 500 });
+}
+
+const incoming = req.headers.get("x-deposit-secret");
+if (incoming !== secret) {
+  return new Response("Unauthorized", { status: 401 });
+}
 
 
 /**

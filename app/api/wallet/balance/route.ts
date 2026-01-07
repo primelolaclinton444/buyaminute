@@ -3,6 +3,9 @@
 // Phase 8
 // ================================
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 import { getWalletBalance } from "../../../../lib/ledger";
 
 export async function GET(req: Request) {

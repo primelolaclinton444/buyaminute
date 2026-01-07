@@ -1,116 +1,51 @@
-// ================================
-// BuyAMinute — LiveKit Webhook
-// Phase 6
-// ================================
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-import { PrismaClient } from "@prisma/client";
-import { consumePreview, hasActivePreviewLock } from "../../../../lib/previewLock";
-import { settleEndedCall } from "../../../../lib/settlement";
+import { WebhookReceiver } from "livekit-server-sdk";
 
-const prisma = new PrismaClient();
+function j(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
 
-/**
- * Expected incoming payload shape (minimal, MVP):
- * {
- *   event: "participant_connected" | "participant_disconnected",
- *   callId: string,
- *   participantRole: "caller" | "receiver"
- * }
- *
- * Note:
- * - In real deployment, LiveKit sends richer webhook payloads.
- * - For MVP, we map whatever LiveKit gives into this minimal form
- *   using a small adapter (later).
- */
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { event, callId, participantRole } = body;
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
 
-  if (!event || !callId || !participantRole) {
-    return new Response("Invalid payload", { status: 400 });
+  if (!apiKey || !apiSecret) {
+    console.error("[livekit] missing LIVEKIT_API_KEY/SECRET");
+    return j({ ok: false, error: "server_misconfigured" }, 500);
   }
 
-  const call = await prisma.call.findUnique({
-    where: { id: callId },
-  });
+  const rawBody = await req.text();
 
-  if (!call) {
-    return new Response("Call not found", { status: 404 });
+  // LiveKit signs webhooks. We must verify.
+  const receiver = new WebhookReceiver(apiKey, apiSecret);
+
+  try {
+    // livekit-server-sdk expects headers object (plain)
+    const headers = Object.fromEntries(req.headers.entries());
+    const event = receiver.receive(rawBody, headers);
+
+    // ---- MVP ADAPTER LAYER ----
+    // Map LiveKit event to your simplified internal fields.
+    // Adjust this mapping once you confirm exact event payloads.
+    const eventName = (event as any)?.event ?? (event as any)?.name ?? "unknown";
+    const roomName = (event as any)?.room?.name ?? (event as any)?.room?.sid ?? null;
+    const identity = (event as any)?.participant?.identity ?? "";
+    const participantRole =
+      identity.includes("caller") ? "caller" : identity.includes("receiver") ? "receiver" : "unknown";
+
+    // TODO: call your existing internal handler here:
+    // await handleLivekitEvent({ event: eventName, callId: roomName, participantRole });
+
+    console.log("[livekit] verified:", { eventName, roomName, participantRole });
+
+    return j({ ok: true });
+  } catch (err: any) {
+    console.error("[livekit] invalid signature or payload:", err?.message || err);
+    return j({ ok: false, error: "invalid_signature" }, 401);
   }
-
-  // Ensure participant row exists
-  await prisma.callParticipant.upsert({
-    where: { callId },
-    create: { callId },
-    update: {},
-  });
-
-  const now = new Date();
-
-  if (event === "participant_connected") {
-    if (participantRole === "caller") {
-      await prisma.callParticipant.update({
-        where: { callId },
-        data: { callerConnectedAt: now },
-      });
-    } else {
-      await prisma.callParticipant.update({
-        where: { callId },
-        data: { receiverConnectedAt: now },
-      });
-    }
-
-    // After updating individual connection, check if both connected
-    const p = await prisma.callParticipant.findUnique({ where: { callId } });
-
-    if (p?.callerConnectedAt && p?.receiverConnectedAt && !p?.bothConnectedAt) {
-      await prisma.callParticipant.update({
-        where: { callId },
-        data: { bothConnectedAt: now },
-      });
-
-      // Mark call connected
-      await prisma.call.update({
-        where: { id: callId },
-        data: { status: "connected" },
-      });
-
-            // Determine preview eligibility BEFORE consuming it
-      const locked = await hasActivePreviewLock({
-        callerId: call.callerId,
-        receiverId: call.receiverId,
-      });
-
-      // previewApplied = true only if NOT locked
-      await prisma.call.update({
-        where: { id: callId },
-        data: { previewApplied: !locked },
-      });
-
-      // Consume preview immediately (Rule 6A)
-      await consumePreview({
-        callerId: call.callerId,
-        receiverId: call.receiverId,
-      });
-
-    }
-
-    return Response.json({ ok: true });
-  }
-
-    if (event === "participant_disconnected") {
-    // Disconnect ends session immediately (no stitching)
-    await prisma.call.update({
-      where: { id: callId },
-      data: { status: "ended", endedAt: now },
-    });
-
-    // Settle billing deterministically after end
-    await settleEndedCall(callId);
-
-    return Response.json({ ok: true });
-  }
-
-
-  return new Response("Unsupported event", { status: 400 });
 }

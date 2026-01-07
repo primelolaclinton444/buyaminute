@@ -3,7 +3,8 @@
 // Phase 2
 // ================================
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../../../../lib/prisma";
+
 
 /**
  * This endpoint records detected USDT-TRC20 deposits.

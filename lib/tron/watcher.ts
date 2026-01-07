@@ -3,7 +3,7 @@
 // Phase 2 (deploy-safe)
 // ================================
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "../prisma";
 import { appendLedgerEntry } from "../ledger";
 import { TOKENS_PER_USD } from "../constants";
 

@@ -3,7 +3,8 @@
 // Phase 2
 // ================================
 
-import TronWeb from "tronweb";
+import TronWebPkg from "tronweb";
+const TronWeb: any = (TronWebPkg as any).default ?? (TronWebPkg as any);
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry } from "../ledger";
 import { TOKENS_PER_USD } from "../constants";

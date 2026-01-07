@@ -10,7 +10,7 @@ export default function CallerCallPage() {
 
   async function createCall() {
     setResult("Creating call...");
-    const res = await fetch("/api/calls/create", {
+    const res = await fetch("/api/ui/calls/create", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

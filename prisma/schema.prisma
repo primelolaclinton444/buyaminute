@@ -133,3 +133,15 @@ model ReceiverProfile {
 
   user User @relation(fields: [userId], references: [id])
 }
+
+
+model CryptoDeposit {
+  id        String   @id @default(cuid())
+  userId    String
+  txHash    String   @unique
+  amountRaw String
+  chain     String   @default("TRC20")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

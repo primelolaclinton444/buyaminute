@@ -3,9 +3,8 @@
 // Phase 1
 // ================================
 
-import { PrismaClient, LedgerType, LedgerSource } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { LedgerType, LedgerSource } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 /**
  * Append a ledger entry.
@@ -37,10 +36,7 @@ export async function appendLedgerEntry(params: {
     });
 
     // Update wallet cache
-    const delta =
-      params.type === "credit"
-        ? params.amountTokens
-        : -params.amountTokens;
+    const delta = params.type === "credit" ? params.amountTokens : -params.amountTokens;
 
     await tx.wallet.upsert({
       where: { userId: params.userId },
@@ -49,9 +45,7 @@ export async function appendLedgerEntry(params: {
         balanceTokens: delta,
       },
       update: {
-        balanceTokens: {
-          increment: delta,
-        },
+        balanceTokens: { increment: delta },
       },
     });
   });

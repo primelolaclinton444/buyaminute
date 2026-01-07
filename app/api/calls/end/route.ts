@@ -3,11 +3,10 @@
 // Phase 7
 // ================================
 
-import { PrismaClient } from "@prisma/client";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+import { prisma } from "@/lib/prisma";
 import { settleEndedCall } from "../../../../lib/settlement";
-
-const prisma = new PrismaClient();
-
 /**
  * POST /calls/end
  * Body:

@@ -1,10 +1,8 @@
 // ================================
 // BuyAMinute — USDT-TRC20 Deposit Watcher
-// Phase 2
+// Phase 2 (deploy-safe)
 // ================================
 
-import TronWebPkg from "tronweb";
-const TronWeb: any = (TronWebPkg as any).default ?? (TronWebPkg as any);
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry } from "../ledger";
 import { TOKENS_PER_USD } from "../constants";
@@ -12,20 +10,39 @@ import { TOKENS_PER_USD } from "../constants";
 const prisma = new PrismaClient();
 
 // USDT-TRC20 contract address on TRON (mainnet)
-const USDT_TRC20_CONTRACT =
-  "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj";
+const USDT_TRC20_CONTRACT = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj";
 
+// Minimum confirmations before crediting
 const CONFIRMATION_THRESHOLD = 20;
 
-const tronWeb = new TronWeb({
-  fullHost: "https://api.trongrid.io",
-});
+// Lazy singleton TronWeb instance (IMPORTANT: no build-time constructor)
+let _tronWeb: any = null;
+
+async function getTronWeb() {
+  if (_tronWeb) return _tronWeb;
+
+  // Dynamic import prevents Next build-time evaluation issues
+  const mod: any = await import("tronweb");
+  const TronWeb: any = mod?.default ?? mod;
+
+  _tronWeb = new TronWeb({
+    fullHost: "https://api.trongrid.io",
+    headers: process.env.TRONGRID_API_KEY
+      ? { "TRON-PRO-API-KEY": process.env.TRONGRID_API_KEY }
+      : undefined,
+  });
+
+  return _tronWeb;
+}
 
 /**
  * Poll confirmed USDT-TRC20 deposits and credit tokens.
- * This function is SAFE to run repeatedly (idempotent).
+ * SAFE to run repeatedly (idempotent).
  */
 export async function pollUsdtDeposits() {
+  // Ensure TronWeb can initialize at runtime (not at build)
+  await getTronWeb();
+
   const pendingDeposits = await prisma.cryptoDeposit.findMany({
     where: {
       credited: false,
@@ -36,7 +53,7 @@ export async function pollUsdtDeposits() {
   });
 
   for (const deposit of pendingDeposits) {
-    // Idempotency guard
+    // Idempotency guard: skip if already ledgered
     const existingLedger = await prisma.ledgerEntry.findFirst({
       where: {
         txHash: deposit.txHash,
@@ -44,9 +61,7 @@ export async function pollUsdtDeposits() {
       },
     });
 
-    if (existingLedger) {
-      continue;
-    }
+    if (existingLedger) continue;
 
     const tokensToCredit = deposit.amountUsdt * TOKENS_PER_USD;
 

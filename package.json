@@ -2,12 +2,16 @@
   "name": "buyaminute",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/vercel-build.js",
     "start": "next start",
     "postinstall": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy"
+    "prisma:migrate": "prisma migrate deploy",
+    "send:deposit": "node --loader ts-node/esm scripts/send-deposit-intake.ts"
   },
   "dependencies": {
     "next": "^14.1.0",
@@ -15,18 +19,14 @@
     "react-dom": "^18.2.0",
     "@prisma/client": "^5.7.0",
     "tronweb": "^6.0.0",
-    "livekit-server-sdk": "^2.7.0"
+    "livekit-server-sdk": "^2.7.0",
     "@upstash/redis": "^1.34.0",
-  "@upstash/ratelimit": "^2.0.5"
+    "@upstash/ratelimit": "^2.0.5"
   },
   "devDependencies": {
     "prisma": "^5.7.0",
     "typescript": "^5.3.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0"
-  },
-  "scripts": {
-    "send:deposit": "node --loader ts-node/esm scripts/send-deposit-intake.ts"
   }
-
 }

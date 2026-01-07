@@ -13,7 +13,7 @@ export default function WalletPage() {
 
   async function refreshBalance() {
     setStatus("Refreshing...");
-    const res = await fetch(`/api/wallet/balance?userId=${encodeURIComponent(userId)}`);
+    const res = await fetch(`/api/ui/wallet/balance?userId=${encodeURIComponent(userId)}`);
     const text = await res.text();
 
     if (!res.ok) {

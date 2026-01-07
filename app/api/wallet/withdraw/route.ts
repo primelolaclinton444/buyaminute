@@ -3,11 +3,10 @@
 // Phase 3
 // ================================
 
-import { PrismaClient } from "@prisma/client";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+import { prisma } from "@/lib/prisma";
 import { appendLedgerEntry, getWalletBalance } from "../../../../lib/ledger";
-
-const prisma = new PrismaClient();
-
 /**
  * Create a withdrawal request.
  * Tokens are locked immediately via ledger debit.

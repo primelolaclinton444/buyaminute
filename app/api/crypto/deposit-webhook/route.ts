@@ -3,9 +3,7 @@
 // Phase 2
 // ================================
 
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 /**
  * This endpoint records detected USDT-TRC20 deposits.

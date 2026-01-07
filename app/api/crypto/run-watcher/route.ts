@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import { pollUsdtDeposits } from "../../../../lib/tron/watcher";
 
 export async function POST(req: Request) {

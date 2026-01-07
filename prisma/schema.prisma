@@ -142,6 +142,7 @@ model CryptoDeposit {
   amountUsdt    Float
   txHash        String   @unique
   confirmations Int      @default(0)
+  credited      Boolean  @default(false)
   createdAt     DateTime @default(now())
 
   @@index([userId])

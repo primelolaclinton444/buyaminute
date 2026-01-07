@@ -3,11 +3,12 @@
 // Phase 7
 // ================================
 
-import { PrismaClient } from "@prisma/client";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+import { prisma } from "@/lib/prisma";
 import { getWalletBalance } from "../../../../lib/ledger";
 import { MIN_CALL_BALANCE_SECONDS } from "../../../../lib/constants";
-
-const prisma = new PrismaClient();
 
 /**
  * POST /calls/create
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
       receiverId,
       status: "ringing",
       ratePerSecondTokens,
-      previewApplied: false, // set later when both connect
+      previewApplied: false,
       participants: { create: {} },
     },
   });

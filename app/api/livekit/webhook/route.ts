@@ -21,31 +21,55 @@ export async function POST(req: Request) {
 
   const rawBody = await req.text();
 
-  // LiveKit signs webhooks. We must verify.
+  // LiveKit signs webhooks — verify signature
   const receiver = new WebhookReceiver(apiKey, apiSecret);
 
   try {
-    // livekit-server-sdk expects headers object (plain)
-    const headers = Object.fromEntries(req.headers.entries());
-    const event = receiver.receive(rawBody, headers);
+    // Accept common LiveKit signature headers (SDK expects a STRING)
+    const auth =
+      req.headers.get("authorization") ||
+      req.headers.get("x-livekit-signature") ||
+      req.headers.get("x-livekit-webhook-signature") ||
+      "";
+
+    if (!auth) {
+      return j({ ok: false, error: "missing_signature" }, 401);
+    }
+
+    const event = receiver.receive(rawBody, auth);
 
     // ---- MVP ADAPTER LAYER ----
-    // Map LiveKit event to your simplified internal fields.
-    // Adjust this mapping once you confirm exact event payloads.
-    const eventName = (event as any)?.event ?? (event as any)?.name ?? "unknown";
-    const roomName = (event as any)?.room?.name ?? (event as any)?.room?.sid ?? null;
+    const eventName =
+      (event as any)?.event ??
+      (event as any)?.name ??
+      "unknown";
+
+    const roomName =
+      (event as any)?.room?.name ??
+      (event as any)?.room?.sid ??
+      null;
+
     const identity = (event as any)?.participant?.identity ?? "";
+
     const participantRole =
-      identity.includes("caller") ? "caller" : identity.includes("receiver") ? "receiver" : "unknown";
+      identity.includes("caller")
+        ? "caller"
+        : identity.includes("receiver")
+        ? "receiver"
+        : "unknown";
 
-    // TODO: call your existing internal handler here:
-    // await handleLivekitEvent({ event: eventName, callId: roomName, participantRole });
-
-    console.log("[livekit] verified:", { eventName, roomName, participantRole });
+    console.log("[livekit] verified:", {
+      eventName,
+      roomName,
+      participantRole,
+    });
 
     return j({ ok: true });
   } catch (err: any) {
-    console.error("[livekit] invalid signature or payload:", err?.message || err);
+    console.error(
+      "[livekit] invalid signature or payload:",
+      err?.message || err
+    );
     return j({ ok: false, error: "invalid_signature" }, 401);
   }
 }

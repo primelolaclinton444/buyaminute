@@ -136,12 +136,14 @@ model ReceiverProfile {
 
 
 model CryptoDeposit {
-  id        String   @id @default(cuid())
-  userId    String
-  txHash    String   @unique
-  amountRaw String
-  chain     String   @default("TRC20")
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  userId        String
+  tronAddress   String
+  amountUsdt    Float
+  txHash        String   @unique
+  confirmations Int      @default(0)
+  createdAt     DateTime @default(now())
 
   @@index([userId])
+  @@index([tronAddress])
 }

@@ -10,7 +10,7 @@ export default function ReceiverPage() {
 
   async function save() {
     setStatus("Saving...");
-    const res = await fetch("/api/receiver/profile/upsert", {
+    const res = await fetch("/api/ui/receiver/profile/upsert", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

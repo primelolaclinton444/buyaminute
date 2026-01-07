@@ -1,16 +1,28 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function j(data: any, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 export async function POST(req: Request) {
-  // MVP admin guard via a shared secret
   const secret = req.headers.get("x-cron-secret");
   if (!secret || secret !== process.env.CRON_SECRET) {
-    return new Response("Unauthorized", { status: 401 });
+    return j({ ok: false, error: "unauthorized" }, 401);
   }
 
-  // IMPORTANT: import watcher only at runtime (not build time)
-  const { pollUsdtDeposits } = await import("../../../../lib/tron/watcher");
+  const startedAt = Date.now();
 
-  await pollUsdtDeposits();
-  return Response.json({ ok: true });
+  try {
+    const { pollUsdtDeposits } = await import("../../../../lib/tron/watcher");
+    await pollUsdtDeposits();
+
+    return j({ ok: true, ms: Date.now() - startedAt });
+  } catch (err: any) {
+    console.error("[run-watcher] failed:", err?.message || err, err?.stack);
+    return j({ ok: false, error: "watcher_failed" }, 500);
+  }
 }

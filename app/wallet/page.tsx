@@ -28,7 +28,7 @@ export default function WalletPage() {
 
   async function requestWithdrawal() {
     setStatus("Requesting withdrawal...");
-    const res = await fetch("/api/wallet/withdraw", {
+    const res = await fetch("/api/ui/wallet/withdraw", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

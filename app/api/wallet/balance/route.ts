@@ -3,6 +3,14 @@
 // Phase 8
 // ================================
 
+import { requireInternalKey } from "@/lib/internalAuth";
+
+export async function POST(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
+
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

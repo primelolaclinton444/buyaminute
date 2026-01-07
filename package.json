@@ -16,6 +16,8 @@
     "@prisma/client": "^5.7.0",
     "tronweb": "^6.0.0",
     "livekit-server-sdk": "^2.7.0"
+    "@upstash/redis": "^1.34.0",
+  "@upstash/ratelimit": "^2.0.5"
   },
   "devDependencies": {
     "prisma": "^5.7.0",

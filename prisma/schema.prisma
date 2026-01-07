@@ -39,6 +39,8 @@ model LedgerEntry {
 
   @@index([userId])
   @@index([callId])
+  @@unique([txHash, source])
+
 }
 
 enum LedgerType {

@@ -2,12 +2,8 @@
 // BuyAMinute — Settlement on End
 // Phase 6
 // ================================
-
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { computeBillableSeconds, settleCallBilling } from "./billing";
-
-const prisma = new PrismaClient();
-
 /**
  * Settle a call AFTER it has ended.
  * - Computes connected overlap as (endedAt - bothConnectedAt)

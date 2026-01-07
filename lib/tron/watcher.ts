@@ -3,11 +3,9 @@
 // Phase 2 (deploy-safe)
 // ================================
 
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { appendLedgerEntry } from "../ledger";
 import { TOKENS_PER_USD } from "../constants";
-
-const prisma = new PrismaClient();
 
 // USDT-TRC20 contract address on TRON (mainnet)
 const USDT_TRC20_CONTRACT = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj";

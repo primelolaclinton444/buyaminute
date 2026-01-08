@@ -1,19 +1,14 @@
 // ================================
-// BuyAMinute — Receiver Profile Upsert API
+// BuyAMinute — Receiver Profile Upsert API (Secured)
 // Phase 7
 // ================================
 
+import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
-
-export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
-
-
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-import { prisma } from "@/lib/prisma";
+
 /**
  * POST /receiver/profile/upsert
  * Body:
@@ -24,10 +19,17 @@ import { prisma } from "@/lib/prisma";
  * }
  */
 export async function POST(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
   const body = await req.json();
   const { userId, ratePerSecondTokens, isAvailable } = body;
 
-  if (!userId || ratePerSecondTokens === undefined || isAvailable === undefined) {
+  if (
+    !userId ||
+    ratePerSecondTokens === undefined ||
+    isAvailable === undefined
+  ) {
     return new Response("Invalid payload", { status: 400 });
   }
 

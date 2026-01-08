@@ -1,9 +1,11 @@
 // scripts/vercel-build.js
 // BuyAMinute — Phase 11 Hardening
-// Goal: ensure Prisma client is generated and DB schema is applied in Vercel builds.
-// - Prefer migrations via `prisma migrate deploy`
-// - If no migrations exist yet (repo missing prisma/migrations), fall back to `prisma db push`
-//   so production isn't bricked while you bootstrap migrations.
+// Goal: Prisma client is generated and DB schema is applied in Vercel builds.
+//
+// Policy:
+// - Production/Preview builds MUST use migrations (`prisma migrate deploy`).
+// - `prisma db push` is NOT allowed in Vercel builds (non-deterministic).
+// - Local/dev can still fall back to db push while bootstrapping.
 
 const { execSync } = require("child_process");
 const fs = require("fs");
@@ -24,16 +26,45 @@ function hasMigrations() {
   }
 }
 
+function isVercelBuild() {
+  // Vercel sets these during builds
+  return !!process.env.VERCEL;
+}
+
+function isProdOrPreview() {
+  // "production" or "preview" are the relevant environments for deploy builds
+  return (
+    process.env.VERCEL_ENV === "production" || process.env.VERCEL_ENV === "preview"
+  );
+}
+
 try {
-  // Always generate client (also runs in postinstall, but keep here for determinism)
+  // Always generate client (postinstall also does this, but keep here for determinism)
   run("npx prisma generate");
 
-  if (hasMigrations()) {
+  const migrationsPresent = hasMigrations();
+
+  if (migrationsPresent) {
     run("npx prisma migrate deploy");
   } else {
+    const msg =
+      "\n[fatal] prisma/migrations not found.\n" +
+      "        Phase 11 requires migrations committed to the repo.\n" +
+      "        Fix:\n" +
+      "          1) Run locally (or Codespaces): npx prisma migrate dev --name init\n" +
+      "          2) Commit: prisma/migrations and prisma/migrations/migration_lock.toml\n";
+
+    // In Vercel builds (preview/prod), we must fail fast.
+    if (isVercelBuild() || isProdOrPreview()) {
+      console.error(msg);
+      process.exit(1);
+    }
+
+    // Local/dev fallback only (never in Vercel)
     console.warn(
-      "\n[warn] prisma/migrations not found. Falling back to `prisma db push`.\n" +
-        "       Recommendation: run `npx prisma migrate dev --name init` locally and commit prisma/migrations."
+      "\n[warn] prisma/migrations not found. Local fallback to `prisma db push`.\n" +
+        "       " +
+        msg.replace(/\n/g, "\n       ")
     );
     run("npx prisma db push");
   }

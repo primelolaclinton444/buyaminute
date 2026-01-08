@@ -1,23 +1,21 @@
 // ================================
-// BuyAMinute — Receiver Profile Get API
+// BuyAMinute — Receiver Profile Get API (Secured)
 // Phase 7
 // ================================
 
+import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
-
-export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
-
-
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-import { prisma } from "@/lib/prisma";
+
 /**
  * GET /receiver/profile/get?userId=...
  */
 export async function GET(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 

@@ -1,20 +1,14 @@
 // ================================
-// BuyAMinute — Calls/Accept API
+// BuyAMinute — Calls/Accept API (Secured)
 // Phase 7
 // ================================
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 
-export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-
-
-
-import { prisma } from "@/lib/prisma";
 /**
  * POST /calls/accept
  * Body:
@@ -26,6 +20,10 @@ import { prisma } from "@/lib/prisma";
  * Actual connection timestamps come from LiveKit webhook events.
  */
 export async function POST(req: Request) {
+  // Phase 11 gate
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
   const body = await req.json();
   const { callId } = body;
 

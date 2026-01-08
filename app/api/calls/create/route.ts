@@ -3,20 +3,13 @@
 // Phase 7
 // ================================
 
+import { prisma } from "@/lib/prisma";
+import { requireInternalKey } from "@/lib/internalAuth";
+import { getWalletBalance } from "@/lib/ledger";
+import { MIN_CALL_BALANCE_SECONDS } from "@/lib/constants";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-import { requireInternalKey } from "@/lib/internalAuth";
-
-export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
-
-
-
-import { prisma } from "@/lib/prisma";
-import { getWalletBalance } from "../../../../lib/ledger";
-import { MIN_CALL_BALANCE_SECONDS } from "../../../../lib/constants";
 
 /**
  * POST /calls/create
@@ -32,6 +25,10 @@ import { MIN_CALL_BALANCE_SECONDS } from "../../../../lib/constants";
  * - receiver must be available
  */
 export async function POST(req: Request) {
+  // Phase 11 gate
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
   const body = await req.json();
   const { callerId, receiverId, minIntendedSeconds } = body;
 

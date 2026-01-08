@@ -1,22 +1,21 @@
 // ================================
-// BuyAMinute — Wallet/Balance API
+// BuyAMinute — Wallet/Balance API (Secured)
 // Phase 8
 // ================================
 
 import { requireInternalKey } from "@/lib/internalAuth";
-
-export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
-
-
+import { getWalletBalance } from "@/lib/ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { getWalletBalance } from "../../../../lib/ledger";
-
+/**
+ * GET /wallet/balance?userId=...
+ */
 export async function GET(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 

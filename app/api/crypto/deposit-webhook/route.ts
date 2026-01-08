@@ -3,10 +3,11 @@
 // Phase 2
 // ================================
 
+import { prisma } from "@/lib/prisma";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { prisma } from "@/lib/prisma";
 
 const secret = process.env.DEPOSIT_WEBHOOK_SECRET;
 if (!secret) {

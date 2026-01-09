@@ -1,0 +1,62 @@
+// ================================
+// BuyAMinute — Availability Ping Response API (Secured)
+// Phase 7
+// ================================
+
+import { prisma } from "@/lib/prisma";
+import { requireInternalKey } from "@/lib/internalAuth";
+import { AvailabilityResponse } from "@prisma/client";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /availability/ping/respond
+ * Body:
+ * {
+ *   pingId: string,
+ *   userId: string,
+ *   response: "available_now" | "available_later" | "not_available"
+ * }
+ */
+export async function POST(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
+  const body = await req.json();
+  const { pingId, userId, response } = body;
+
+  if (!pingId || !userId || !response) {
+    return new Response("Invalid payload", { status: 400 });
+  }
+
+  if (!Object.values(AvailabilityResponse).includes(response)) {
+    return new Response("Invalid response", { status: 400 });
+  }
+
+  const ping = await prisma.availabilityPing.findUnique({
+    where: { id: pingId },
+  });
+
+  if (!ping) {
+    return new Response("Ping not found", { status: 404 });
+  }
+
+  if (ping.receiverId !== userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  if (ping.response) {
+    return Response.json({ ok: true, ping });
+  }
+
+  const updated = await prisma.availabilityPing.update({
+    where: { id: pingId },
+    data: {
+      response,
+      respondedAt: new Date(),
+    },
+  });
+
+  return Response.json({ ok: true, ping: updated });
+}

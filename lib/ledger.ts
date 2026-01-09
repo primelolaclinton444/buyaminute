@@ -5,6 +5,7 @@
 
 import { LedgerType, LedgerSource } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 /**
  * Append a ledger entry.
@@ -15,7 +16,9 @@ export async function appendLedgerEntry(params: {
   type: LedgerType;
   amountTokens: number;
   source: LedgerSource;
+  idempotencyKey: string;
   callId?: string;
+  withdrawalRequestId?: string;
   txHash?: string;
 }) {
   if (params.amountTokens <= 0) {
@@ -23,31 +26,53 @@ export async function appendLedgerEntry(params: {
   }
 
   return prisma.$transaction(async (tx) => {
-    // Create ledger entry (append-only)
-    await tx.ledgerEntry.create({
-      data: {
-        userId: params.userId,
-        type: params.type,
-        amountTokens: params.amountTokens,
-        source: params.source,
-        callId: params.callId,
-        txHash: params.txHash,
-      },
-    });
+    await appendLedgerEntryWithClient(tx, params);
+  });
+}
 
-    // Update wallet cache
-    const delta = params.type === "credit" ? params.amountTokens : -params.amountTokens;
+export async function appendLedgerEntryWithClient(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string;
+    type: LedgerType;
+    amountTokens: number;
+    source: LedgerSource;
+    idempotencyKey: string;
+    callId?: string;
+    withdrawalRequestId?: string;
+    txHash?: string;
+  }
+) {
+  if (params.amountTokens <= 0) {
+    throw new Error("amountTokens must be > 0");
+  }
 
-    await tx.wallet.upsert({
-      where: { userId: params.userId },
-      create: {
-        userId: params.userId,
-        balanceTokens: delta,
-      },
-      update: {
-        balanceTokens: { increment: delta },
-      },
-    });
+  // Create ledger entry (append-only)
+  await tx.ledgerEntry.create({
+    data: {
+      userId: params.userId,
+      type: params.type,
+      amountTokens: params.amountTokens,
+      source: params.source,
+      callId: params.callId,
+      withdrawalRequestId: params.withdrawalRequestId,
+      txHash: params.txHash,
+      idempotencyKey: params.idempotencyKey,
+    },
+  });
+
+  // Update wallet cache
+  const delta = params.type === "credit" ? params.amountTokens : -params.amountTokens;
+
+  await tx.wallet.upsert({
+    where: { userId: params.userId },
+    create: {
+      userId: params.userId,
+      balanceTokens: delta,
+    },
+    update: {
+      balanceTokens: { increment: delta },
+    },
   });
 }
 

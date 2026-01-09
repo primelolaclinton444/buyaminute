@@ -11,7 +11,7 @@ async function main() {
     body: JSON.stringify({
       userId: process.env.TEST_USER_ID!,
       tronAddress: process.env.TEST_TRON_ADDRESS!,
-      amountUsdt: 1.5,
+      amountUsdtAtomic: 1_500_000,
       txHash: "0xTESTHASH_" + Date.now(),
       confirmations: 25,
     }),

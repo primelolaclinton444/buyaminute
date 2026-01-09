@@ -16,11 +16,15 @@ export async function POST(req: Request) {
 
   const body = await req.text();
 
-  const res = await callProtectedApi("/api/receiver/profile/upsert", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body,
-  });
+  const res = await callProtectedApi(
+    "/api/receiver/profile/upsert",
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+    },
+    { baseUrl: new URL(req.url).origin },
+  );
 
   return new Response(await res.text(), { status: res.status });
 }

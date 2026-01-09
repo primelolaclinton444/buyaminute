@@ -37,6 +37,10 @@ export default function CallerCallPage() {
   return (
     <main style={{ padding: 20, maxWidth: 520 }}>
       <h1>Caller (MVP)</h1>
+      <p style={{ marginTop: 8 }}>
+        30s free preview applies once per caller/receiver pair every 24h. Billing
+        starts immediately after preview.
+      </p>
 
       <label>
         Caller User ID

@@ -1,12 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  DEFAULT_RATE_PER_SECOND_TOKENS,
+  SECONDS_IN_MINUTE,
+  TOKEN_UNIT_USD,
+} from "@/lib/constants";
 
 export default function ReceiverPage() {
   const [userId, setUserId] = useState("receiver-test");
-  const [ratePerSecondTokens, setRatePerSecondTokens] = useState(10);
+  const [ratePerSecondTokens, setRatePerSecondTokens] = useState(
+    DEFAULT_RATE_PER_SECOND_TOKENS
+  );
   const [isAvailable, setIsAvailable] = useState(false);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [status, setStatus] = useState<string>("");
+
+  const ratePerMinuteUsd = useMemo(() => {
+    const tokensPerMinute = ratePerSecondTokens * SECONDS_IN_MINUTE;
+    const usd = tokensPerMinute * TOKEN_UNIT_USD;
+    return usd.toFixed(2);
+  }, [ratePerSecondTokens]);
 
   async function save() {
     setStatus("Saving...");
@@ -17,6 +32,7 @@ export default function ReceiverPage() {
         userId,
         ratePerSecondTokens: Number(ratePerSecondTokens),
         isAvailable,
+        isVideoEnabled,
       }),
     });
 
@@ -25,6 +41,24 @@ export default function ReceiverPage() {
       return;
     }
     setStatus("Saved ✅");
+  }
+
+  function requestAvailabilityToggle(next: boolean) {
+    if (next) {
+      setShowAvailabilityModal(true);
+      return;
+    }
+    setIsAvailable(false);
+  }
+
+  function confirmGoLive() {
+    setIsAvailable(true);
+    setShowAvailabilityModal(false);
+  }
+
+  function adjustRate() {
+    setIsAvailable(false);
+    setShowAvailabilityModal(false);
   }
 
   return (
@@ -55,14 +89,48 @@ export default function ReceiverPage() {
         <input
           type="checkbox"
           checked={isAvailable}
-          onChange={(e) => setIsAvailable(e.target.checked)}
+          onChange={(e) => requestAvailabilityToggle(e.target.checked)}
         />
         Available
+      </label>
+
+      <label style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+        <input
+          type="checkbox"
+          checked={isVideoEnabled}
+          onChange={(e) => setIsVideoEnabled(e.target.checked)}
+        />
+        Allow Video Requests
       </label>
 
       <button onClick={save}>Save</button>
 
       <p style={{ marginTop: 12 }}>{status}</p>
+
+      {showAvailabilityModal ? (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div style={{ background: "#fff", padding: 20, maxWidth: 420, width: "100%" }}>
+            <h2>Go Live</h2>
+            <p>Your current rate: ${ratePerMinuteUsd}/min</p>
+            <p>You can change this anytime.</p>
+            <p>Most users raise their rate as demand grows.</p>
+            <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+              <button onClick={confirmGoLive}>Go Live at ${ratePerMinuteUsd}</button>
+              <button onClick={adjustRate}>Adjust Rate</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }

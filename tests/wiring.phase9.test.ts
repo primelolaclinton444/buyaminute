@@ -24,6 +24,62 @@ function makeWebhookReq(body: any) {
   });
 }
 
+async function seedBalancesForCall(caller: string, receiver: string) {
+  const callerBalance = await getWalletBalance(caller);
+  if (callerBalance > 0) {
+    await appendLedgerEntry({
+      userId: caller,
+      type: "debit",
+      amountTokens: callerBalance,
+      source: "withdrawal",
+      idempotencyKey: `wire-clear-${caller}-${randomUUID()}`,
+    });
+  }
+  const receiverBalance = await getWalletBalance(receiver);
+  if (receiverBalance > 0) {
+    await appendLedgerEntry({
+      userId: receiver,
+      type: "debit",
+      amountTokens: receiverBalance,
+      source: "withdrawal",
+      idempotencyKey: `wire-clear-${receiver}-${randomUUID()}`,
+    });
+  }
+
+  await appendLedgerEntry({
+    userId: caller,
+    type: "credit",
+    amountTokens: 100000,
+    source: "crypto_deposit",
+    txHash: `wire-seed-${caller}`,
+    idempotencyKey: `wire-seed-${caller}`,
+  });
+}
+
+async function createCallFixture(
+  caller: string,
+  receiver: string,
+  options: { clearPreviewLock?: boolean } = {}
+) {
+  if (options.clearPreviewLock ?? true) {
+    await prisma.callerReceiverPreviewLock.deleteMany({
+      where: { callerId: caller, receiverId: receiver },
+    });
+  }
+
+  return prisma.call.create({
+    data: {
+      callerId: caller,
+      receiverId: receiver,
+      status: "ringing",
+      ratePerSecondTokens: 10,
+      previewApplied: false,
+      participants: { create: {} },
+    },
+    include: { participants: true },
+  });
+}
+
 describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settlement)", () => {
   beforeAll(async () => {
     await prisma.user.createMany({
@@ -41,56 +97,10 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
     await prisma.$disconnect();
   });
 
-  it("sets previewApplied on connect, then settles on disconnect", async () => {
-    // Ensure clean preview lock state
-    await prisma.callerReceiverPreviewLock.deleteMany({
-      where: { callerId, receiverId },
-    });
+  it("sets previewApplied on connect, consumes preview, then settles on disconnect", async () => {
+    await seedBalancesForCall(callerId, receiverId);
 
-    // Ensure balances are clean
-    const cb = await getWalletBalance(callerId);
-    if (cb > 0) {
-      await appendLedgerEntry({
-        userId: callerId,
-        type: "debit",
-        amountTokens: cb,
-        source: "withdrawal",
-        idempotencyKey: `wire-clear-${callerId}-${cb}`,
-      });
-    }
-    const rb = await getWalletBalance(receiverId);
-    if (rb > 0) {
-      await appendLedgerEntry({
-        userId: receiverId,
-        type: "debit",
-        amountTokens: rb,
-        source: "withdrawal",
-        idempotencyKey: `wire-clear-${receiverId}-${rb}`,
-      });
-    }
-
-    // Fund caller so debit can occur
-    await appendLedgerEntry({
-      userId: callerId,
-      type: "credit",
-      amountTokens: 100000,
-      source: "crypto_deposit",
-      txHash: "wire-seed",
-      idempotencyKey: "wire-seed",
-    });
-
-    // Create a call (as /calls/create would)
-    const call = await prisma.call.create({
-      data: {
-        callerId,
-        receiverId,
-        status: "ringing",
-        ratePerSecondTokens: 10,
-        previewApplied: false,
-        participants: { create: {} },
-      },
-      include: { participants: true },
-    });
+    const call = await createCallFixture(callerId, receiverId);
 
     // Simulate caller connected
     let res = await livekitWebhookPOST(
@@ -123,6 +133,11 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
     // For first-time pair, previewApplied must be true
     expect(afterConnect?.previewApplied).toBe(true);
 
+    const previewLock = await prisma.callerReceiverPreviewLock.findUnique({
+      where: { callerId_receiverId: { callerId, receiverId } },
+    });
+    expect(previewLock).toBeTruthy();
+
     // To make settlement deterministic, force bothConnectedAt to 31s ago
     await prisma.callParticipant.update({
       where: { callId: call.id },
@@ -150,54 +165,28 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
     // rate=10 tokens/sec → receiver earns 10 tokens
     const receiverBalance = await getWalletBalance(receiverId);
     expect(receiverBalance).toBe(10);
+
+    const callLedger = await prisma.ledgerEntry.findMany({
+      where: {
+        callId: call.id,
+        source: "call_billing",
+      },
+    });
+    expect(callLedger.filter((entry) => entry.type === "debit")).toHaveLength(
+      1
+    );
+    expect(callLedger.filter((entry) => entry.type === "credit")).toHaveLength(
+      1
+    );
   });
 
-  it("ignores duplicate connect/disconnect events (no double billing)", async () => {
-    await prisma.callerReceiverPreviewLock.deleteMany({
-      where: { callerId: duplicateCallerId, receiverId: duplicateReceiverId },
-    });
+  it("skips preview on repeat pair and ignores duplicate connect/disconnect events", async () => {
+    await seedBalancesForCall(duplicateCallerId, duplicateReceiverId);
 
-    const cb = await getWalletBalance(duplicateCallerId);
-    if (cb > 0) {
-      await appendLedgerEntry({
-        userId: duplicateCallerId,
-        type: "debit",
-        amountTokens: cb,
-        source: "withdrawal",
-        idempotencyKey: `wire-dup-clear-${duplicateCallerId}-${randomUUID()}`,
-      });
-    }
-    const rb = await getWalletBalance(duplicateReceiverId);
-    if (rb > 0) {
-      await appendLedgerEntry({
-        userId: duplicateReceiverId,
-        type: "debit",
-        amountTokens: rb,
-        source: "withdrawal",
-        idempotencyKey: `wire-dup-clear-${duplicateReceiverId}-${randomUUID()}`,
-      });
-    }
-
-    await appendLedgerEntry({
-      userId: duplicateCallerId,
-      type: "credit",
-      amountTokens: 100000,
-      source: "crypto_deposit",
-      txHash: "wire-dup-seed",
-      idempotencyKey: "wire-dup-seed",
-    });
-
-    const call = await prisma.call.create({
-      data: {
-        callerId: duplicateCallerId,
-        receiverId: duplicateReceiverId,
-        status: "ringing",
-        ratePerSecondTokens: 10,
-        previewApplied: false,
-        participants: { create: {} },
-      },
-      include: { participants: true },
-    });
+    const call = await createCallFixture(
+      duplicateCallerId,
+      duplicateReceiverId
+    );
 
     await livekitWebhookPOST(
       makeWebhookReq({
@@ -214,6 +203,18 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
         participantRole: "receiver",
       })
     );
+
+    const firstConnect = await prisma.call.findUnique({
+      where: { id: call.id },
+      include: { participants: true },
+    });
+    expect(firstConnect?.participants?.bothConnectedAt).toBeTruthy();
+    expect(firstConnect?.previewApplied).toBe(true);
+
+    await prisma.callParticipant.update({
+      where: { callId: call.id },
+      data: { bothConnectedAt: new Date(Date.now() - 31_000) },
+    });
 
     await livekitWebhookPOST(
       makeWebhookReq({
@@ -256,5 +257,44 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
       },
     });
     expect(creditEntries.length).toBe(1);
+
+    const debitEntries = await prisma.ledgerEntry.findMany({
+      where: {
+        userId: duplicateCallerId,
+        source: "call_billing",
+        type: "debit",
+        callId: call.id,
+      },
+    });
+    expect(debitEntries.length).toBe(1);
+
+    const followUpCall = await createCallFixture(
+      duplicateCallerId,
+      duplicateReceiverId,
+      { clearPreviewLock: false }
+    );
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_connected",
+        callId: followUpCall.id,
+        participantRole: "caller",
+      })
+    );
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_connected",
+        callId: followUpCall.id,
+        participantRole: "receiver",
+      })
+    );
+
+    const secondConnect = await prisma.call.findUnique({
+      where: { id: followUpCall.id },
+      include: { participants: true },
+    });
+
+    expect(secondConnect?.participants?.bothConnectedAt).toBeTruthy();
+    expect(secondConnect?.previewApplied).toBe(false);
   });
 });

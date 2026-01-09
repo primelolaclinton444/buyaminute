@@ -4,6 +4,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
+import { randomUUID } from "crypto";
 
 // Import the LiveKit webhook handler directly
 import { POST as livekitWebhookPOST } from "../app/api/livekit/webhook/route";
@@ -12,6 +13,8 @@ const prisma = new PrismaClient();
 
 const callerId = "wire-caller";
 const receiverId = "wire-receiver";
+const duplicateCallerId = "wire-dup-caller";
+const duplicateReceiverId = "wire-dup-receiver";
 
 function makeWebhookReq(body: any) {
   return new Request("http://localhost/api/livekit/webhook", {
@@ -24,7 +27,12 @@ function makeWebhookReq(body: any) {
 describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settlement)", () => {
   beforeAll(async () => {
     await prisma.user.createMany({
-      data: [{ id: callerId }, { id: receiverId }],
+      data: [
+        { id: callerId },
+        { id: receiverId },
+        { id: duplicateCallerId },
+        { id: duplicateReceiverId },
+      ],
       skipDuplicates: true,
     });
   });
@@ -47,6 +55,7 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
         type: "debit",
         amountTokens: cb,
         source: "withdrawal",
+        idempotencyKey: `wire-clear-${callerId}-${cb}`,
       });
     }
     const rb = await getWalletBalance(receiverId);
@@ -56,6 +65,7 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
         type: "debit",
         amountTokens: rb,
         source: "withdrawal",
+        idempotencyKey: `wire-clear-${receiverId}-${rb}`,
       });
     }
 
@@ -66,6 +76,7 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
       amountTokens: 100000,
       source: "crypto_deposit",
       txHash: "wire-seed",
+      idempotencyKey: "wire-seed",
     });
 
     // Create a call (as /calls/create would)
@@ -139,5 +150,111 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
     // rate=10 tokens/sec → receiver earns 10 tokens
     const receiverBalance = await getWalletBalance(receiverId);
     expect(receiverBalance).toBe(10);
+  });
+
+  it("ignores duplicate connect/disconnect events (no double billing)", async () => {
+    await prisma.callerReceiverPreviewLock.deleteMany({
+      where: { callerId: duplicateCallerId, receiverId: duplicateReceiverId },
+    });
+
+    const cb = await getWalletBalance(duplicateCallerId);
+    if (cb > 0) {
+      await appendLedgerEntry({
+        userId: duplicateCallerId,
+        type: "debit",
+        amountTokens: cb,
+        source: "withdrawal",
+        idempotencyKey: `wire-dup-clear-${duplicateCallerId}-${randomUUID()}`,
+      });
+    }
+    const rb = await getWalletBalance(duplicateReceiverId);
+    if (rb > 0) {
+      await appendLedgerEntry({
+        userId: duplicateReceiverId,
+        type: "debit",
+        amountTokens: rb,
+        source: "withdrawal",
+        idempotencyKey: `wire-dup-clear-${duplicateReceiverId}-${randomUUID()}`,
+      });
+    }
+
+    await appendLedgerEntry({
+      userId: duplicateCallerId,
+      type: "credit",
+      amountTokens: 100000,
+      source: "crypto_deposit",
+      txHash: "wire-dup-seed",
+      idempotencyKey: "wire-dup-seed",
+    });
+
+    const call = await prisma.call.create({
+      data: {
+        callerId: duplicateCallerId,
+        receiverId: duplicateReceiverId,
+        status: "ringing",
+        ratePerSecondTokens: 10,
+        previewApplied: false,
+        participants: { create: {} },
+      },
+      include: { participants: true },
+    });
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_connected",
+        callId: call.id,
+        participantRole: "caller",
+      })
+    );
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_connected",
+        callId: call.id,
+        participantRole: "receiver",
+      })
+    );
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_connected",
+        callId: call.id,
+        participantRole: "receiver",
+      })
+    );
+
+    await prisma.callParticipant.update({
+      where: { callId: call.id },
+      data: { bothConnectedAt: new Date(Date.now() - 31_000) },
+    });
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_disconnected",
+        callId: call.id,
+        participantRole: "caller",
+      })
+    );
+
+    await livekitWebhookPOST(
+      makeWebhookReq({
+        event: "participant_disconnected",
+        callId: call.id,
+        participantRole: "caller",
+      })
+    );
+
+    const receiverBalance = await getWalletBalance(duplicateReceiverId);
+    expect(receiverBalance).toBe(10);
+
+    const creditEntries = await prisma.ledgerEntry.findMany({
+      where: {
+        userId: duplicateReceiverId,
+        source: "call_billing",
+        type: "credit",
+        callId: call.id,
+      },
+    });
+    expect(creditEntries.length).toBe(1);
   });
 });

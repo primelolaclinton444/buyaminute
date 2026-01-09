@@ -3,6 +3,7 @@
 // ================================
 
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
 import { computeBillableSeconds, settleCallBilling } from "../lib/billing";
 import { consumePreview, hasActivePreviewLock } from "../lib/previewLock";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
@@ -28,6 +29,7 @@ async function resetBalances() {
       type: "debit",
       amountTokens: c,
       source: "withdrawal",
+      idempotencyKey: `reset-${callerId}-${randomUUID()}`,
     });
   }
   const r = await getWalletBalance(receiverId);
@@ -37,6 +39,7 @@ async function resetBalances() {
       type: "debit",
       amountTokens: r,
       source: "withdrawal",
+      idempotencyKey: `reset-${receiverId}-${randomUUID()}`,
     });
   }
 }
@@ -61,6 +64,7 @@ describe("Phase 9 — Acceptance", () => {
       amountTokens: 100000,
       source: "crypto_deposit",
       txHash: "acc-seed-1",
+      idempotencyKey: "acc-seed-1",
     });
 
     // Simulate first real connection: consume preview immediately (6A)
@@ -114,6 +118,7 @@ describe("Phase 9 — Acceptance", () => {
       amountTokens: 100000,
       source: "crypto_deposit",
       txHash: "acc-seed-3",
+      idempotencyKey: "acc-seed-3",
     });
 
     // Simulate "first-time" by removing preview lock manually for test clarity
@@ -154,6 +159,7 @@ describe("Phase 9 — Acceptance", () => {
       amountTokens: 100000,
       source: "crypto_deposit",
       txHash: "acc-seed-4",
+      idempotencyKey: "acc-seed-4",
     });
 
     await prisma.callerReceiverPreviewLock.deleteMany({
@@ -192,6 +198,7 @@ describe("Phase 9 — Acceptance", () => {
       amountTokens: required - 1,
       source: "crypto_deposit",
       txHash: "acc-seed-5",
+      idempotencyKey: "acc-seed-5",
     });
 
     const balance = await getWalletBalance(callerId);

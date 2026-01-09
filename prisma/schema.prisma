@@ -15,6 +15,8 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  earningsVisible Boolean @default(true)
+  earningsVisibilityLockedUntil DateTime?
 
   wallet Wallet?
   receiverProfile ReceiverProfile?
@@ -27,6 +29,14 @@ model Wallet {
   user User @relation(fields: [userId], references: [id])
 }
 
+model DepositAddress {
+  userId      String @id
+  tronAddress String @unique
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
 model LedgerEntry {
   id          String   @id @default(cuid())
   userId      String
@@ -34,12 +44,18 @@ model LedgerEntry {
   amountTokens Int
   source      LedgerSource
   callId      String?
+  withdrawalRequestId String?
   txHash      String?
+  idempotencyKey String
   createdAt   DateTime @default(now())
 
   @@index([userId])
   @@index([callId])
   @@unique([txHash, source])
+  @@unique([idempotencyKey])
+
+  call Call? @relation(fields: [callId], references: [id])
+  withdrawalRequest WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
 
 }
 
@@ -52,6 +68,7 @@ enum LedgerSource {
   call_billing
   crypto_deposit
   withdrawal
+  availability_ping
 }
 
 // ================================
@@ -88,6 +105,7 @@ model Call {
   previewApplied      Boolean @default(false)
 
   participants CallParticipant?
+  ledgerEntries LedgerEntry[]
 }
 
 model CallParticipant {
@@ -131,6 +149,8 @@ model ReceiverProfile {
   userId            String  @id
   ratePerSecondTokens Int
   isAvailable       Boolean @default(false)
+  isVideoEnabled    Boolean @default(true)
+  lastRateChangeAt  DateTime?
   updatedAt         DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
@@ -141,7 +161,7 @@ model CryptoDeposit {
   id            String   @id @default(cuid())
   userId        String
   tronAddress   String
-  amountUsdt    Float
+  amountUsdtAtomic Int
   txHash        String   @unique
   confirmations Int      @default(0)
   credited      Boolean  @default(false)
@@ -150,4 +170,34 @@ model CryptoDeposit {
 
   @@index([userId])
   @@index([tronAddress])
+}
+
+// ================================
+// Availability Ping (MVP)
+// ================================
+
+model AvailabilityPing {
+  id         String @id @default(cuid())
+  callerId   String
+  receiverId String
+  question   AvailabilityQuestion
+  response   AvailabilityResponse?
+  feeTokens  Int
+  createdAt  DateTime @default(now())
+  respondedAt DateTime?
+
+  @@index([callerId])
+  @@index([receiverId])
+}
+
+enum AvailabilityQuestion {
+  available_now
+  available_later
+  when_good_time
+}
+
+enum AvailabilityResponse {
+  available_now
+  available_later
+  not_available
 }

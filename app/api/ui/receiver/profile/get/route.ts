@@ -20,7 +20,8 @@ export async function GET(req: Request) {
 
   const res = await callProtectedApi(
     `/api/receiver/profile/get?userId=${encodeURIComponent(userId)}`,
-    { method: "GET" }
+    { method: "GET" },
+    { baseUrl: url.origin }
   );
 
   return new Response(await res.text(), { status: res.status });

@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { appendLedgerEntry } from "@/lib/ledger";
-import { TOKENS_PER_USD } from "@/lib/constants";
+import { TOKENS_PER_USD, USDT_ATOMIC_MULTIPLIER } from "@/lib/constants";
 
 // USDT-TRC20 contract address on TRON (mainnet)
 const USDT_TRC20_CONTRACT = "TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj";
@@ -61,7 +61,13 @@ export async function pollUsdtDeposits() {
 
     if (existingLedger) continue;
 
-    const tokensToCredit = deposit.amountUsdt * TOKENS_PER_USD;
+    const tokensToCredit = Math.floor(
+      (deposit.amountUsdtAtomic * TOKENS_PER_USD) / USDT_ATOMIC_MULTIPLIER
+    );
+
+    if (tokensToCredit <= 0) {
+      continue;
+    }
 
     await appendLedgerEntry({
       userId: deposit.userId,
@@ -69,6 +75,7 @@ export async function pollUsdtDeposits() {
       amountTokens: tokensToCredit,
       source: "crypto_deposit",
       txHash: deposit.txHash,
+      idempotencyKey: `deposit:${deposit.txHash}:${deposit.userId}`,
     });
 
     await prisma.cryptoDeposit.update({

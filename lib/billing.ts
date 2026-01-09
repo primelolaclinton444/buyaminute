@@ -53,6 +53,7 @@ export async function settleCallBilling(params: {
     amountTokens,
     source: "call_billing",
     callId,
+    idempotencyKey: `call:${callId}:debit:${callerId}`,
   });
 
   // Credit receiver
@@ -62,5 +63,6 @@ export async function settleCallBilling(params: {
     amountTokens,
     source: "call_billing",
     callId,
+    idempotencyKey: `call:${callId}:credit:${receiverId}`,
   });
 }

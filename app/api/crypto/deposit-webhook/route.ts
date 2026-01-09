@@ -26,16 +26,19 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
-  const { userId, tronAddress, amountUsdt, txHash, confirmations } = body;
+  const { userId, tronAddress, amountUsdtAtomic, txHash, confirmations } = body;
 
   if (
     !userId ||
     !tronAddress ||
-    !amountUsdt ||
+    amountUsdtAtomic === undefined ||
     !txHash ||
     confirmations === undefined
   ) {
     return new Response("Invalid payload", { status: 400 });
+  }
+  if (!Number.isInteger(amountUsdtAtomic) || amountUsdtAtomic <= 0) {
+    return new Response("Invalid amountUsdtAtomic", { status: 400 });
   }
 
   // Idempotency: do nothing if tx already recorded
@@ -51,7 +54,7 @@ export async function POST(req: Request) {
     data: {
       userId,
       tronAddress,
-      amountUsdt,
+      amountUsdtAtomic,
       txHash,
       confirmations,
       credited: false,

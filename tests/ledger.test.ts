@@ -15,6 +15,7 @@ describe("Ledger invariants", () => {
       type: LedgerType.credit,
       amountTokens: 1000,
       source: LedgerSource.crypto_deposit,
+      idempotencyKey: "ledger-credit-1",
     });
 
     const balance = await getWalletBalance(TEST_USER_ID);
@@ -27,6 +28,7 @@ describe("Ledger invariants", () => {
       type: LedgerType.debit,
       amountTokens: 400,
       source: LedgerSource.call_billing,
+      idempotencyKey: "ledger-debit-1",
     });
 
     const balance = await getWalletBalance(TEST_USER_ID);
@@ -40,6 +42,7 @@ describe("Ledger invariants", () => {
         type: LedgerType.credit,
         amountTokens: 0,
         source: LedgerSource.crypto_deposit,
+        idempotencyKey: "ledger-zero",
       })
     ).rejects.toThrow();
   });

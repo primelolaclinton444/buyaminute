@@ -8,6 +8,7 @@ export default function WalletPage() {
 
   const [withdrawTokens, setWithdrawTokens] = useState<number>(100);
   const [destinationTronAddress, setDestinationTronAddress] = useState<string>("");
+  const [depositAddress, setDepositAddress] = useState<string>("");
 
   const [status, setStatus] = useState<string>("");
 
@@ -24,6 +25,42 @@ export default function WalletPage() {
     const json = JSON.parse(text);
     setBalanceTokens(json.balanceTokens);
     setStatus("Ready ✅");
+  }
+
+  async function refreshDepositAddress() {
+    const res = await fetch(
+      `/api/ui/wallet/deposit-address?userId=${encodeURIComponent(userId)}`
+    );
+    const text = await res.text();
+
+    if (!res.ok) {
+      setDepositAddress("");
+      return;
+    }
+
+    const json = JSON.parse(text);
+    setDepositAddress(json.tronAddress || "");
+  }
+
+  async function assignDepositAddress() {
+    const res = await fetch("/api/ui/wallet/deposit-address", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        tronAddress: destinationTronAddress,
+      }),
+    });
+
+    const text = await res.text();
+    if (!res.ok) {
+      setStatus(`Failed: ${res.status} — ${text}`);
+      return;
+    }
+
+    const json = JSON.parse(text);
+    setDepositAddress(json.tronAddress || "");
+    setStatus("Deposit address saved ✅");
   }
 
   async function requestWithdrawal() {
@@ -50,6 +87,7 @@ export default function WalletPage() {
 
   useEffect(() => {
     refreshBalance();
+    refreshDepositAddress();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -81,7 +119,13 @@ export default function WalletPage() {
         address. After confirmations, your wallet will be credited in tokens.
       </p>
       <p style={{ marginTop: 8 }}>
-        <b>Deposit address:</b> (placeholder — will be assigned in Phase 2.1)
+        <b>Deposit address:</b>{" "}
+        {depositAddress ? depositAddress : "(not assigned yet)"}
+      </p>
+      <button onClick={refreshDepositAddress}>Refresh Deposit Address</button>
+      <p style={{ marginTop: 8, color: "#555" }}>
+        Admin set (MVP): Use the destination address field below to assign your
+        deposit address.
       </p>
 
       <hr style={{ margin: "16px 0" }} />
@@ -108,6 +152,8 @@ export default function WalletPage() {
           placeholder="T..."
         />
       </label>
+
+      <button onClick={assignDepositAddress}>Save Deposit Address</button>
 
       <button onClick={requestWithdrawal}>Request Withdrawal</button>
 

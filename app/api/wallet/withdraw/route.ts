@@ -26,7 +26,11 @@ export async function POST(req: Request) {
     return new Response("Invalid payload", { status: 400 });
   }
 
-  if (typeof amountTokens !== "number" || amountTokens <= 0) {
+  if (
+    typeof amountTokens !== "number" ||
+    !Number.isInteger(amountTokens) ||
+    amountTokens <= 0
+  ) {
     return new Response("Invalid withdrawal amount", { status: 400 });
   }
 
@@ -50,6 +54,8 @@ export async function POST(req: Request) {
     type: "debit",
     amountTokens,
     source: "withdrawal",
+    withdrawalRequestId: withdrawal.id,
+    idempotencyKey: `withdrawal:${withdrawal.id}:debit:${userId}`,
   });
 
   return Response.json({

@@ -32,6 +32,12 @@ describe("Phase 7 API invariants", () => {
     });
   });
 
+  beforeEach(async () => {
+    await prisma.receiverProfile.deleteMany({
+      where: { userId: receiverId },
+    });
+  });
+
   afterAll(async () => {
     await prisma.$disconnect();
   });
@@ -42,6 +48,7 @@ describe("Phase 7 API invariants", () => {
       userId: receiverId,
       ratePerSecondTokens: 10,
       isAvailable: false,
+      isVideoEnabled: true,
     });
     await upsertProfilePOST(req1);
 
@@ -52,6 +59,7 @@ describe("Phase 7 API invariants", () => {
       amountTokens: 999999,
       source: "crypto_deposit",
       txHash: "seed-availability",
+      idempotencyKey: "seed-availability",
     });
 
     const req2 = makePostRequest("http://localhost/api/calls/create", {
@@ -70,6 +78,7 @@ describe("Phase 7 API invariants", () => {
       userId: receiverId,
       ratePerSecondTokens: 1000,
       isAvailable: true,
+      isVideoEnabled: true,
     });
     await upsertProfilePOST(req1);
 
@@ -81,6 +90,7 @@ describe("Phase 7 API invariants", () => {
         type: "debit",
         amountTokens: current,
         source: "withdrawal",
+        idempotencyKey: `seed-clear-${callerId}-1`,
       });
     }
 
@@ -92,6 +102,7 @@ describe("Phase 7 API invariants", () => {
       amountTokens: 1000,
       source: "crypto_deposit",
       txHash: "seed-insufficient-minute",
+      idempotencyKey: "seed-insufficient-minute",
     });
 
     const req2 = makePostRequest("http://localhost/api/calls/create", {
@@ -109,6 +120,7 @@ describe("Phase 7 API invariants", () => {
       userId: receiverId,
       ratePerSecondTokens: 10,
       isAvailable: true,
+      isVideoEnabled: true,
     });
     await upsertProfilePOST(req1);
 
@@ -123,6 +135,7 @@ describe("Phase 7 API invariants", () => {
         type: "debit",
         amountTokens: current,
         source: "withdrawal",
+        idempotencyKey: `seed-clear-${callerId}-2`,
       });
     }
 
@@ -132,6 +145,7 @@ describe("Phase 7 API invariants", () => {
       amountTokens: requiredFor60,
       source: "crypto_deposit",
       txHash: "seed-minintended",
+      idempotencyKey: "seed-minintended",
     });
 
     const req2 = makePostRequest("http://localhost/api/calls/create", {
@@ -150,6 +164,7 @@ describe("Phase 7 API invariants", () => {
       userId: receiverId,
       ratePerSecondTokens: 10,
       isAvailable: true,
+      isVideoEnabled: true,
     });
     await upsertProfilePOST(req1);
 
@@ -162,6 +177,7 @@ describe("Phase 7 API invariants", () => {
         amountTokens: 600 - current,
         source: "crypto_deposit",
         txHash: "seed-success",
+        idempotencyKey: "seed-success",
       });
     }
 

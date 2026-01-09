@@ -18,7 +18,7 @@ describe("USDT-TRC20 deposits", () => {
       data: {
         userId: TEST_USER_ID,
         tronAddress: "TTestAddress123",
-        amountUsdt: 10,
+        amountUsdtAtomic: 10_000_000,
         txHash: TEST_TX_HASH,
         confirmations: 25,
         credited: false,
@@ -38,6 +38,7 @@ describe("USDT-TRC20 deposits", () => {
       amountTokens: tokens,
       source: "crypto_deposit",
       txHash: TEST_TX_HASH,
+      idempotencyKey: "deposit-test-credit",
     });
 
     const balance = await getWalletBalance(TEST_USER_ID);
@@ -54,6 +55,7 @@ describe("USDT-TRC20 deposits", () => {
       amountTokens: tokens,
       source: "crypto_deposit",
       txHash: TEST_TX_HASH,
+      idempotencyKey: "deposit-test-credit-1",
     });
 
     // Second attempt (should be prevented by idempotency in watcher logic)

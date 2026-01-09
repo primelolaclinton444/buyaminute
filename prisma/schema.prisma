@@ -20,6 +20,7 @@ model User {
 
   wallet Wallet?
   receiverProfile ReceiverProfile?
+  depositAddress DepositAddress?
 }
 
 model Wallet {
@@ -86,6 +87,8 @@ model WithdrawalRequest {
   processedAt           DateTime?
 
   @@index([userId])
+
+  ledgerEntries LedgerEntry[]
 }
 
 

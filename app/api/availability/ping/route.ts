@@ -66,3 +66,32 @@ export async function POST(req: Request) {
 
   return Response.json({ ok: true, pingId });
 }
+
+/**
+ * GET /availability/ping?receiverId=...&limit=...
+ */
+export async function GET(req: Request) {
+  const gate = requireInternalKey(req as any);
+  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+
+  const { searchParams } = new URL(req.url);
+  const receiverId = searchParams.get("receiverId");
+  const limitParam = searchParams.get("limit");
+
+  if (!receiverId) {
+    return new Response("receiverId required", { status: 400 });
+  }
+
+  const parsedLimit = Number(limitParam ?? 5);
+  const limit = Number.isFinite(parsedLimit)
+    ? Math.max(1, Math.min(20, parsedLimit))
+    : 5;
+
+  const pings = await prisma.availabilityPing.findMany({
+    where: { receiverId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+
+  return Response.json({ ok: true, pings });
+}

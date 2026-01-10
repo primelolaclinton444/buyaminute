@@ -87,3 +87,20 @@ export async function getWalletBalance(userId: string): Promise<number> {
 
   return wallet?.balanceTokens ?? 0;
 }
+
+/**
+ * Read wallet balance from ledger (source of truth).
+ */
+export async function getWalletBalanceFromLedger(userId: string): Promise<number> {
+  const credits = await prisma.ledgerEntry.aggregate({
+    where: { userId, type: "credit" },
+    _sum: { amountTokens: true },
+  });
+
+  const debits = await prisma.ledgerEntry.aggregate({
+    where: { userId, type: "debit" },
+    _sum: { amountTokens: true },
+  });
+
+  return (credits._sum.amountTokens ?? 0) - (debits._sum.amountTokens ?? 0);
+}

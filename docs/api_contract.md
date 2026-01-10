@@ -130,6 +130,7 @@ Errors: plain-text response with HTTP status.
 ## Public Wallet + Settings + Pings (Frontend)
 
 ### GET /api/wallet
+Auth: session cookie required.
 Request params: none.
 Success (200):
 ```json
@@ -147,9 +148,10 @@ Success (200):
   ]
 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/wallet
+Auth: session cookie required.
 Request body:
 ```json
 { "amount": 0 }
@@ -158,7 +160,53 @@ Success (200):
 ```json
 { "success": true }
 ```
-Errors: JSON `{ "message": "string" }` with HTTP status.
+Errors: JSON error shape.
+
+### GET /api/wallet/ledger?limit=...&cursor=...
+Auth: session cookie required.
+Success (200):
+```json
+{
+  "entries": [
+    {
+      "id": "string",
+      "type": "credit | debit",
+      "source": "call_billing | crypto_deposit | withdrawal | availability_ping",
+      "amountTokens": 0,
+      "callId": "string | null",
+      "withdrawalRequestId": "string | null",
+      "txHash": "string | null",
+      "createdAt": "ISO-8601"
+    }
+  ],
+  "nextCursor": "string | null"
+}
+```
+Errors: JSON error shape.
+
+### GET /api/wallet/deposit_address
+Auth: session cookie required.
+Success (200):
+```json
+{ "userId": "string", "tronAddress": "string" }
+```
+Errors: JSON error shape.
+
+### POST /api/wallet/withdraw
+Auth: session cookie required, or `x-internal-key` for internal callers.
+Request body (session):
+```json
+{ "amount": 0 }
+```
+Request body (internal):
+```json
+{ "userId": "string", "amountTokens": 0, "destinationTronAddress": "string" }
+```
+Success (200):
+```json
+{ "ok": true, "withdrawalId": "string" }
+```
+Errors: JSON error shape.
 
 ### GET /api/settings
 Request params: none.

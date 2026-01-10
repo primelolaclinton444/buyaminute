@@ -19,6 +19,79 @@ export type SignupPayload = {
   password: string;
 };
 
+export type BrowseProfile = {
+  id: string;
+  name: string;
+  username: string;
+  rate: number;
+  tagline: string;
+  categories: string[];
+  status: "available" | "busy" | "offline";
+};
+
+export type BrowseResponse = {
+  categories: string[];
+  featured: BrowseProfile[];
+  profiles: BrowseProfile[];
+};
+
+export type ProfileResponse = {
+  profile: BrowseProfile & {
+    bio: string;
+    responseTime: string;
+    languages: string[];
+    reviews: Array<{
+      id: string;
+      author: string;
+      rating: number;
+      quote: string;
+    }>;
+  };
+};
+
+export type WalletTransaction = {
+  id: string;
+  type: "deposit" | "withdrawal" | "earning";
+  amount: number;
+  status: "pending" | "completed" | "failed";
+  createdAt: string;
+};
+
+export type WalletSummary = {
+  balanceTokens: number;
+  availableUsd: number;
+  transactions: WalletTransaction[];
+};
+
+export type SettingsPayload = {
+  displayName: string;
+  email: string;
+  timezone: string;
+  marketingOptIn: boolean;
+};
+
+export type SettingsResponse = {
+  settings: SettingsPayload;
+};
+
+export type PingRequest = {
+  id: string;
+  requester: string;
+  topic: string;
+  status: "new" | "accepted" | "missed" | "completed";
+  createdAt: string;
+};
+
+export type PingsResponse = {
+  pings: PingRequest[];
+};
+
+export type NewPingPayload = {
+  topic: string;
+  requestedFor: string;
+  details?: string;
+};
+
 export class ApiError extends Error {
   status: number;
   info?: unknown;
@@ -71,5 +144,41 @@ export const authApi = {
   logout: () =>
     apiFetch<{ success: boolean }>("/api/auth/logout", {
       method: "POST",
+    }),
+};
+
+export const browseApi = {
+  getBrowse: () => apiFetch<BrowseResponse>("/api/browse"),
+};
+
+export const profileApi = {
+  getProfile: (username: string) =>
+    apiFetch<ProfileResponse>(`/api/profile?username=${encodeURIComponent(username)}`),
+};
+
+export const walletApi = {
+  getWallet: () => apiFetch<WalletSummary>("/api/wallet"),
+  withdraw: (amount: number) =>
+    apiFetch<{ success: boolean }>("/api/wallet", {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+};
+
+export const settingsApi = {
+  getSettings: () => apiFetch<SettingsResponse>("/api/settings"),
+  updateSettings: (payload: SettingsPayload) =>
+    apiFetch<SettingsResponse>("/api/settings", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+};
+
+export const pingsApi = {
+  getPings: () => apiFetch<PingsResponse>("/api/pings"),
+  createPing: (payload: NewPingPayload) =>
+    apiFetch<{ ping: PingRequest }>("/api/pings", {
+      method: "POST",
+      body: JSON.stringify(payload),
     }),
 };

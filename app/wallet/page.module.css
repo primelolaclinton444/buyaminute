@@ -1,0 +1,50 @@
+.page {
+  padding: 32px 0 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.cards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.transactions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.transactionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty {
+  text-align: center;
+  padding: 32px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 16px;
+  color: #64748b;
+}
+
+.inlineActions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.form {
+  display: grid;
+  gap: 12px;
+}

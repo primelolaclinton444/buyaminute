@@ -1,0 +1,44 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px 0 64px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  color: #475569;
+}
+
+.section {
+  display: grid;
+  gap: 16px;
+}
+
+.reviews {
+  display: grid;
+  gap: 12px;
+}
+
+.empty {
+  text-align: center;
+  padding: 32px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 16px;
+  color: #64748b;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}

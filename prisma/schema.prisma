@@ -15,6 +15,9 @@ datasource db {
 model User {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  name      String?
+  email     String?  @unique
+  passwordHash String?
   earningsVisible Boolean @default(true)
   earningsVisibilityLockedUntil DateTime?
 

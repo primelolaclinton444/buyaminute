@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 export default function WalletPage() {
   const [userId, setUserId] = useState("caller-test");
@@ -92,8 +93,9 @@ export default function WalletPage() {
   }, []);
 
   return (
-    <main style={{ padding: 20, maxWidth: 720 }}>
-      <h1>Wallet (MVP)</h1>
+    <AuthGuard>
+      <main style={{ padding: 20, maxWidth: 720 }}>
+        <h1>Wallet (MVP)</h1>
 
       <label>
         User ID
@@ -157,7 +159,8 @@ export default function WalletPage() {
 
       <button onClick={requestWithdrawal}>Request Withdrawal</button>
 
-      <p style={{ marginTop: 12 }}>{status}</p>
-    </main>
+        <p style={{ marginTop: 12 }}>{status}</p>
+      </main>
+    </AuthGuard>
   );
 }

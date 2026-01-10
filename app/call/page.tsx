@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 export default function CallerCallPage() {
   const [callerId, setCallerId] = useState("caller-test");
@@ -65,8 +66,9 @@ export default function CallerCallPage() {
   }
 
   return (
-    <main style={{ padding: 20, maxWidth: 520 }}>
-      <h1>Caller (MVP)</h1>
+    <AuthGuard>
+      <main style={{ padding: 20, maxWidth: 520 }}>
+        <h1>Caller (MVP)</h1>
       <p style={{ marginTop: 8 }}>
         30s free preview applies once per caller/receiver pair every 24h. Billing
         starts immediately after preview.
@@ -128,6 +130,7 @@ export default function CallerCallPage() {
 
         <p style={{ marginTop: 12 }}>{pingStatus}</p>
       </section>
-    </main>
+      </main>
+    </AuthGuard>
   );
 }

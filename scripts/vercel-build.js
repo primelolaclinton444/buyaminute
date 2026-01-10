@@ -43,9 +43,17 @@ try {
   run("npx prisma generate");
 
   const migrationsPresent = hasMigrations();
+  const hasDatabaseUrl = !!process.env.DATABASE_URL;
 
   if (migrationsPresent) {
-    run("npx prisma migrate deploy");
+    if (!hasDatabaseUrl && !(isVercelBuild() || isProdOrPreview())) {
+      console.warn(
+        "\n[warn] DATABASE_URL is not set. Skipping prisma migrate deploy for local build.\n" +
+          "       Provide DATABASE_URL to run migrations locally."
+      );
+    } else {
+      run("npx prisma migrate deploy");
+    }
   } else {
     const msg =
       "\n[fatal] prisma/migrations not found.\n" +

@@ -1,7 +1,8 @@
 .page {
   position: relative;
-  background: radial-gradient(circle at top, rgba(124, 92, 255, 0.2), transparent 55%),
-    #05070f;
+  background:
+    radial-gradient(circle at 50% -15%, rgba(124, 92, 255, 0.10), transparent 55%),
+    #02030a;
   overflow-x: hidden;
 }
 
@@ -82,8 +83,23 @@
   content: "";
   position: absolute;
   inset: -200px;
-  background: radial-gradient(700px 400px at 50% 20%, rgba(255, 255, 255, 0.08), transparent 60%),
-    radial-gradient(600px 300px at 60% 10%, rgba(0, 255, 136, 0.1), transparent 65%);
+  background: radial-gradient(
+    520px 340px at 50% 22%,
+    rgba(255, 255, 255, 0.075),
+    transparent 62%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.heroSection::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(2, 3, 10, 0) 40%,
+    rgba(2, 3, 10, 0.92) 100%
+  );
   pointer-events: none;
   z-index: 0;
 }

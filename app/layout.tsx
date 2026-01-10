@@ -1,6 +1,8 @@
+import "./globals.css";
+
 export const metadata = {
   title: "BuyAMinute",
-  description: "Token-based calls MVP"
+  description: "Token-based calls MVP",
 };
 
 export default function RootLayout({

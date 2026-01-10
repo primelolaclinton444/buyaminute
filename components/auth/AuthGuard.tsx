@@ -5,6 +5,18 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./AuthProvider";
 
+export const buildAuthRedirect = ({
+  pathname,
+  expired,
+}: {
+  pathname?: string | null;
+  expired: boolean;
+}) => {
+  const reason = expired ? "expired" : "signin";
+  const next = pathname ? `&next=${encodeURIComponent(pathname)}` : "";
+  return `/login?reason=${reason}${next}`;
+};
+
 const AuthGuard = ({ children }: { children: React.ReactNode }) => {
   const { status, expired, error } = useAuth();
   const router = useRouter();
@@ -12,9 +24,7 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      const reason = expired ? "expired" : "signin";
-      const next = pathname ? `&next=${encodeURIComponent(pathname)}` : "";
-      router.replace(`/login?reason=${reason}${next}`);
+      router.replace(buildAuthRedirect({ pathname, expired }));
     }
   }, [status, expired, pathname, router]);
 

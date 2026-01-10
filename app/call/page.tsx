@@ -1,135 +1,73 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/auth/AuthGuard";
+import styles from "./call.module.css";
 
-export default function CallerCallPage() {
-  const [callerId, setCallerId] = useState("caller-test");
-  const [receiverId, setReceiverId] = useState("receiver-test");
-  const [minIntendedSeconds, setMinIntendedSeconds] = useState(60);
-  const [result, setResult] = useState<string>("");
-  const [availabilityQuestion, setAvailabilityQuestion] = useState(
-    "available_now",
-  );
-  const [pingStatus, setPingStatus] = useState("");
-
-  async function createCall() {
-    setResult("Creating call...");
-    const res = await fetch("/api/ui/calls/create", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        callerId,
-        receiverId,
-        minIntendedSeconds: Number(minIntendedSeconds),
-      }),
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      setResult(`Failed: ${res.status} — ${text}`);
-      return;
-    }
-
-    try {
-      const json = JSON.parse(text);
-      setResult(`Call created ✅ callId=${json.callId}`);
-    } catch {
-      setResult(`Call created ✅ ${text}`);
-    }
-  }
-
-  async function createAvailabilityPing() {
-    setPingStatus("Sending ping...");
-    const res = await fetch("/api/ui/availability/ping", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        callerId,
-        receiverId,
-        question: availabilityQuestion,
-      }),
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      setPingStatus(`Failed: ${res.status} — ${text}`);
-      return;
-    }
-
-    try {
-      const json = JSON.parse(text);
-      setPingStatus(`Ping sent ✅ pingId=${json.pingId}`);
-    } catch {
-      setPingStatus(`Ping sent ✅ ${text}`);
-    }
-  }
-
+export default function CallHubPage() {
   return (
     <AuthGuard>
-      <main style={{ padding: 20, maxWidth: 520 }}>
-        <h1>Caller (MVP)</h1>
-      <p style={{ marginTop: 8 }}>
-        30s free preview applies once per caller/receiver pair every 24h. Billing
-        starts immediately after preview.
-      </p>
+      <main className={styles.page}>
+        <div className={styles.container}>
+          <header className={styles.header}>
+            <p className={styles.pill}>Calls</p>
+            <h1>Manage your call flow</h1>
+            <p className={styles.subtitle}>
+              Request calls, handle incoming pings, and track live sessions with the
+              same streamlined shell.
+            </p>
+          </header>
 
-      <label>
-        Caller User ID
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={callerId}
-          onChange={(e) => setCallerId(e.target.value)}
-        />
-      </label>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <h2>Start a request</h2>
+                <p className={styles.subtitle}>
+                  Choose a receiver, select voice or video, and send a paid request.
+                </p>
+              </div>
+              <Link className={styles.button} href="/call/request/creator-demo">
+                Request a call
+              </Link>
+            </div>
+            <div className={styles.grid}>
+              <div>
+                <h3>Request states</h3>
+                <p className={styles.subtitle}>
+                  Track pending, timed out, or unavailable responses while keeping
+                  the caller informed.
+                </p>
+              </div>
+              <div>
+                <h3>Realtime hints</h3>
+                <p className={styles.subtitle}>
+                  See balance and availability checks before sending payment.
+                </p>
+              </div>
+              <div>
+                <h3>Accessibility-first</h3>
+                <p className={styles.subtitle}>
+                  Keyboard-ready tabs, focus rings, and reduced motion support.
+                </p>
+              </div>
+            </div>
+          </section>
 
-      <label>
-        Receiver User ID
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={receiverId}
-          onChange={(e) => setReceiverId(e.target.value)}
-        />
-      </label>
-
-      <label>
-        Minimum intended seconds (signal only)
-        <input
-          type="number"
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={minIntendedSeconds}
-          onChange={(e) => setMinIntendedSeconds(Number(e.target.value))}
-          min={1}
-        />
-      </label>
-
-      <button onClick={createCall}>Create Call</button>
-
-      <pre style={{ marginTop: 12, whiteSpace: "pre-wrap" }}>{result}</pre>
-
-      <section style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #ddd" }}>
-        <h2>Availability Ping</h2>
-        <p style={{ marginTop: 6 }}>
-          Send a one-tap availability check. No free chat.
-        </p>
-
-        <label>
-          Preset question
-          <select
-            style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-            value={availabilityQuestion}
-            onChange={(e) => setAvailabilityQuestion(e.target.value)}
-          >
-            <option value="available_now">Are you available now?</option>
-            <option value="available_later">Are you available later?</option>
-            <option value="when_good_time">When is a good time?</option>
-          </select>
-        </label>
-
-        <button onClick={createAvailabilityPing}>Send Availability Ping</button>
-
-        <p style={{ marginTop: 12 }}>{pingStatus}</p>
-      </section>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <h2>Incoming requests</h2>
+                <p className={styles.subtitle}>
+                  Review caller intent and accept or decline within the countdown
+                  window.
+                </p>
+              </div>
+              <Link className={styles.button} href="/call/incoming">
+                View incoming
+              </Link>
+            </div>
+          </section>
+        </div>
       </main>
     </AuthGuard>
   );

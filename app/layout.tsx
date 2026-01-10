@@ -1,4 +1,6 @@
 import "./globals.css";
+import Nav from "@/components/Nav";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 export const metadata = {
   title: "BuyAMinute",
@@ -12,7 +14,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <Nav />
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }

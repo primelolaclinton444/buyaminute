@@ -42,6 +42,18 @@
   color: #ffffff;
 }
 
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status {
+  color: rgba(245, 247, 255, 0.75);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 @media (max-width: 768px) {
   .nav {
     display: none;

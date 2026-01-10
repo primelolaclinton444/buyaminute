@@ -1,163 +1,230 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import AuthGuard from "@/components/auth/AuthGuard";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Container from "@/components/ui/Container";
+import Input from "@/components/ui/Input";
+import Modal from "@/components/ui/Modal";
+import Skeleton from "@/components/ui/Skeleton";
+import Spinner from "@/components/ui/Spinner";
+import Tabs from "@/components/ui/Tabs";
+import Toast from "@/components/ui/Toast";
+import { walletApi, type WalletSummary, type WalletTransaction } from "@/lib/api";
+import styles from "./page.module.css";
+
+const transactionVariant = (status: WalletTransaction["status"]) => {
+  switch (status) {
+    case "completed":
+      return "success";
+    case "pending":
+      return "warning";
+    default:
+      return "danger";
+  }
+};
 
 export default function WalletPage() {
-  const [userId, setUserId] = useState("caller-test");
-  const [balanceTokens, setBalanceTokens] = useState<number>(0);
+  const [data, setData] = useState<WalletSummary | null>(null);
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("Overview");
+  const [withdrawAmount, setWithdrawAmount] = useState("100");
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [withdrawTokens, setWithdrawTokens] = useState<number>(100);
-  const [destinationTronAddress, setDestinationTronAddress] = useState<string>("");
-  const [depositAddress, setDepositAddress] = useState<string>("");
-
-  const [status, setStatus] = useState<string>("");
-
-  async function refreshBalance() {
-    setStatus("Refreshing...");
-    const res = await fetch(`/api/ui/wallet/balance?userId=${encodeURIComponent(userId)}`);
-    const text = await res.text();
-
-    if (!res.ok) {
-      setStatus(`Failed: ${res.status} — ${text}`);
-      return;
+  const loadWallet = useCallback(async () => {
+    try {
+      setStatus("loading");
+      setError(null);
+      const response = await walletApi.getWallet();
+      setData(response);
+      setStatus("idle");
+    } catch (err) {
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Unable to load wallet.");
     }
-
-    const json = JSON.parse(text);
-    setBalanceTokens(json.balanceTokens);
-    setStatus("Ready ✅");
-  }
-
-  async function refreshDepositAddress() {
-    const res = await fetch(
-      `/api/ui/wallet/deposit-address?userId=${encodeURIComponent(userId)}`
-    );
-    const text = await res.text();
-
-    if (!res.ok) {
-      setDepositAddress("");
-      return;
-    }
-
-    const json = JSON.parse(text);
-    setDepositAddress(json.tronAddress || "");
-  }
-
-  async function assignDepositAddress() {
-    const res = await fetch("/api/ui/wallet/deposit-address", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        tronAddress: destinationTronAddress,
-      }),
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      setStatus(`Failed: ${res.status} — ${text}`);
-      return;
-    }
-
-    const json = JSON.parse(text);
-    setDepositAddress(json.tronAddress || "");
-    setStatus("Deposit address saved ✅");
-  }
-
-  async function requestWithdrawal() {
-    setStatus("Requesting withdrawal...");
-    const res = await fetch("/api/ui/wallet/withdraw", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        amountTokens: Number(withdrawTokens),
-        destinationTronAddress,
-      }),
-    });
-
-    const text = await res.text();
-    if (!res.ok) {
-      setStatus(`Failed: ${res.status} — ${text}`);
-      return;
-    }
-
-    setStatus(`Withdrawal requested ✅ ${text}`);
-    await refreshBalance();
-  }
-
-  useEffect(() => {
-    refreshBalance();
-    refreshDepositAddress();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    loadWallet();
+  }, [loadWallet]);
+
+  const handleWithdraw = async () => {
+    try {
+      setIsWithdrawing(true);
+      await walletApi.withdraw(Number(withdrawAmount));
+      setToastMessage("Withdrawal request sent.");
+      await loadWallet();
+      setShowModal(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to withdraw.");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  const transactions = data?.transactions ?? [];
+
   return (
-    <main style={{ padding: 20, maxWidth: 720 }}>
-      <h1>Wallet (MVP)</h1>
+    <AuthGuard>
+      <Container>
+        <main className={styles.page}>
+          <header>
+            <h1>Wallet</h1>
+            <p>Track your balance, payouts, and recent activity.</p>
+          </header>
 
-      <label>
-        User ID
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
-      </label>
+          {toastMessage ? (
+            <Toast
+              message={toastMessage}
+              variant="success"
+              onClose={() => setToastMessage(null)}
+            />
+          ) : null}
 
-      <button onClick={refreshBalance}>Refresh Balance</button>
+          {error ? (
+            <Toast message={error} variant="error" onClose={() => setError(null)} />
+          ) : null}
 
-      <h2 style={{ marginTop: 16 }}>Balance</h2>
-      <p>
-        <b>{balanceTokens}</b> tokens
-      </p>
+          {status === "loading" ? (
+            <div className={styles.cards}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} style={{ height: 120 }} />
+              ))}
+            </div>
+          ) : null}
 
-      <hr style={{ margin: "16px 0" }} />
+          {status === "error" ? (
+            <div className={styles.empty}>
+              <p>We could not load wallet details.</p>
+              <Button onClick={loadWallet}>Retry</Button>
+            </div>
+          ) : null}
 
-      <h2>Deposit (USDT-TRC20)</h2>
-      <p style={{ lineHeight: 1.4 }}>
-        Send <b>USDT (TRC20)</b> on the <b>TRON</b> network to your assigned deposit
-        address. After confirmations, your wallet will be credited in tokens.
-      </p>
-      <p style={{ marginTop: 8 }}>
-        <b>Deposit address:</b>{" "}
-        {depositAddress ? depositAddress : "(not assigned yet)"}
-      </p>
-      <button onClick={refreshDepositAddress}>Refresh Deposit Address</button>
-      <p style={{ marginTop: 8, color: "#555" }}>
-        Admin set (MVP): Use the destination address field below to assign your
-        deposit address.
-      </p>
+          {status === "idle" && data ? (
+            <>
+              <div className={styles.cards}>
+                <Card>
+                  <div className={styles.section}>
+                    <strong>Token balance</strong>
+                    <h2>{data.balanceTokens} tokens</h2>
+                    <span>${data.availableUsd.toFixed(2)} available</span>
+                  </div>
+                </Card>
+                <Card>
+                  <div className={styles.section}>
+                    <strong>Next payout</strong>
+                    <p>Friday at 9:00 AM PT</p>
+                    <Button variant="ghost" onClick={() => setShowModal(true)}>
+                      Request withdrawal
+                    </Button>
+                  </div>
+                </Card>
+                <Card>
+                  <div className={styles.section}>
+                    <strong>Payout method</strong>
+                    <p>USDT (TRC20)</p>
+                    <Button variant="ghost">Update method</Button>
+                  </div>
+                </Card>
+              </div>
 
-      <hr style={{ margin: "16px 0" }} />
+              <Tabs
+                tabs={[
+                  { id: "Overview", label: "Overview" },
+                  { id: "Transactions", label: "Transactions" },
+                ]}
+                active={activeTab}
+                onChange={setActiveTab}
+              />
 
-      <h2>Withdraw</h2>
+              {activeTab === "Overview" ? (
+                <Card>
+                  <div className={styles.section}>
+                    <h3>Summary</h3>
+                    <p>
+                      You have {data.balanceTokens} tokens ready to use. Schedule a
+                      withdrawal or keep earning by accepting more pings.
+                    </p>
+                    <div className={styles.inlineActions}>
+                      <Button onClick={() => setShowModal(true)}>
+                        Withdraw funds
+                      </Button>
+                      <Button href="/pings" variant="ghost">
+                        View pings
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              ) : null}
 
-      <label>
-        Amount (tokens)
-        <input
-          type="number"
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={withdrawTokens}
-          onChange={(e) => setWithdrawTokens(Number(e.target.value))}
-          min={1}
-        />
-      </label>
+              {activeTab === "Transactions" ? (
+                <Card>
+                  <div className={styles.section}>
+                    <h3>Recent activity</h3>
+                    {transactions.length === 0 ? (
+                      <div className={styles.empty}>
+                        <p>No transactions yet.</p>
+                        <Button href="/browse" variant="ghost">
+                          Browse experts
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className={styles.transactions}>
+                        {transactions.map((txn) => (
+                          <div key={txn.id} className={styles.transactionRow}>
+                            <div>
+                              <strong>{txn.type}</strong>
+                              <p>{new Date(txn.createdAt).toLocaleString()}</p>
+                            </div>
+                            <div className={styles.inlineActions}>
+                              <Badge variant={transactionVariant(txn.status)}>{
+                                txn.status
+                              }</Badge>
+                              <span>{txn.amount} tokens</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ) : null}
+            </>
+          ) : null}
+        </main>
+      </Container>
 
-      <label>
-        Destination TRON Address
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={destinationTronAddress}
-          onChange={(e) => setDestinationTronAddress(e.target.value)}
-          placeholder="T..."
-        />
-      </label>
-
-      <button onClick={assignDepositAddress}>Save Deposit Address</button>
-
-      <button onClick={requestWithdrawal}>Request Withdrawal</button>
-
-      <p style={{ marginTop: 12 }}>{status}</p>
-    </main>
+      <Modal
+        title="Request withdrawal"
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        actions={
+          <>
+            <Button variant="ghost" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleWithdraw} disabled={isWithdrawing}>
+              {isWithdrawing ? <Spinner /> : "Confirm"}
+            </Button>
+          </>
+        }
+      >
+        <div className={styles.form}>
+          <p>Withdraw tokens to your connected USDT (TRC20) address.</p>
+          <Input
+            label="Amount (tokens)"
+            type="number"
+            min={1}
+            value={withdrawAmount}
+            onChange={(event) => setWithdrawAmount(event.target.value)}
+          />
+        </div>
+      </Modal>
+    </AuthGuard>
   );
 }

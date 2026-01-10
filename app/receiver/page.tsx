@@ -6,6 +6,7 @@ import {
   SECONDS_IN_MINUTE,
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
+import AuthGuard from "@/components/auth/AuthGuard";
 
 export default function ReceiverPage() {
   type AvailabilityPing = {
@@ -125,8 +126,9 @@ export default function ReceiverPage() {
   };
 
   return (
-    <main style={{ padding: 20, maxWidth: 520 }}>
-      <h1>Receiver Dashboard (MVP)</h1>
+    <AuthGuard>
+      <main style={{ padding: 20, maxWidth: 520 }}>
+        <h1>Receiver Dashboard (MVP)</h1>
 
       <label>
         Receiver User ID
@@ -240,7 +242,8 @@ export default function ReceiverPage() {
             </div>
           </div>
         </div>
-      ) : null}
-    </main>
+        ) : null}
+      </main>
+    </AuthGuard>
   );
 }

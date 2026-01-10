@@ -24,6 +24,7 @@ export const SECONDS_IN_MINUTE = 60;
 export const MIN_RATE_PER_SECOND_TOKENS = 1;
 export const DEFAULT_RATE_PER_SECOND_TOKENS = 1;
 export const AVAILABILITY_PING_FEE_TOKENS = 25;
+export const MIN_WITHDRAWAL_TOKENS = 100;
 
 // Crypto (locked for MVP)
 export const SUPPORTED_CHAIN = "TRON";

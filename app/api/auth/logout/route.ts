@@ -1,13 +1,6 @@
-import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { clearSessionCookie } from "@/lib/auth";
 
 export async function POST() {
-  cookies().set("mock_session", "", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
-
-  return NextResponse.json({ success: true });
+  clearSessionCookie();
+  return Response.json({ success: true });
 }

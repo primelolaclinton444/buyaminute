@@ -3,11 +3,10 @@
 // Phase 7
 // ================================
 
-import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
-import { settleEndedCall } from "@/lib/settlement";
+import { endCall } from "@/lib/api/calls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,32 +41,5 @@ export async function POST(req: Request) {
     return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
-  const call = await prisma.call.findUnique({ where: { id: callId } });
-  if (!call) {
-    return jsonError("Call not found", 404, "not_found");
-  }
-
-  if (!gate.ok) {
-    if (call.callerId !== session.user.id && call.receiverId !== session.user.id) {
-      return jsonError("Unauthorized", 403, "forbidden");
-    }
-  }
-
-  if (call.status === "ended") {
-    // Idempotent: ending an ended call is a no-op
-    return Response.json({ ok: true });
-  }
-
-  await prisma.call.update({
-    where: { id: callId },
-    data: {
-      status: "ended",
-      endedAt: new Date(),
-    },
-  });
-
-  // Settle deterministically after end
-  await settleEndedCall(callId);
-
-  return Response.json({ ok: true });
+  return endCall({ callId, userId: session?.user.id });
 }

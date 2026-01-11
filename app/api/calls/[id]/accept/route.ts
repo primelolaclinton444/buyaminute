@@ -1,19 +1,21 @@
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
-import { getCallState } from "@/lib/api/calls";
+import { respondToCall } from "@/lib/api/calls";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export async function POST(
+  _req: Request,
+  { params }: { params: { id?: string } }
+) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const url = new URL(req.url);
-  const id = url.searchParams.get("id");
-  if (!id) {
+  const callId = params.id?.trim();
+  if (!callId) {
     return jsonError("Missing call id", 400, "invalid_payload");
   }
 
-  return getCallState({ callId: id, userId: auth.user.id });
+  return respondToCall({ requestId: callId, action: "accept", userId: auth.user.id });
 }

@@ -1,17 +1,13 @@
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
+import { createHash } from "crypto";
 import { WebhookReceiver } from "livekit-server-sdk";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { jsonError } from "@/lib/api/errors";
 import { consumePreview, hasActivePreviewLock } from "@/lib/previewLock";
 import { settleEndedCall } from "@/lib/settlement";
 
-function j(data: any, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
-}
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 function normalizePayload(payload: any) {
   const eventName =
@@ -175,10 +171,10 @@ export async function POST(req: Request) {
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
   try {
+    const rawBody = await req.text();
     let payload: any = null;
 
     if (apiKey && apiSecret) {
-      const rawBody = await req.text();
       const receiver = new WebhookReceiver(apiKey, apiSecret);
 
       // Accept common LiveKit signature headers (SDK expects a STRING)
@@ -189,12 +185,12 @@ export async function POST(req: Request) {
         "";
 
       if (!auth) {
-        return j({ ok: false, error: "missing_signature" }, 401);
+        return jsonError("Missing signature", 401, "missing_signature");
       }
 
       payload = receiver.receive(rawBody, auth);
     } else {
-      payload = await req.json();
+      payload = JSON.parse(rawBody);
     }
 
     const { eventName, callId, participantRole } = normalizePayload(payload);
@@ -206,7 +202,31 @@ export async function POST(req: Request) {
     });
 
     if (!callId) {
-      return j({ ok: false, error: "missing_call_id" }, 400);
+      return jsonError("Missing call id", 400, "missing_call_id");
+    }
+
+    const eventId =
+      payload?.event?.id ??
+      payload?.eventId ??
+      payload?.id ??
+      null;
+    const eventKey = eventId
+      ? `evt_${eventId}`
+      : createHash("sha256").update(rawBody).digest("hex");
+    try {
+      await prisma.livekitWebhookEvent.create({
+        data: {
+          id: eventKey,
+          callId,
+          eventName,
+          participantRole,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return Response.json({ ok: true, deduped: true });
+      }
+      throw err;
     }
 
     if (eventName === "participant_connected") {
@@ -217,12 +237,12 @@ export async function POST(req: Request) {
       await handleParticipantDisconnected(callId);
     }
 
-    return j({ ok: true });
+    return Response.json({ ok: true });
   } catch (err: any) {
     console.error(
       "[livekit] invalid signature or payload:",
       err?.message || err
     );
-    return j({ ok: false, error: "invalid_signature" }, 401);
+    return jsonError("Invalid signature", 401, "invalid_signature");
   }
 }

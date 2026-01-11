@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { AvailabilityResponse } from "@/lib/domain";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,17 +22,17 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { pingId, userId, response } = body;
 
   if (!pingId || !userId || !response) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   if (!Object.values(AvailabilityResponse).includes(response)) {
-    return new Response("Invalid response", { status: 400 });
+    return jsonError("Invalid response", 400, "invalid_response");
   }
 
   const ping = await prisma.availabilityPing.findUnique({
@@ -39,11 +40,11 @@ export async function POST(req: Request) {
   });
 
   if (!ping) {
-    return new Response("Ping not found", { status: 404 });
+    return jsonError("Ping not found", 404, "not_found");
   }
 
   if (ping.receiverId !== userId) {
-    return new Response("Unauthorized", { status: 401 });
+    return jsonError("Unauthorized", 401, "unauthorized");
   }
 
   if (ping.response) {

@@ -32,6 +32,7 @@ model User {
 model Wallet {
   userId        String  @id
   balanceTokens Int     @default(0)
+  lockedTokens  Int     @default(0)
 
   user User @relation(fields: [userId], references: [id])
 }
@@ -77,6 +78,7 @@ model WithdrawalRequest {
   destinationTronAddress String
   status                String @default("pending")
   txHash                String?
+  idempotencyKey        String? @unique
   createdAt             DateTime @default(now())
   processedAt           DateTime?
 
@@ -173,4 +175,14 @@ model AvailabilityPing {
 
   @@index([callerId])
   @@index([receiverId])
+}
+
+model LivekitWebhookEvent {
+  id              String   @id
+  callId          String
+  eventName       String
+  participantRole String?
+  createdAt       DateTime @default(now())
+
+  @@index([callId])
 }

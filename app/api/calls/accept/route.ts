@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,22 +23,22 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   // Phase 11 gate
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { callId } = body;
 
   if (!callId) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   const call = await prisma.call.findUnique({ where: { id: callId } });
   if (!call) {
-    return new Response("Call not found", { status: 404 });
+    return jsonError("Call not found", 404, "not_found");
   }
 
   if (call.status === "ended") {
-    return new Response("Call already ended", { status: 400 });
+    return jsonError("Call already ended", 400, "call_ended");
   }
 
   // If it's still created/ringing, move to connected state.

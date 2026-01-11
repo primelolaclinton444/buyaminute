@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { SECONDS_IN_MINUTE, TOKEN_UNIT_USD } from "@/lib/constants";
 import { CallStatus } from "@/lib/domain";
+import { jsonError } from "@/lib/api/errors";
 
 const BUSY_STATUSES: CallStatus[] = ["ringing", "connected"];
 
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   const username = searchParams.get("username")?.trim();
 
   if (!username) {
-    return new Response("Missing username", { status: 400 });
+    return jsonError("Missing username", 400, "invalid_payload");
   }
 
   const user = await prisma.user.findFirst({
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   });
 
   if (!user || !user.receiverProfile) {
-    return new Response("Profile not found", { status: 404 });
+    return jsonError("Profile not found", 404, "not_found");
   }
 
   const activeCall = await prisma.call.findFirst({

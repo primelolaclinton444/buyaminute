@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,13 +15,13 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
 
   if (!userId) {
-    return new Response("Missing userId", { status: 400 });
+    return jsonError("Missing userId", 400, "invalid_payload");
   }
 
   const profile = await prisma.receiverProfile.findUnique({
@@ -28,7 +29,7 @@ export async function GET(req: Request) {
   });
 
   if (!profile) {
-    return new Response("Profile not found", { status: 404 });
+    return jsonError("Profile not found", 404, "not_found");
   }
 
   return Response.json({ ok: true, profile });

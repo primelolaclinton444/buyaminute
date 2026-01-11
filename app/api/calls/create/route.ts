@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { ensureLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { MIN_CALL_BALANCE_SECONDS } from "@/lib/constants";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,17 +28,17 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   // Phase 11 gate
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { callerId, receiverId, minIntendedSeconds } = body;
 
   if (!callerId || !receiverId) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   if (minIntendedSeconds !== undefined && minIntendedSeconds <= 0) {
-    return new Response("Invalid minIntendedSeconds", { status: 400 });
+    return jsonError("Invalid minIntendedSeconds", 400, "invalid_payload");
   }
 
   const receiverProfile = await prisma.receiverProfile.findUnique({
@@ -45,17 +46,17 @@ export async function POST(req: Request) {
   });
 
   if (!receiverProfile) {
-    return new Response("Receiver profile not found", { status: 404 });
+    return jsonError("Receiver profile not found", 404, "not_found");
   }
 
   if (!receiverProfile.isAvailable) {
-    return new Response("Receiver is not available", { status: 400 });
+    return jsonError("Receiver is not available", 400, "receiver_unavailable");
   }
 
   const ratePerSecondTokens = receiverProfile.ratePerSecondTokens;
 
   if (!ratePerSecondTokens || ratePerSecondTokens <= 0) {
-    return new Response("Receiver rate not set", { status: 400 });
+    return jsonError("Receiver rate not set", 400, "invalid_rate");
   }
 
   const callerBalance = await getWalletBalance(callerId);
@@ -64,18 +65,22 @@ export async function POST(req: Request) {
   const minRequiredTokens = MIN_CALL_BALANCE_SECONDS * ratePerSecondTokens;
 
   if (callerBalance < minRequiredTokens) {
-    return new Response("Insufficient balance for 1-minute minimum", {
-      status: 400,
-    });
+    return jsonError(
+      "Insufficient balance for 1-minute minimum",
+      400,
+      "insufficient_balance"
+    );
   }
 
   // Rule: if caller declares min intended duration, must cover it (signal-only)
   if (minIntendedSeconds !== undefined) {
     const declaredRequired = minIntendedSeconds * ratePerSecondTokens;
     if (callerBalance < declaredRequired) {
-      return new Response("Insufficient balance for declared minimum", {
-        status: 400,
-      });
+      return jsonError(
+        "Insufficient balance for declared minimum",
+        400,
+        "insufficient_balance"
+      );
     }
   }
 

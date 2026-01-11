@@ -1,17 +1,15 @@
 import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { AvailabilityQuestion, AvailabilityResponse } from "@/lib/domain";
+import { AvailabilityResponse } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
 import { appendLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { AVAILABILITY_PING_FEE_TOKENS } from "@/lib/constants";
-
-const questionLabels: Record<AvailabilityQuestion, string> = {
-  available_now: "Are you available now?",
-  available_later: "Are you available later?",
-  when_good_time: "When is a good time?",
-};
+import {
+  parseAvailabilityQuestion,
+  PING_QUESTION_LABELS,
+} from "@/lib/pings";
 
 type PingStatus = "new" | "accepted" | "missed" | "completed";
 
@@ -19,20 +17,6 @@ function mapStatus(response: string | null): PingStatus {
   if (!response) return "new";
   if (response === AvailabilityResponse.not_available) return "missed";
   return "accepted";
-}
-
-function mapTopicToQuestion(topic: string): AvailabilityQuestion {
-  const normalized = topic.trim().toLowerCase();
-  if (normalized === "available_now" || normalized.includes("available now")) {
-    return "available_now";
-  }
-  if (normalized === "available_later" || normalized.includes("available later")) {
-    return "available_later";
-  }
-  if (normalized === "when_good_time" || normalized.includes("good time")) {
-    return "when_good_time";
-  }
-  return "when_good_time";
 }
 
 function getPingId(idempotencyKey: string, userId: string) {
@@ -69,7 +53,7 @@ export async function GET() {
     pings: pings.map((ping) => ({
       id: ping.id,
       requester: callerMap.get(ping.callerId) ?? ping.callerId,
-      topic: questionLabels[ping.question] ?? ping.question,
+      topic: PING_QUESTION_LABELS[ping.question] ?? ping.question,
       status: mapStatus(ping.response),
       createdAt: ping.createdAt.toISOString(),
     })),
@@ -93,11 +77,21 @@ export async function POST(request: Request) {
 
   const topic = payload.topic?.trim();
   const requestedFor = payload.requestedFor?.trim();
+  const details = payload.details?.trim();
 
   if (!topic || !requestedFor) {
     return jsonError("Missing required fields", 400, "invalid_payload", {
       required: ["topic", "requestedFor"],
     });
+  }
+
+  if (details) {
+    return jsonError("Ping details are not allowed", 400, "details_not_allowed");
+  }
+
+  const question = parseAvailabilityQuestion(topic);
+  if (!question) {
+    return jsonError("Invalid ping topic", 400, "invalid_topic");
   }
 
   const receiver = await prisma.user.findFirst({
@@ -135,7 +129,7 @@ export async function POST(request: Request) {
         ping: {
           id: existingPing.id,
           requester: auth.user.name ?? auth.user.email ?? auth.user.id,
-          topic: questionLabels[existingPing.question] ?? existingPing.question,
+          topic: PING_QUESTION_LABELS[existingPing.question] ?? existingPing.question,
           status: mapStatus(existingPing.response),
           createdAt: existingPing.createdAt.toISOString(),
         },
@@ -150,8 +144,6 @@ export async function POST(request: Request) {
       return jsonError("Insufficient balance", 400, "insufficient_balance");
     }
   }
-
-  const question = mapTopicToQuestion(topic);
 
   const { ping } = await prisma.$transaction(async (tx) => {
     const ledgerEntry = await tx.ledgerEntry.findUnique({
@@ -196,7 +188,7 @@ export async function POST(request: Request) {
       ping: {
         id: ping.id,
         requester: auth.user.name ?? auth.user.email ?? auth.user.id,
-        topic: questionLabels[ping.question] ?? ping.question,
+        topic: PING_QUESTION_LABELS[ping.question] ?? ping.question,
         status: mapStatus(ping.response),
         createdAt: ping.createdAt.toISOString(),
       },

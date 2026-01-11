@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,18 +15,18 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
-  if (!userId) return new Response("Missing userId", { status: 400 });
+  if (!userId) return jsonError("Missing userId", 400, "invalid_payload");
 
   const existing = await prisma.depositAddress.findUnique({
     where: { userId },
   });
 
   if (!existing) {
-    return new Response("Deposit address not found", { status: 404 });
+    return jsonError("Deposit address not found", 404, "not_found");
   }
 
   return Response.json({ ok: true, userId, tronAddress: existing.tronAddress });
@@ -41,13 +42,13 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { userId, tronAddress } = body;
 
   if (!userId || !tronAddress) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   const assigned = await prisma.depositAddress.upsert({

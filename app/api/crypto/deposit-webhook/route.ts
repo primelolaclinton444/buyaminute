@@ -4,6 +4,7 @@
 // ================================
 
 import { prisma } from "@/lib/prisma";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,12 +17,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const secret = process.env.DEPOSIT_WEBHOOK_SECRET;
   if (!secret) {
-    return new Response("Server misconfigured", { status: 500 });
+    return jsonError("Server misconfigured", 500, "server_error");
   }
 
   const incoming = req.headers.get("x-deposit-secret");
   if (incoming !== secret) {
-    return new Response("Unauthorized", { status: 401 });
+    return jsonError("Unauthorized", 401, "unauthorized");
   }
 
   const body = await req.json();
@@ -35,10 +36,10 @@ export async function POST(req: Request) {
     !txHash ||
     confirmations === undefined
   ) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
   if (!Number.isInteger(amountUsdtAtomic) || amountUsdtAtomic <= 0) {
-    return new Response("Invalid amountUsdtAtomic", { status: 400 });
+    return jsonError("Invalid amountUsdtAtomic", 400, "invalid_amount");
   }
 
   // Idempotency: do nothing if tx already recorded

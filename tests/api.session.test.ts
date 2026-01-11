@@ -106,6 +106,16 @@ describe("Wallet ledger and withdrawal", () => {
     expect(json.ok).toBe(true);
     expect(json.withdrawalId).toBeTruthy();
 
+    const lockedWallet = await prisma.wallet.findUnique({
+      where: { userId },
+    });
+    expect(lockedWallet?.lockedTokens).toBe(200);
+
+    const debitEntry = await prisma.ledgerEntry.findFirst({
+      where: { withdrawalRequestId: json.withdrawalId, type: "debit" },
+    });
+    expect(debitEntry).toBeNull();
+
     const secondRes = await withdrawPOST(makeRequest());
     const secondJson = await secondRes.json();
     expect(secondRes.status).toBe(200);

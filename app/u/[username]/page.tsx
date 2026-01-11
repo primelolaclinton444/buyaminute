@@ -10,12 +10,12 @@ import Modal from "@/components/ui/Modal";
 import Skeleton from "@/components/ui/Skeleton";
 import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
-import Input from "@/components/ui/Input";
 import {
   profileApi,
   type ProfileResponse,
   type BrowseProfile,
 } from "@/lib/api";
+import { PING_QUESTION_OPTIONS } from "@/lib/pings";
 import styles from "./page.module.css";
 
 type StatusVariant = "success" | "warning" | "danger";
@@ -41,7 +41,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("About");
   const [showModal, setShowModal] = useState(false);
-  const [pingTopic, setPingTopic] = useState("Quick feedback");
+  const [pingTopic, setPingTopic] = useState(
+    PING_QUESTION_OPTIONS[0]?.id ?? ""
+  );
 
   const loadProfile = useCallback(async () => {
     try {
@@ -178,12 +180,23 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         }
       >
         <p>Share what you need help with and we will notify {profile?.name ?? "them"}.</p>
-        <Input
-          label="Topic"
-          value={pingTopic}
-          onChange={(event) => setPingTopic(event.target.value)}
-          placeholder="Feedback on pricing page"
-        />
+        <div className={styles.questionGroup}>
+          <p className={styles.helperText}>Choose a preset question:</p>
+          <div className={styles.questionOptions}>
+            {PING_QUESTION_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                className={
+                  pingTopic === option.id ? styles.optionActive : styles.option
+                }
+                onClick={() => setPingTopic(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </Modal>
     </AuthGuard>
   );

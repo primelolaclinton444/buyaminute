@@ -3,12 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
 import { ensureLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
-import { MIN_CALL_BALANCE_SECONDS } from "@/lib/constants";
+import { CALL_REQUEST_WINDOW_MS, MIN_CALL_BALANCE_SECONDS } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const REQUEST_WINDOW_MS = 20_000;
 
 function getCallId(idempotencyKey: string, callerId: string) {
   const digest = createHash("sha256")
@@ -129,7 +127,7 @@ export async function POST(req: Request) {
         return jsonError("Unauthorized", 403, "forbidden");
       }
       const expiresAt = new Date(
-        existing.createdAt.getTime() + REQUEST_WINDOW_MS
+        existing.createdAt.getTime() + CALL_REQUEST_WINDOW_MS
       ).toISOString();
       return Response.json({
         requestId: existing.id,
@@ -166,7 +164,9 @@ export async function POST(req: Request) {
     return created;
   });
 
-  const expiresAt = new Date(call.createdAt.getTime() + REQUEST_WINDOW_MS).toISOString();
+  const expiresAt = new Date(
+    call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS
+  ).toISOString();
 
   return Response.json({
     requestId: call.id,

@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { hasActivePreviewLock } from "@/lib/previewLock";
-import { TOKEN_UNIT_USD } from "@/lib/constants";
+import { CALL_REQUEST_WINDOW_MS, TOKEN_UNIT_USD } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const REQUEST_WINDOW_MS = 20_000;
 
 function formatRatePerMinute(ratePerSecondTokens: number) {
   const perMinuteUsd = ratePerSecondTokens * 60 * TOKEN_UNIT_USD;
@@ -18,7 +16,7 @@ export async function GET() {
   if (!auth.ok) return auth.response;
 
   const now = Date.now();
-  const earliest = new Date(now - REQUEST_WINDOW_MS);
+  const earliest = new Date(now - CALL_REQUEST_WINDOW_MS);
 
   const calls = await prisma.call.findMany({
     where: {
@@ -48,7 +46,9 @@ export async function GET() {
 
   const requests = await Promise.all(
     calls.map(async (call) => {
-      const expiresAt = new Date(call.createdAt.getTime() + REQUEST_WINDOW_MS).toISOString();
+      const expiresAt = new Date(
+        call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS
+      ).toISOString();
       const hasPreview = await hasActivePreviewLock({
         callerId: call.callerId,
         receiverId: call.receiverId,

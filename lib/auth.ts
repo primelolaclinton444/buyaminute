@@ -1,4 +1,5 @@
-import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { argon2id } from "@noble/hashes/argon2";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/api/errors";
@@ -11,9 +12,12 @@ type SessionPayload = {
   exp: number;
 };
 
-const PASSWORD_DELIMITER = ":";
-const PASSWORD_KEY_LENGTH = 64;
 const PASSWORD_SALT_LENGTH = 16;
+const PASSWORD_HASH_LENGTH = 32;
+const ARGON2_VERSION = 19;
+const ARGON2_MEMORY_KIB = 16384;
+const ARGON2_ITERATIONS = 3;
+const ARGON2_PARALLELISM = 1;
 
 function getSessionSecret() {
   const secret = process.env.AUTH_SESSION_SECRET;
@@ -119,16 +123,57 @@ export async function requireAuth() {
 }
 
 export function hashPassword(password: string) {
-  const salt = randomBytes(PASSWORD_SALT_LENGTH).toString("hex");
-  const hash = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString("hex");
-  return ["scrypt", salt, hash].join(PASSWORD_DELIMITER);
+  const salt = randomBytes(PASSWORD_SALT_LENGTH);
+  const hash = argon2id(password, salt, {
+    m: ARGON2_MEMORY_KIB,
+    t: ARGON2_ITERATIONS,
+    p: ARGON2_PARALLELISM,
+    dkLen: PASSWORD_HASH_LENGTH,
+    version: ARGON2_VERSION,
+  });
+  const saltEncoded = Buffer.from(salt).toString("base64");
+  const hashEncoded = Buffer.from(hash).toString("base64");
+  return `$argon2id$v=${ARGON2_VERSION}$m=${ARGON2_MEMORY_KIB},t=${ARGON2_ITERATIONS},p=${ARGON2_PARALLELISM}$${saltEncoded}$${hashEncoded}`;
 }
 
 export function verifyPassword(password: string, stored: string) {
-  const [method, salt, hash] = stored.split(PASSWORD_DELIMITER);
-  if (method !== "scrypt" || !salt || !hash) {
+  const match = stored.match(
+    /^\$argon2id\$v=(\d+)\$m=(\d+),t=(\d+),p=(\d+)\$([^$]+)\$([^$]+)$/
+  );
+  if (!match) {
     return false;
   }
-  const derived = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString("hex");
-  return timingSafeEqual(Buffer.from(hash), Buffer.from(derived));
+  const [, versionRaw, memoryRaw, iterationsRaw, parallelismRaw, saltEncoded, hashEncoded] = match;
+  const version = Number(versionRaw);
+  const memory = Number(memoryRaw);
+  const iterations = Number(iterationsRaw);
+  const parallelism = Number(parallelismRaw);
+  if (
+    !Number.isFinite(version) ||
+    !Number.isFinite(memory) ||
+    !Number.isFinite(iterations) ||
+    !Number.isFinite(parallelism) ||
+    version <= 0 ||
+    memory <= 0 ||
+    iterations <= 0 ||
+    parallelism <= 0
+  ) {
+    return false;
+  }
+  const salt = Buffer.from(saltEncoded, "base64");
+  const storedHash = Buffer.from(hashEncoded, "base64");
+  if (!salt.length || !storedHash.length) {
+    return false;
+  }
+  const derived = argon2id(password, salt, {
+    m: memory,
+    t: iterations,
+    p: parallelism,
+    dkLen: storedHash.length,
+    version,
+  });
+  if (storedHash.length !== derived.length) {
+    return false;
+  }
+  return timingSafeEqual(Buffer.from(storedHash), Buffer.from(derived));
 }

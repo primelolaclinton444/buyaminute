@@ -16,7 +16,7 @@ import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { createSessionToken } from "../lib/auth";
 import { appendLedgerEntry } from "../lib/ledger";
-import { MIN_CALL_BALANCE_SECONDS } from "../lib/constants";
+import { CALL_REQUEST_WINDOW_MS, MIN_CALL_BALANCE_SECONDS } from "../lib/constants";
 import { GET as sessionGET } from "../app/api/auth/session/route";
 import { GET as ledgerGET } from "../app/api/wallet/ledger/route";
 import { POST as withdrawPOST } from "../app/api/wallet/withdraw/route";
@@ -250,6 +250,42 @@ describe("UI call lifecycle", () => {
     );
     const receiptJson = await receiptRes.json();
     expect(receiptJson.receipt?.id).toBe(callId);
+  });
+
+  it("rejects accept responses after the request window expires", async () => {
+    setSession(callerId);
+    const requestRes = await requestCallPOST(
+      new Request("http://localhost/api/calls/request", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: receiverId,
+          mode: "voice",
+        }),
+      })
+    );
+    const requestJson = await requestRes.json();
+    expect(requestRes.status).toBe(200);
+    const callId = requestJson.requestId as string;
+
+    await prisma.call.update({
+      where: { id: callId },
+      data: {
+        createdAt: new Date(Date.now() - CALL_REQUEST_WINDOW_MS - 1_000),
+      },
+    });
+
+    setSession(receiverId);
+    const acceptRes = await respondPOST(
+      new Request("http://localhost/api/calls/respond", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ requestId: callId, action: "accept" }),
+      })
+    );
+    const acceptJson = await acceptRes.json();
+    expect(acceptRes.status).toBe(410);
+    expect(acceptJson.error?.code).toBe("request_expired");
   });
 
   it("refunds preauth when a receiver declines", async () => {

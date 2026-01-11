@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/api/errors";
 import { settleEndedCall } from "@/lib/settlement";
-import { PREVIEW_SECONDS, TOKEN_UNIT_USD } from "@/lib/constants";
+import {
+  CALL_REQUEST_WINDOW_MS,
+  PREVIEW_SECONDS,
+  TOKEN_UNIT_USD,
+} from "@/lib/constants";
 
 type CallAction = "accept" | "decline";
 
@@ -36,6 +40,11 @@ export async function respondToCall({
 
   if (call.receiverId !== userId) {
     return jsonError("Unauthorized", 403, "forbidden");
+  }
+
+  const expiresAtMs = call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS;
+  if (Date.now() > expiresAtMs) {
+    return jsonError("Request expired", 410, "request_expired");
   }
 
   if (action === "accept") {

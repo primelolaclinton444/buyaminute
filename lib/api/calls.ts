@@ -8,6 +8,7 @@ import {
 } from "@/lib/constants";
 
 type CallAction = "accept" | "decline";
+type ViewerRole = "caller" | "receiver";
 
 function formatDuration(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60)
@@ -48,6 +49,19 @@ export async function respondToCall({
   }
 
   if (action === "accept") {
+    if (call.mode === "video") {
+      const receiverProfile = await prisma.receiverProfile.findUnique({
+        where: { userId: call.receiverId },
+        select: { isVideoEnabled: true },
+      });
+      if (!receiverProfile?.isVideoEnabled) {
+        return jsonError(
+          "Receiver does not allow video calls.",
+          400,
+          "VIDEO_NOT_ALLOWED"
+        );
+      }
+    }
     if (call.status !== "ended") {
       await prisma.call.update({
         where: { id: call.id },
@@ -103,12 +117,16 @@ export async function getCallState({
     users.map((user) => [user.id, user.name ?? user.email ?? user.id])
   );
 
+  const viewerRole: ViewerRole =
+    call.callerId === userId ? "caller" : "receiver";
+
   return Response.json({
     call: {
       id: call.id,
       caller: userMap.get(call.callerId) ?? call.callerId,
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
-      mode: "voice",
+      mode: call.mode === "video" ? "video" : "voice",
+      viewerRole,
     },
   });
 }
@@ -173,6 +191,8 @@ export async function getCallReceipt({
   const userMap = new Map(
     users.map((user) => [user.id, user.name ?? user.email ?? user.id])
   );
+  const viewerRole: ViewerRole =
+    call.callerId === userId ? "caller" : "receiver";
 
   const ledgerEntries = await prisma.ledgerEntry.findMany({
     where: {
@@ -191,6 +211,17 @@ export async function getCallReceipt({
 
   const totalChargedTokens = Math.max(0, debits - credits);
   const refundedTokens = Math.max(0, credits);
+
+  const receiverEntries = await prisma.ledgerEntry.findMany({
+    where: {
+      callId: call.id,
+      userId: call.receiverId,
+      source: "call_billing",
+    },
+  });
+  const receiverEarningsTokens = receiverEntries
+    .filter((entry) => entry.type === "credit")
+    .reduce((sum, entry) => sum + entry.amountTokens, 0);
 
   const durationSeconds =
     call.participants?.bothConnectedAt && call.endedAt
@@ -213,9 +244,12 @@ export async function getCallReceipt({
       caller: userMap.get(call.callerId) ?? call.callerId,
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
       duration: formatDuration(durationSeconds),
+      durationSeconds,
       previewApplied: formatDuration(previewSeconds),
       totalCharged: formatUsd(totalChargedTokens),
       refunded: formatUsd(refundedTokens),
+      earned: formatUsd(receiverEarningsTokens),
+      viewerRole,
     },
   });
 }

@@ -96,6 +96,7 @@ model Call {
   id         String   @id @default(cuid())
   callerId   String
   receiverId String
+  mode       String   @default("voice")
   status     String
   createdAt  DateTime @default(now())
   endedAt    DateTime?

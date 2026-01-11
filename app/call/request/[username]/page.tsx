@@ -18,6 +18,7 @@ type RequestState =
   | "timeout"
   | "insufficient"
   | "offline"
+  | "video_not_allowed"
   | "accepted";
 
 export default function CallRequestPage() {
@@ -28,10 +29,21 @@ export default function CallRequestPage() {
   const [secondsLeft, setSecondsLeft] = useState<number>(20);
   const [loading, setLoading] = useState(false);
   const [intendedMinutes, setIntendedMinutes] = useState<number>(5);
+  const [profileRate, setProfileRate] = useState<number | null>(null);
+  const [videoAllowed, setVideoAllowed] = useState(true);
+  const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">(
+    "idle"
+  );
 
   const statusTone = useMemo(() => {
     if (requestState === "accepted") return "success";
-    if (requestState === "insufficient" || requestState === "offline") return "danger";
+    if (
+      requestState === "insufficient" ||
+      requestState === "offline" ||
+      requestState === "video_not_allowed"
+    ) {
+      return "danger";
+    }
     if (requestState === "pending" || requestState === "timeout") return "warning";
     return undefined;
   }, [requestState]);
@@ -58,6 +70,11 @@ export default function CallRequestPage() {
           title: "Receiver offline",
           body: "They are not accepting calls right now. Check again later.",
         };
+      case "video_not_allowed":
+        return {
+          title: "Video unavailable",
+          body: "This receiver only accepts voice calls right now.",
+        };
       case "accepted":
         return {
           title: "Request accepted",
@@ -83,6 +100,41 @@ export default function CallRequestPage() {
     return () => window.clearTimeout(timer);
   }, [requestState, secondsLeft]);
 
+  useEffect(() => {
+    async function loadProfile() {
+      setProfileStatus("loading");
+      try {
+        const res = await fetch(
+          `/api/profile?username=${encodeURIComponent(username)}`
+        );
+        if (!res.ok) {
+          setProfileStatus("error");
+          return;
+        }
+        const data = (await res.json()) as {
+          profile?: { rate?: number; videoAllowed?: boolean };
+        };
+        setProfileRate(data.profile?.rate ?? null);
+        setVideoAllowed(data.profile?.videoAllowed ?? true);
+        setProfileStatus("idle");
+      } catch {
+        setProfileStatus("error");
+      }
+    }
+    loadProfile();
+  }, [username]);
+
+  useEffect(() => {
+    if (!videoAllowed && mode === "video") {
+      setMode("voice");
+    }
+  }, [videoAllowed, mode]);
+
+  const availableModes = useMemo(
+    () => (videoAllowed ? modeOptions : modeOptions.filter((option) => option.id === "voice")),
+    [videoAllowed]
+  );
+
   async function handleRequest() {
     setLoading(true);
     try {
@@ -96,6 +148,15 @@ export default function CallRequestPage() {
         body: JSON.stringify({ username, mode, minIntendedSeconds }),
       });
       const payload = await res.json();
+      if (!res.ok) {
+        if (payload?.error?.code === "VIDEO_NOT_ALLOWED") {
+          setRequestState("video_not_allowed");
+        } else {
+          setRequestState("offline");
+        }
+        setRequestId(null);
+        return;
+      }
       setRequestId(payload.requestId ?? null);
       setRequestState(payload.status ?? "pending");
       setSecondsLeft(20);
@@ -109,12 +170,12 @@ export default function CallRequestPage() {
   function handleModeKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
     event.preventDefault();
-    const currentIndex = modeOptions.findIndex((option) => option.id === mode);
+    const currentIndex = availableModes.findIndex((option) => option.id === mode);
     const nextIndex =
       event.key === "ArrowRight"
-        ? (currentIndex + 1) % modeOptions.length
-        : (currentIndex - 1 + modeOptions.length) % modeOptions.length;
-    setMode(modeOptions[nextIndex].id);
+        ? (currentIndex + 1) % availableModes.length
+        : (currentIndex - 1 + availableModes.length) % availableModes.length;
+    setMode(availableModes[nextIndex].id);
   }
 
   return (
@@ -136,7 +197,14 @@ export default function CallRequestPage() {
                 <h2>Call details</h2>
                 <p className={styles.subtitle}>Choose your preferred mode.</p>
               </div>
-              <span className={styles.pill}>Rate: $3.25 / min</span>
+              <span className={styles.pill}>
+                Rate:{" "}
+                {profileStatus === "loading"
+                  ? "Loading…"
+                  : profileRate !== null
+                    ? `$${profileRate.toFixed(2)} / min`
+                    : "—"}
+              </span>
             </div>
 
             <div
@@ -145,7 +213,7 @@ export default function CallRequestPage() {
               aria-label="Choose call mode"
               onKeyDown={handleModeKeyDown}
             >
-              {modeOptions.map((option) => (
+              {availableModes.map((option) => (
                 <button
                   key={option.id}
                   type="button"
@@ -172,6 +240,10 @@ export default function CallRequestPage() {
                   aria-label="Intended minutes"
                   onChange={(event) => setIntendedMinutes(Number(event.target.value))}
                 />
+                <span className={styles.subtitle}>
+                  Minimum to start: 1 minute worth of credits. Billing is per-second
+                  after any free preview.
+                </span>
               </label>
             </div>
 

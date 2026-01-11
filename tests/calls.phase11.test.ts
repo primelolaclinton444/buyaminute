@@ -215,4 +215,98 @@ describe("Internal call flow", () => {
     });
     expect(refund).toBeTruthy();
   });
+
+  it("rejects video call creation when receiver disables video", async () => {
+    const ratePerSecondTokens = 2;
+    const txHash = `seed-${randomUUID()}`;
+
+    await prisma.receiverProfile.upsert({
+      where: { userId: receiverId },
+      create: {
+        userId: receiverId,
+        ratePerSecondTokens,
+        isAvailable: true,
+        isVideoEnabled: false,
+      },
+      update: {
+        ratePerSecondTokens,
+        isAvailable: true,
+        isVideoEnabled: false,
+      },
+    });
+
+    await appendLedgerEntry({
+      userId: callerId,
+      type: "credit",
+      amountTokens: MIN_CALL_BALANCE_SECONDS * ratePerSecondTokens,
+      source: "crypto_deposit",
+      txHash,
+      idempotencyKey: txHash,
+    });
+
+    const createRes = await createCallPOST(
+      makeInternalRequest("http://localhost/api/calls/create", {
+        callerId,
+        receiverId,
+        mode: "video",
+      })
+    );
+    const createJson = (await createRes.json()) as { error?: { code?: string } };
+    expect(createRes.status).toBe(400);
+    expect(createJson.error?.code).toBe("VIDEO_NOT_ALLOWED");
+  });
+
+  it("blocks video accept when receiver toggles video off", async () => {
+    const ratePerSecondTokens = 2;
+    const txHash = `seed-${randomUUID()}`;
+
+    await prisma.receiverProfile.upsert({
+      where: { userId: receiverId },
+      create: {
+        userId: receiverId,
+        ratePerSecondTokens,
+        isAvailable: true,
+        isVideoEnabled: true,
+      },
+      update: {
+        ratePerSecondTokens,
+        isAvailable: true,
+        isVideoEnabled: true,
+      },
+    });
+
+    await appendLedgerEntry({
+      userId: callerId,
+      type: "credit",
+      amountTokens: MIN_CALL_BALANCE_SECONDS * ratePerSecondTokens,
+      source: "crypto_deposit",
+      txHash,
+      idempotencyKey: txHash,
+    });
+
+    const createRes = await createCallPOST(
+      makeInternalRequest("http://localhost/api/calls/create", {
+        callerId,
+        receiverId,
+        mode: "video",
+      })
+    );
+    const createJson = (await createRes.json()) as { callId?: string };
+    expect(createRes.status).toBe(200);
+    expect(createJson.callId).toBeTruthy();
+
+    await prisma.receiverProfile.update({
+      where: { userId: receiverId },
+      data: { isVideoEnabled: false },
+    });
+
+    const acceptRes = await acceptCallPOST(
+      makeInternalRequest("http://localhost/api/calls/accept", {
+        callId: createJson.callId,
+      })
+    );
+    const acceptJson = (await acceptRes.json()) as { error?: { code?: string } };
+    expect(acceptRes.status).toBe(400);
+    expect(acceptJson.error?.code).toBe("VIDEO_NOT_ALLOWED");
+  });
 });

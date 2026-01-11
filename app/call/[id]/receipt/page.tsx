@@ -11,14 +11,19 @@ type Receipt = {
   caller: string;
   receiver: string;
   duration: string;
+  durationSeconds: number;
   previewApplied: string;
   totalCharged: string;
   refunded: string;
+  earned: string;
+  viewerRole: "caller" | "receiver";
 };
 
 export default function CallReceiptPage() {
   const { id } = useParams<{ id: string }>();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [shareGateOpen, setShareGateOpen] = useState(true);
+  const [shareGateReady, setShareGateReady] = useState(false);
 
   useEffect(() => {
     async function loadReceipt() {
@@ -29,6 +34,37 @@ export default function CallReceiptPage() {
     loadReceipt();
   }, [id]);
 
+  useEffect(() => {
+    setShareGateOpen(true);
+    setShareGateReady(false);
+    const timer = window.setTimeout(() => {
+      setShareGateReady(true);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [id]);
+
+  const shareCopy = receipt
+    ? receipt.viewerRole === "receiver"
+      ? `You earned ${receipt.earned} in ${(
+          receipt.durationSeconds / 60
+        ).toFixed(2)} minutes.`
+      : `You paid ${receipt.totalCharged} to talk to @${receipt.receiver}.`
+    : "Time has value.";
+
+  function handleShare(platform: "x" | "instagram" | "whatsapp") {
+    if (!receipt) return;
+    const text = encodeURIComponent(`${shareCopy} Time has value.`);
+    if (platform === "x") {
+      window.open(`https://x.com/intent/tweet?text=${text}`, "_blank");
+      return;
+    }
+    if (platform === "whatsapp") {
+      window.open(`https://wa.me/?text=${text}`, "_blank");
+      return;
+    }
+    window.open("https://www.instagram.com", "_blank");
+  }
+
   return (
     <AuthGuard>
       <main className={styles.page}>
@@ -37,7 +73,7 @@ export default function CallReceiptPage() {
             <p className={styles.pill}>Receipt</p>
             <h1>Call receipt</h1>
             <p className={styles.subtitle}>
-              Review the call total, preview time, and any refunds applied.
+              Review the call total, preview time, and any credits returned.
             </p>
           </header>
 
@@ -75,7 +111,7 @@ export default function CallReceiptPage() {
                   <strong>{receipt.totalCharged}</strong>
                 </div>
                 <div>
-                  <p className={styles.subtitle}>Refunded</p>
+                  <p className={styles.subtitle}>Credits returned</p>
                   <strong>{receipt.refunded}</strong>
                 </div>
               </div>
@@ -105,6 +141,65 @@ export default function CallReceiptPage() {
             </div>
           </section>
         </div>
+
+        {shareGateOpen ? (
+          <div className={styles.shareGate}>
+            <div className={styles.shareGateCard}>
+              <p className={styles.pill}>Share</p>
+              <h2>Time has value.</h2>
+              <p className={styles.subtitle}>
+                {receipt ? (
+                  receipt.viewerRole === "receiver" ? (
+                    <>
+                      You earned {receipt.earned} in{" "}
+                      {(receipt.durationSeconds / 60).toFixed(2)} minutes.
+                    </>
+                  ) : (
+                    <>
+                      You paid {receipt.totalCharged} to talk to @
+                      {receipt.receiver}.
+                    </>
+                  )
+                ) : (
+                  "Fetching receipt details…"
+                )}
+              </p>
+              <div className={styles.grid}>
+                <button
+                  className={styles.button}
+                  type="button"
+                  onClick={() => handleShare("x")}
+                >
+                  Share on X
+                </button>
+                <button
+                  className={styles.button}
+                  type="button"
+                  onClick={() => handleShare("instagram")}
+                >
+                  Instagram Stories
+                </button>
+                <button
+                  className={styles.button}
+                  type="button"
+                  onClick={() => handleShare("whatsapp")}
+                >
+                  WhatsApp
+                </button>
+              </div>
+              <div className={styles.row}>
+                <button
+                  className={styles.button}
+                  type="button"
+                  disabled={!shareGateReady}
+                  onClick={() => setShareGateOpen(false)}
+                >
+                  {shareGateReady ? "Continue" : "Continue in 1s…"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </main>
     </AuthGuard>
   );

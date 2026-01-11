@@ -42,7 +42,7 @@ function getDatasourceProvider() {
   const schemaPath = path.join(process.cwd(), "prisma", "schema.prisma");
   try {
     const schema = fs.readFileSync(schemaPath, "utf8");
-    const match = schema.match(/datasource\\s+\\w+\\s*{[^}]*provider\\s*=\\s*"([^"]+)"/s);
+    const match = schema.match(/datasource\s+\w+\s*{[^}]*provider\s*=\s*"([^"]+)"/s);
     return match?.[1] || null;
   } catch {
     return null;

@@ -22,7 +22,7 @@ export default function CallReceiptPage() {
 
   useEffect(() => {
     async function loadReceipt() {
-      const res = await fetch(`/api/calls/mock/receipt?id=${id}`);
+      const res = await fetch(`/api/calls/receipt?id=${id}`);
       const data = await res.json();
       setReceipt(data.receipt ?? null);
     }

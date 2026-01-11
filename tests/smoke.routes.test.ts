@@ -11,8 +11,8 @@ import CallIncomingPage from "../app/call/incoming/page";
 import CallSessionPage from "../app/call/[id]/page";
 import CallReceiptPage from "../app/call/[id]/receipt/page";
 import { buildAuthRedirect } from "../components/auth/AuthGuard";
-import { GET as getIncoming } from "../app/api/calls/mock/incoming/route";
-import { POST as postRequest } from "../app/api/calls/mock/request/route";
+import { GET as getIncoming } from "../app/api/calls/incoming/route";
+import { POST as postRequest } from "../app/api/calls/request/route";
 
 describe("Route smoke tests", () => {
   it("loads landing, auth, and call page modules", () => {
@@ -35,19 +35,19 @@ describe("Route smoke tests", () => {
     );
   });
 
-  it("returns mock incoming requests", async () => {
+  it("returns incoming requests", async () => {
     const res = await getIncoming();
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
   });
 
-  it("accepts mock request payloads", async () => {
+  it("accepts call request payloads", async () => {
     const res = await postRequest(
-      new Request("http://localhost/api/calls/mock/request", {
+      new Request("http://localhost/api/calls/request", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ username: "demo", mode: "voice" }),
       })
     );
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
   });
 });

@@ -5,6 +5,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { requireAuth } from "@/lib/auth";
+import { jsonError } from "@/lib/api/errors";
 import { settleEndedCall } from "@/lib/settlement";
 
 export const runtime = "nodejs";
@@ -15,7 +17,7 @@ export const dynamic = "force-dynamic";
  * Body:
  * {
  *   callId: string,
- *   endedBy: "caller" | "receiver" | "system"
+ *   endedBy?: "caller" | "receiver" | "system"
  * }
  *
  * Rules:
@@ -25,18 +27,30 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   // Phase 11 gate
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  const session = gate.ok ? null : await requireAuth();
+  if (!gate.ok && !session.ok) {
+    if (gate.status === 500) {
+      return new Response(gate.msg, { status: gate.status });
+    }
+    return session.response;
+  }
 
   const body = await req.json();
-  const { callId, endedBy } = body;
+  const { callId } = body ?? {};
 
-  if (!callId || !endedBy) {
-    return new Response("Invalid payload", { status: 400 });
+  if (!callId) {
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   const call = await prisma.call.findUnique({ where: { id: callId } });
   if (!call) {
-    return new Response("Call not found", { status: 404 });
+    return jsonError("Call not found", 404, "not_found");
+  }
+
+  if (!gate.ok) {
+    if (call.callerId !== session.user.id && call.receiverId !== session.user.id) {
+      return jsonError("Unauthorized", 403, "forbidden");
+    }
   }
 
   if (call.status === "ended") {

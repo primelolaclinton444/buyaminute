@@ -20,24 +20,14 @@ type RequestState =
   | "offline"
   | "accepted";
 
-const scenarioOptions = [
-  { id: "pending", label: "Pending" },
-  { id: "timeout", label: "Timeout" },
-  { id: "insufficient", label: "Insufficient balance" },
-  { id: "offline", label: "Receiver offline" },
-  { id: "accepted", label: "Accepted" },
-] as const;
-
-type Scenario = (typeof scenarioOptions)[number]["id"];
-
 export default function CallRequestPage() {
   const { username } = useParams<{ username: string }>();
   const [mode, setMode] = useState<Mode>("voice");
-  const [scenario, setScenario] = useState<Scenario>("pending");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestId, setRequestId] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number>(20);
   const [loading, setLoading] = useState(false);
+  const [intendedMinutes, setIntendedMinutes] = useState<number>(5);
 
   const statusTone = useMemo(() => {
     if (requestState === "accepted") return "success";
@@ -96,10 +86,14 @@ export default function CallRequestPage() {
   async function handleRequest() {
     setLoading(true);
     try {
-      const res = await fetch("/api/calls/mock/request", {
+      const minIntendedSeconds =
+        Number.isFinite(intendedMinutes) && intendedMinutes > 0
+          ? Math.round(intendedMinutes * 60)
+          : undefined;
+      const res = await fetch("/api/calls/request", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, mode, scenario }),
+        body: JSON.stringify({ username, mode, minIntendedSeconds }),
       });
       const payload = await res.json();
       setRequestId(payload.requestId ?? null);
@@ -169,27 +163,14 @@ export default function CallRequestPage() {
 
             <div className={styles.grid}>
               <label>
-                Simulate response
-                <select
-                  className={styles.select}
-                  value={scenario}
-                  onChange={(event) => setScenario(event.target.value as Scenario)}
-                >
-                  {scenarioOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
                 Intended minutes
                 <input
                   className={styles.input}
                   type="number"
                   min={1}
-                  defaultValue={5}
+                  value={intendedMinutes}
                   aria-label="Intended minutes"
+                  onChange={(event) => setIntendedMinutes(Number(event.target.value))}
                 />
               </label>
             </div>

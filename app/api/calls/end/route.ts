@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   const session = gate.ok ? null : await requireAuth();
   if (!gate.ok && !session.ok) {
     if (gate.status === 500) {
-      return new Response(gate.msg, { status: gate.status });
+      return jsonError(gate.msg, gate.status, "server_error");
     }
     return session.response;
   }

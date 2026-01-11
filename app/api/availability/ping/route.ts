@@ -8,6 +8,7 @@ import { requireInternalKey } from "@/lib/internalAuth";
 import { appendLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { AVAILABILITY_PING_FEE_TOKENS } from "@/lib/constants";
 import { AvailabilityQuestion } from "@/lib/domain";
+import { jsonError } from "@/lib/api/errors";
 import { createHash, randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -24,29 +25,29 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { callerId, receiverId, question } = body;
 
   if (!callerId || !receiverId || !question) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   if (!Object.values(AvailabilityQuestion).includes(question)) {
-    return new Response("Invalid question", { status: 400 });
+    return jsonError("Invalid question", 400, "invalid_question");
   }
 
   const feeTokens = AVAILABILITY_PING_FEE_TOKENS;
   const idempotencyKey = req.headers.get("idempotency-key")?.trim();
 
   if (feeTokens > 0 && !idempotencyKey) {
-    return new Response("Idempotency key required", { status: 400 });
+    return jsonError("Idempotency key required", 400, "idempotency_key_required");
   }
 
   const balance = await getWalletBalance(callerId);
   if (balance < feeTokens) {
-    return new Response("Insufficient balance", { status: 400 });
+    return jsonError("Insufficient balance", 400, "insufficient_balance");
   }
 
   const effectiveKey = idempotencyKey ?? randomUUID();
@@ -108,14 +109,14 @@ export async function POST(req: Request) {
  */
 export async function GET(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const { searchParams } = new URL(req.url);
   const receiverId = searchParams.get("receiverId");
   const limitParam = searchParams.get("limit");
 
   if (!receiverId) {
-    return new Response("receiverId required", { status: 400 });
+    return jsonError("receiverId required", 400, "invalid_payload");
   }
 
   const parsedLimit = Number(limitParam ?? 5);

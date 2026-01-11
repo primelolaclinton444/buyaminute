@@ -69,6 +69,7 @@ export async function appendLedgerEntryWithClient(
     create: {
       userId: params.userId,
       balanceTokens: delta,
+      lockedTokens: 0,
     },
     update: {
       balanceTokens: { increment: delta },
@@ -113,7 +114,9 @@ export async function getWalletBalance(userId: string): Promise<number> {
     where: { userId },
   });
 
-  return wallet?.balanceTokens ?? 0;
+  const balance = wallet?.balanceTokens ?? 0;
+  const locked = wallet?.lockedTokens ?? 0;
+  return Math.max(0, balance - locked);
 }
 
 /**
@@ -130,5 +133,38 @@ export async function getWalletBalanceFromLedger(userId: string): Promise<number
     _sum: { amountTokens: true },
   });
 
-  return (credits._sum.amountTokens ?? 0) - (debits._sum.amountTokens ?? 0);
+  const balance = (credits._sum.amountTokens ?? 0) - (debits._sum.amountTokens ?? 0);
+  const wallet = await prisma.wallet.findUnique({
+    where: { userId },
+    select: { lockedTokens: true },
+  });
+  const locked = wallet?.lockedTokens ?? 0;
+  return Math.max(0, balance - locked);
+}
+
+export async function getWalletBalanceFromLedgerWithClient(
+  tx: Prisma.TransactionClient,
+  userId: string
+): Promise<{ balanceTokens: number; lockedTokens: number; availableTokens: number }> {
+  const credits = await tx.ledgerEntry.aggregate({
+    where: { userId, type: "credit" },
+    _sum: { amountTokens: true },
+  });
+
+  const debits = await tx.ledgerEntry.aggregate({
+    where: { userId, type: "debit" },
+    _sum: { amountTokens: true },
+  });
+
+  const wallet = await tx.wallet.findUnique({
+    where: { userId },
+    select: { lockedTokens: true },
+  });
+
+  const balanceTokens =
+    (credits._sum.amountTokens ?? 0) - (debits._sum.amountTokens ?? 0);
+  const lockedTokens = wallet?.lockedTokens ?? 0;
+  const availableTokens = Math.max(0, balanceTokens - lockedTokens);
+
+  return { balanceTokens, lockedTokens, availableTokens };
 }

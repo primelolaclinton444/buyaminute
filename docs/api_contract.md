@@ -16,7 +16,7 @@ New/updated endpoints return JSON errors shaped as:
 }
 ```
 
-Legacy endpoints may return plain-text errors or alternate JSON shapes; those are called out per endpoint.
+All endpoints return errors using the JSON error shape unless otherwise specified.
 
 ---
 
@@ -235,18 +235,19 @@ Success (200):
 ```json
 { "pings": [{ "id": "string", "requester": "string", "topic": "string", "status": "new | accepted | missed | completed", "createdAt": "ISO-8601" }] }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/pings
 Request body:
 ```json
-{ "topic": "string", "requestedFor": "string", "details": "string (optional)" }
+{ "topic": "Available now? | Available later today? | When’s a good time?", "requestedFor": "string" }
 ```
 Success (201):
 ```json
 { "ping": { "id": "string", "requester": "string", "topic": "string", "status": "new", "createdAt": "ISO-8601" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
+Notes: `idempotency-key` header is required when fees are charged.
 
 ### GET /api/pings/inbox
 Auth: session cookie required.
@@ -454,14 +455,14 @@ Success (200):
 ```json
 { "ok": true, "userId": "string", "balanceTokens": 0 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/wallet/deposit-address?userId=...
 Success (200):
 ```json
 { "ok": true, "userId": "string", "tronAddress": "string" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/wallet/deposit-address
 Request body:
@@ -472,7 +473,7 @@ Success (200):
 ```json
 { "ok": true, "userId": "string", "tronAddress": "string" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/wallet/withdraw
 Request body:
@@ -483,7 +484,7 @@ Success (200):
 ```json
 { "ok": true, "withdrawalId": "string" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/admin/withdrawals/process
 Request body:
@@ -494,7 +495,7 @@ Success (200):
 ```json
 { "ok": true, "withdrawal": { "id": "string", "userId": "string", "amountTokens": 0, "destinationTronAddress": "string", "status": "pending | sent | failed", "txHash": "string | null", "createdAt": "ISO-8601", "processedAt": "ISO-8601 | null" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/availability/ping
 Request body:
@@ -506,7 +507,7 @@ Success (200):
 { "ok": true, "pingId": "string" }
 ```
 Notes: Uses `idempotency-key` header to avoid double charging ping fees.
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/availability/ping?receiverId=...&limit=...
 Success (200):
@@ -524,7 +525,7 @@ Success (200):
   }
 ] }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/availability/ping/respond
 Request body:
@@ -535,7 +536,7 @@ Success (200):
 ```json
 { "ok": true, "ping": { /* AvailabilityPing */ } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/receiver/profile/upsert
 Request body:
@@ -546,14 +547,14 @@ Success (200):
 ```json
 { "ok": true, "profile": { "userId": "string", "ratePerSecondTokens": 0, "isAvailable": true, "isVideoEnabled": true, "lastRateChangeAt": "ISO-8601 | null", "updatedAt": "ISO-8601" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/receiver/profile/get?userId=...
 Success (200):
 ```json
 { "ok": true, "profile": { "userId": "string", "ratePerSecondTokens": 0, "isAvailable": true, "isVideoEnabled": true, "lastRateChangeAt": "ISO-8601 | null", "updatedAt": "ISO-8601" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/calls/create
 Request body:
@@ -564,7 +565,7 @@ Success (200):
 ```json
 { "ok": true, "callId": "string" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/calls/accept
 Request body:
@@ -575,7 +576,7 @@ Success (200):
 ```json
 { "ok": true }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/calls/end
 Request body:
@@ -586,7 +587,7 @@ Success (200):
 ```json
 { "ok": true }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/user/privacy/earnings
 Request body:
@@ -597,7 +598,7 @@ Success (200):
 ```json
 { "ok": true, "user": { "id": "string", "earningsVisible": true, "earningsVisibilityLockedUntil": "ISO-8601 | null" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ---
 
@@ -618,7 +619,7 @@ These endpoints proxy to the internal secured APIs and return the same response 
 - POST /api/ui/receiver/profile/upsert → /api/receiver/profile/upsert
 - GET /api/ui/receiver/profile/get → /api/receiver/profile/get
 
-Errors: proxied from upstream; rate-limiting errors return plain-text `Too Many Requests` with HTTP 429.
+Errors: proxied from upstream using JSON error shape, including rate-limiting.
 
 ---
 
@@ -634,7 +635,7 @@ Success (200):
 ```json
 { "ok": true }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/crypto/run-watcher
 Headers: `x-cron-secret: <secret>`

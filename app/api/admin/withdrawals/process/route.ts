@@ -5,6 +5,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { jsonError } from "@/lib/api/errors";
+import { appendLedgerEntryWithClient } from "@/lib/ledger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,13 +21,13 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { withdrawalId, txHash } = body;
 
   if (!withdrawalId || !txHash) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   const withdrawal = await prisma.withdrawalRequest.findUnique({
@@ -33,21 +35,57 @@ export async function POST(req: Request) {
   });
 
   if (!withdrawal) {
-    return new Response("Withdrawal not found", { status: 404 });
+    return jsonError("Withdrawal not found", 404, "not_found");
   }
 
   if (withdrawal.status !== "pending") {
     return Response.json({ ok: true, status: withdrawal.status });
   }
 
-  const updated = await prisma.withdrawalRequest.update({
-    where: { id: withdrawalId },
-    data: {
-      status: "sent",
-      txHash,
-      processedAt: new Date(),
-    },
-  });
+  let updated;
+  try {
+    updated = await prisma.$transaction(async (tx) => {
+      const wallet = await tx.wallet.findUnique({
+        where: { userId: withdrawal.userId },
+        select: { lockedTokens: true },
+      });
+
+      if ((wallet?.lockedTokens ?? 0) < withdrawal.amountTokens) {
+        throw new Error("locked_balance_mismatch");
+      }
+
+      await appendLedgerEntryWithClient(tx, {
+        userId: withdrawal.userId,
+        type: "debit",
+        amountTokens: withdrawal.amountTokens,
+        source: "withdrawal",
+        withdrawalRequestId: withdrawal.id,
+        txHash,
+        idempotencyKey: `withdrawal:${withdrawal.id}:debit:${withdrawal.userId}`,
+      });
+
+      await tx.wallet.update({
+        where: { userId: withdrawal.userId },
+        data: {
+          lockedTokens: { decrement: withdrawal.amountTokens },
+        },
+      });
+
+      return tx.withdrawalRequest.update({
+        where: { id: withdrawalId },
+        data: {
+          status: "sent",
+          txHash,
+          processedAt: new Date(),
+        },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message === "locked_balance_mismatch") {
+      return jsonError("Locked balance mismatch", 409, "locked_balance_mismatch");
+    }
+    throw err;
+  }
 
   return Response.json({ ok: true, withdrawal: updated });
 }

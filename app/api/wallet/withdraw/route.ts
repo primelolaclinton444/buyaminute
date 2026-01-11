@@ -7,8 +7,9 @@ import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
-import { appendLedgerEntry, getWalletBalanceFromLedger } from "@/lib/ledger";
+import { getWalletBalanceFromLedgerWithClient } from "@/lib/ledger";
 import { MIN_WITHDRAWAL_TOKENS } from "@/lib/constants";
+import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,8 @@ const TRON_ADDRESS_REGEX = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 
 /**
  * Create a withdrawal request.
- * Tokens are locked immediately via ledger debit.
+ * Tokens are locked immediately on the wallet.
+ * Ledger debit happens during processing.
  * No crypto is sent here.
  */
 export async function POST(req: Request) {
@@ -51,11 +53,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const balance = await getWalletBalanceFromLedger(resolvedUserId);
-  if (balance < resolvedAmount) {
-    return jsonError("Insufficient balance", 400, "insufficient_balance");
-  }
-
   const destination =
     typeof destinationTronAddress === "string" && destinationTronAddress.length > 0
       ? destinationTronAddress
@@ -76,35 +73,70 @@ export async function POST(req: Request) {
     req.headers.get("idempotency-key") ?? req.headers.get("x-idempotency-key") ?? null;
 
   if (rawKey) {
-    const existing = await prisma.ledgerEntry.findUnique({
+    const existing = await prisma.withdrawalRequest.findUnique({
       where: { idempotencyKey: rawKey },
     });
-    if (existing?.withdrawalRequestId) {
-      return Response.json({ ok: true, withdrawalId: existing.withdrawalRequestId });
+    if (existing) {
+      return Response.json({ ok: true, withdrawalId: existing.id });
     }
   }
 
-  // Create withdrawal request
-  const withdrawal = await prisma.withdrawalRequest.create({
-    data: {
-      userId: resolvedUserId,
-      amountTokens: resolvedAmount,
-      destinationTronAddress: destination,
-    },
-  });
+  let withdrawalId: string;
+  try {
+    const withdrawal = await prisma.$transaction(async (tx) => {
+      const { availableTokens } = await getWalletBalanceFromLedgerWithClient(
+        tx,
+        resolvedUserId
+      );
 
-  // Lock tokens immediately (ledger debit)
-  await appendLedgerEntry({
-    userId: resolvedUserId,
-    type: "debit",
-    amountTokens: resolvedAmount,
-    source: "withdrawal",
-    withdrawalRequestId: withdrawal.id,
-    idempotencyKey: rawKey ?? `withdrawal:${withdrawal.id}:debit:${resolvedUserId}`,
-  });
+      if (availableTokens < resolvedAmount) {
+        throw new Error("insufficient_balance");
+      }
+
+      const created = await tx.withdrawalRequest.create({
+        data: {
+          userId: resolvedUserId,
+          amountTokens: resolvedAmount,
+          destinationTronAddress: destination,
+          idempotencyKey: rawKey ?? undefined,
+        },
+      });
+
+      await tx.wallet.upsert({
+        where: { userId: resolvedUserId },
+        create: {
+          userId: resolvedUserId,
+          balanceTokens: 0,
+          lockedTokens: resolvedAmount,
+        },
+        update: {
+          lockedTokens: { increment: resolvedAmount },
+        },
+      });
+
+      return created;
+    });
+
+    withdrawalId = withdrawal.id;
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      if (rawKey) {
+        const existing = await prisma.withdrawalRequest.findUnique({
+          where: { idempotencyKey: rawKey },
+        });
+        if (existing) {
+          return Response.json({ ok: true, withdrawalId: existing.id });
+        }
+      }
+    }
+    if (err instanceof Error && err.message === "insufficient_balance") {
+      return jsonError("Insufficient balance", 400, "insufficient_balance");
+    }
+    throw err;
+  }
 
   return Response.json({
     ok: true,
-    withdrawalId: withdrawal.id,
+    withdrawalId,
   });
 }

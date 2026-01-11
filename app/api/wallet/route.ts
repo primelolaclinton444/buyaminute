@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
 import { hasErrors, parseBody } from "@/lib/api/validation";
-import { appendLedgerEntry, getWalletBalanceFromLedger } from "@/lib/ledger";
+import { getWalletBalanceFromLedger, getWalletBalanceFromLedgerWithClient } from "@/lib/ledger";
 import { MIN_WITHDRAWAL_TOKENS, TOKEN_UNIT_USD } from "@/lib/constants";
+import { Prisma } from "@prisma/client";
 
 type WithdrawPayload = {
   amount: number;
@@ -72,7 +73,23 @@ export async function GET() {
     take: 20,
   });
 
-  const transactions = ledgerEntries.map(mapLedgerToTransaction);
+  const pendingWithdrawals = await prisma.withdrawalRequest.findMany({
+    where: { userId: auth.user.id, status: "pending" },
+    include: { ledgerEntries: { select: { id: true } } },
+  });
+
+  const transactions = [
+    ...ledgerEntries.map(mapLedgerToTransaction),
+    ...pendingWithdrawals
+      .filter((withdrawal) => withdrawal.ledgerEntries.length === 0)
+      .map((withdrawal) => ({
+        id: withdrawal.id,
+        type: "withdrawal" as const,
+        amount: withdrawal.amountTokens,
+        status: "pending" as const,
+        createdAt: withdrawal.createdAt.toISOString(),
+      })),
+  ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 
   return Response.json({
     balanceTokens,
@@ -121,30 +138,55 @@ export async function POST(request: Request) {
     null;
 
   if (rawKey) {
-    const existing = await prisma.ledgerEntry.findUnique({
+    const existing = await prisma.withdrawalRequest.findUnique({
       where: { idempotencyKey: rawKey },
     });
-    if (existing?.withdrawalRequestId) {
+    if (existing) {
       return Response.json({ success: true });
     }
   }
 
-  const withdrawal = await prisma.withdrawalRequest.create({
-    data: {
-      userId: auth.user.id,
-      amountTokens,
-      destinationTronAddress: destination.tronAddress,
-    },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const { availableTokens } = await getWalletBalanceFromLedgerWithClient(
+        tx,
+        auth.user.id
+      );
 
-  await appendLedgerEntry({
-    userId: auth.user.id,
-    type: "debit",
-    amountTokens,
-    source: "withdrawal",
-    withdrawalRequestId: withdrawal.id,
-    idempotencyKey: rawKey ?? `withdrawal:${withdrawal.id}:debit:${auth.user.id}`,
-  });
+      if (availableTokens < amountTokens) {
+        throw new Error("insufficient_balance");
+      }
+
+      const withdrawal = await tx.withdrawalRequest.create({
+        data: {
+          userId: auth.user.id,
+          amountTokens,
+          destinationTronAddress: destination.tronAddress,
+          idempotencyKey: rawKey ?? undefined,
+        },
+      });
+
+      await tx.wallet.upsert({
+        where: { userId: auth.user.id },
+        create: {
+          userId: auth.user.id,
+          balanceTokens: 0,
+          lockedTokens: withdrawal.amountTokens,
+        },
+        update: {
+          lockedTokens: { increment: withdrawal.amountTokens },
+        },
+      });
+    });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return Response.json({ success: true });
+    }
+    if (err instanceof Error && err.message === "insufficient_balance") {
+      return jsonError("Insufficient balance", 400, "insufficient_balance");
+    }
+    throw err;
+  }
 
   return Response.json({ success: true });
 }

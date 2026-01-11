@@ -2,8 +2,14 @@ const { execSync } = require("node:child_process");
 const path = require("node:path");
 const Module = require("node:module");
 
-const databasePath = path.join(__dirname, "..", "prisma", "test.db");
-const databaseUrl = `file:${databasePath}`;
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  console.error(
+    "\n[fatal] DATABASE_URL is not set for tests.\n" +
+      "Set DATABASE_URL to a Postgres test database before running tests.\n"
+  );
+  process.exit(1);
+}
 
 process.env.DATABASE_URL = databaseUrl;
 process.env.NODE_ENV = "test";
@@ -30,7 +36,7 @@ require.extensions[".css"] = (module) => {
   module.exports = {};
 };
 
-execSync("npx prisma db push --force-reset --skip-generate", {
+execSync("npx prisma migrate reset --force --skip-generate", {
   stdio: "inherit",
   env: { ...process.env, DATABASE_URL: databaseUrl },
 });

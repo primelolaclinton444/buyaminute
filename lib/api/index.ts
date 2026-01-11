@@ -89,7 +89,6 @@ export type PingsResponse = {
 export type NewPingPayload = {
   topic: string;
   requestedFor: string;
-  details?: string;
 };
 
 export class ApiError extends Error {
@@ -122,7 +121,8 @@ async function apiFetch<T>(input: RequestInfo, init: RequestInit = {}) {
     const message =
       typeof data === "string" && data
         ? data
-        : `Request failed with status ${res.status}`;
+        : (data as { error?: { message?: string } })?.error?.message ??
+          `Request failed with status ${res.status}`;
     throw new ApiError(message, res.status, data);
   }
 
@@ -176,9 +176,15 @@ export const settingsApi = {
 
 export const pingsApi = {
   getPings: () => apiFetch<PingsResponse>("/api/pings"),
-  createPing: (payload: NewPingPayload) =>
-    apiFetch<{ ping: PingRequest }>("/api/pings", {
+  createPing: (payload: NewPingPayload) => {
+    const idempotencyKey =
+      typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : undefined;
+    return apiFetch<{ ping: PingRequest }>("/api/pings", {
       method: "POST",
+      headers: idempotencyKey ? { "idempotency-key": idempotencyKey } : undefined,
       body: JSON.stringify(payload),
-    }),
+    });
+  },
 };

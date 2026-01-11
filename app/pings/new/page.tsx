@@ -11,13 +11,13 @@ import Skeleton from "@/components/ui/Skeleton";
 import Spinner from "@/components/ui/Spinner";
 import Toast from "@/components/ui/Toast";
 import { pingsApi } from "@/lib/api";
+import { PING_QUESTION_OPTIONS } from "@/lib/pings";
 import styles from "./page.module.css";
 
 export default function NewPingPage() {
   const router = useRouter();
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(PING_QUESTION_OPTIONS[0]?.id ?? "");
   const [requestedFor, setRequestedFor] = useState("");
-  const [details, setDetails] = useState("");
   const [status, setStatus] = useState<"loading" | "idle" | "saving" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -31,17 +31,17 @@ export default function NewPingPage() {
     try {
       setStatus("saving");
       setError(null);
-      await pingsApi.createPing({ topic, requestedFor, details });
+      await pingsApi.createPing({ topic, requestedFor });
       setToastMessage("Ping sent.");
       setTimeout(() => router.push("/pings"), 600);
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Unable to send ping.");
     }
-  }, [topic, requestedFor, details, router]);
+  }, [topic, requestedFor, router]);
 
   const isValid = topic.trim().length > 0 && requestedFor.trim().length > 0;
-  const showEmpty = status === "idle" && !topic && !requestedFor && !details;
+  const showEmpty = status === "idle" && !requestedFor;
 
   return (
     <AuthGuard>
@@ -75,7 +75,6 @@ export default function NewPingPage() {
             <div className={styles.form}>
               <Skeleton style={{ height: 52 }} />
               <Skeleton style={{ height: 52 }} />
-              <Skeleton style={{ height: 52 }} />
             </div>
           ) : null}
 
@@ -84,9 +83,8 @@ export default function NewPingPage() {
               <p>Start by drafting your first ping.</p>
               <Button
                 onClick={() => {
-                  setTopic("Pricing page review");
+                  setTopic(PING_QUESTION_OPTIONS[0]?.id ?? "");
                   setRequestedFor("Avery Park");
-                  setDetails("Need quick feedback on our value prop clarity.");
                 }}
               >
                 Use sample
@@ -96,23 +94,31 @@ export default function NewPingPage() {
 
           <Card>
             <div className={styles.form}>
-              <Input
-                label="Topic"
-                value={topic}
-                onChange={(event) => setTopic(event.target.value)}
-                placeholder="Pricing feedback"
-              />
+              <div className={styles.questionGroup}>
+                <label className={styles.label}>Question</label>
+                <div className={styles.questionOptions}>
+                  {PING_QUESTION_OPTIONS.map((option) => (
+                    <button
+                      key={option.id}
+                      type="button"
+                      className={
+                        topic === option.id ? styles.optionActive : styles.option
+                      }
+                      onClick={() => setTopic(option.id)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <p className={styles.helperText}>
+                  Pings are paid availability checks. Choose a preset question only.
+                </p>
+              </div>
               <Input
                 label="Who is this for?"
                 value={requestedFor}
                 onChange={(event) => setRequestedFor(event.target.value)}
                 placeholder="Avery Park"
-              />
-              <Input
-                label="Details"
-                value={details}
-                onChange={(event) => setDetails(event.target.value)}
-                placeholder="Share context, links, or what you want reviewed."
               />
             </div>
           </Card>

@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
+import { jsonError } from "@/lib/api/errors";
 import { MIN_RATE_PER_SECOND_TOKENS, RATE_CHANGE_COOLDOWN_HOURS } from "@/lib/constants";
 
 export const runtime = "nodejs";
@@ -22,7 +23,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const gate = requireInternalKey(req as any);
-  if (!gate.ok) return new Response(gate.msg, { status: gate.status });
+  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
   const { userId, ratePerSecondTokens, isAvailable, isVideoEnabled } = body;
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     isAvailable === undefined ||
     isVideoEnabled === undefined
   ) {
-    return new Response("Invalid payload", { status: 400 });
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   if (
@@ -41,19 +42,19 @@ export async function POST(req: Request) {
     !Number.isInteger(ratePerSecondTokens) ||
     ratePerSecondTokens <= 0
   ) {
-    return new Response("Invalid ratePerSecondTokens", { status: 400 });
+    return jsonError("Invalid ratePerSecondTokens", 400, "invalid_rate");
   }
 
   if (typeof isAvailable !== "boolean") {
-    return new Response("Invalid isAvailable", { status: 400 });
+    return jsonError("Invalid isAvailable", 400, "invalid_payload");
   }
 
   if (typeof isVideoEnabled !== "boolean") {
-    return new Response("Invalid isVideoEnabled", { status: 400 });
+    return jsonError("Invalid isVideoEnabled", 400, "invalid_payload");
   }
 
   if (ratePerSecondTokens < MIN_RATE_PER_SECOND_TOKENS) {
-    return new Response("Rate below minimum", { status: 400 });
+    return jsonError("Rate below minimum", 400, "invalid_rate");
   }
 
   const existing = await prisma.receiverProfile.findUnique({
@@ -69,7 +70,7 @@ export async function POST(req: Request) {
       existing.lastRateChangeAt.getTime() + RATE_CHANGE_COOLDOWN_HOURS * 60 * 60 * 1000
     );
     if (now < cooldownEnds) {
-      return new Response("Rate change cooldown active", { status: 429 });
+      return jsonError("Rate change cooldown active", 429, "rate_change_cooldown");
     }
   }
 

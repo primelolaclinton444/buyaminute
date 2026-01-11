@@ -4,6 +4,7 @@
 // ================================
 
 import { prisma } from "@/lib/prisma";
+import { jsonError } from "@/lib/api/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export async function GET(req: Request) {
   const userId = searchParams.get("userId");
 
   if (!userId) {
-    return new Response("Missing userId", { status: 400 });
+    return jsonError("Missing userId", 400, "invalid_payload");
   }
 
   const user = await prisma.user.findUnique({
@@ -24,7 +25,7 @@ export async function GET(req: Request) {
   });
 
   if (!user) {
-    return new Response("User not found", { status: 404 });
+    return jsonError("User not found", 404, "not_found");
   }
 
   const response: {

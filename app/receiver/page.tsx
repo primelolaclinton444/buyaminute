@@ -7,6 +7,7 @@ import {
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { PING_QUESTION_LABELS, PING_RESPONSE_LABELS } from "@/lib/pings";
 
 export default function ReceiverPage() {
   type AvailabilityPing = {
@@ -113,17 +114,8 @@ export default function ReceiverPage() {
     void loadPings();
   }, [userId]);
 
-  const questionLabels: Record<string, string> = {
-    available_now: "Are you available now?",
-    available_later: "Are you available later?",
-    when_good_time: "When is a good time?",
-  };
-
-  const responseLabels: Record<string, string> = {
-    available_now: "Available now",
-    available_later: "Available later",
-    not_available: "Not available",
-  };
+  const questionLabels = PING_QUESTION_LABELS;
+  const responseLabels = PING_RESPONSE_LABELS;
 
   return (
     <AuthGuard>

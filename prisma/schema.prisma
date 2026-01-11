@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -46,9 +46,9 @@ model DepositAddress {
 model LedgerEntry {
   id          String   @id @default(cuid())
   userId      String
-  type        LedgerType
+  type        String
   amountTokens Int
-  source      LedgerSource
+  source      String
   callId      String?
   withdrawalRequestId String?
   txHash      String?
@@ -65,18 +65,6 @@ model LedgerEntry {
 
 }
 
-enum LedgerType {
-  credit
-  debit
-}
-
-enum LedgerSource {
-  call_billing
-  crypto_deposit
-  withdrawal
-  availability_ping
-}
-
 // ================================
 // Withdrawals (Manual — MVP)
 // ================================
@@ -86,7 +74,7 @@ model WithdrawalRequest {
   userId                String
   amountTokens          Int
   destinationTronAddress String
-  status                WithdrawalStatus @default(pending)
+  status                String @default("pending")
   txHash                String?
   createdAt             DateTime @default(now())
   processedAt           DateTime?
@@ -105,7 +93,7 @@ model Call {
   id         String   @id @default(cuid())
   callerId   String
   receiverId String
-  status     CallStatus
+  status     String
   createdAt  DateTime @default(now())
   endedAt    DateTime?
 
@@ -133,19 +121,6 @@ model CallerReceiverPreviewLock {
 
   @@unique([callerId, receiverId])
   @@index([previewUsedAt])
-}
-
-enum CallStatus {
-  created
-  ringing
-  connected
-  ended
-}
-
-enum WithdrawalStatus {
-  pending
-  sent
-  failed
 }
 
 
@@ -188,31 +163,13 @@ model AvailabilityPing {
   id         String @id @default(cuid())
   callerId   String
   receiverId String
-  question   AvailabilityQuestion
-  response   AvailabilityResponse?
-  status     AvailabilityPingStatus @default(sent)
+  question   String
+  response   String?
+  status     String @default("sent")
   feeTokens  Int
   createdAt  DateTime @default(now())
   respondedAt DateTime?
 
   @@index([callerId])
   @@index([receiverId])
-}
-
-enum AvailabilityPingStatus {
-  sent
-  delivered
-  replied
-}
-
-enum AvailabilityQuestion {
-  available_now
-  available_later
-  when_good_time
-}
-
-enum AvailabilityResponse {
-  available_now
-  available_later
-  not_available
 }

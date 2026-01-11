@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AvailabilityResponse } from "@prisma/client";
+import { AvailabilityResponse } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";

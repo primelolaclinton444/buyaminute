@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
-import { AvailabilityResponse } from "@prisma/client";
+import { AvailabilityResponse } from "@/lib/domain";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

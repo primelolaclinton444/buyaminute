@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "crypto";
 import { NextResponse } from "next/server";
-import { AvailabilityQuestion, AvailabilityResponse } from "@prisma/client";
+import { AvailabilityQuestion, AvailabilityResponse } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
@@ -15,9 +15,9 @@ const questionLabels: Record<AvailabilityQuestion, string> = {
 
 type PingStatus = "new" | "accepted" | "missed" | "completed";
 
-function mapStatus(response: AvailabilityResponse | null): PingStatus {
+function mapStatus(response: string | null): PingStatus {
   if (!response) return "new";
-  if (response === "not_available") return "missed";
+  if (response === AvailabilityResponse.not_available) return "missed";
   return "accepted";
 }
 

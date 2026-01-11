@@ -3,6 +3,7 @@
 // Phase 11
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { appendLedgerEntry } from "../lib/ledger";
@@ -16,12 +17,17 @@ const callerId = "caller-ping-permissions";
 const receiverId = "receiver-ping-permissions";
 const otherUserId = "other-ping-permissions";
 
-function makeInternalRequest(url: string, body: Record<string, unknown>) {
+function makeInternalRequest(
+  url: string,
+  body: Record<string, unknown>,
+  idempotencyKey = randomUUID()
+) {
   return new Request(url, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-internal-key": process.env.INTERNAL_API_KEY ?? "",
+      "idempotency-key": idempotencyKey,
     },
     body: JSON.stringify(body),
   });
@@ -30,10 +36,15 @@ function makeInternalRequest(url: string, body: Record<string, unknown>) {
 describe("Availability ping permissions", () => {
   beforeAll(async () => {
     process.env.INTERNAL_API_KEY = "test-internal-key";
-    await prisma.user.createMany({
-      data: [{ id: callerId }, { id: receiverId }, { id: otherUserId }],
-      skipDuplicates: true,
-    });
+    await Promise.all(
+      [callerId, receiverId, otherUserId].map((id) =>
+        prisma.user.upsert({
+          where: { id },
+          update: {},
+          create: { id },
+        })
+      )
+    );
   });
 
   afterAll(async () => {

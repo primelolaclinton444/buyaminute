@@ -30,8 +30,8 @@ function validateWithdrawPayload(payload: unknown) {
 
 function mapLedgerToTransaction(entry: {
   id: string;
-  type: "credit" | "debit";
-  source: "call_billing" | "crypto_deposit" | "withdrawal" | "availability_ping";
+  type: string;
+  source: string;
   amountTokens: number;
   createdAt: Date;
   withdrawalRequest?: { status: string | null } | null;

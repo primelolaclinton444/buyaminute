@@ -3,12 +3,24 @@
 // Phase 1
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
-import { LedgerType, LedgerSource } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { LedgerSource, LedgerType } from "../lib/domain";
+import { randomUUID } from "crypto";
 
-const TEST_USER_ID = "test-user-1";
+const TEST_USER_ID = `test-user-${randomUUID()}`;
+const prisma = new PrismaClient();
 
 describe("Ledger invariants", () => {
+  beforeAll(async () => {
+    await prisma.user.create({ data: { id: TEST_USER_ID, email: `${TEST_USER_ID}@test.dev` } });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   it("credits increase wallet balance", async () => {
     await appendLedgerEntry({
       userId: TEST_USER_ID,

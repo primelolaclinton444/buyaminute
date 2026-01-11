@@ -2,6 +2,7 @@
 // BuyAMinute — Phase 9 Wiring Verification
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
 import { randomUUID } from "crypto";
@@ -82,15 +83,16 @@ async function createCallFixture(
 
 describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settlement)", () => {
   beforeAll(async () => {
-    await prisma.user.createMany({
-      data: [
-        { id: callerId },
-        { id: receiverId },
-        { id: duplicateCallerId },
-        { id: duplicateReceiverId },
-      ],
-      skipDuplicates: true,
-    });
+    const ids = [callerId, receiverId, duplicateCallerId, duplicateReceiverId];
+    await Promise.all(
+      ids.map((id) =>
+        prisma.user.upsert({
+          where: { id },
+          update: {},
+          create: { id },
+        })
+      )
+    );
   });
 
   afterAll(async () => {

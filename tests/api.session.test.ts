@@ -2,19 +2,10 @@
 // BuyAMinute — Session + UI API Tests
 // ================================
 
-let sessionToken: string | null = null;
-
-jest.mock("next/headers", () => ({
-  cookies: () => ({
-    get: (name: string) =>
-      name === "bam_session" && sessionToken ? { value: sessionToken } : undefined,
-    set: () => {},
-  }),
-}));
-
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { createSessionToken } from "../lib/auth";
+import { createSessionToken, resetCookieReaderForTests, setCookieReaderForTests } from "../lib/auth";
 import { appendLedgerEntry } from "../lib/ledger";
 import { CALL_REQUEST_WINDOW_MS, MIN_CALL_BALANCE_SECONDS } from "../lib/constants";
 import { GET as sessionGET } from "../app/api/auth/session/route";
@@ -27,11 +18,19 @@ import { GET as activeGET } from "../app/api/calls/active/route";
 import { GET as receiptGET } from "../app/api/calls/receipt/route";
 import { POST as endCallPOST } from "../app/api/calls/end/route";
 
+let sessionToken: string | null = null;
+
 const prisma = new PrismaClient();
 
 function setSession(userId: string | null) {
   sessionToken = userId ? createSessionToken(userId) : null;
 }
+
+setCookieReaderForTests(() => ({
+  get: (name: string) =>
+    name === "bam_session" && sessionToken ? { value: sessionToken } : undefined,
+  set: () => {},
+}));
 
 describe("Session auth behavior", () => {
   const userId = `user-${randomUUID()}`;
@@ -121,14 +120,15 @@ describe("UI call lifecycle", () => {
   const ratePerSecondTokens = 2;
 
   beforeAll(async () => {
-    await prisma.user.createMany({
-      data: [
-        { id: callerId, email: `${callerId}@test.dev` },
-        { id: receiverId, email: `${receiverId}@test.dev` },
-        { id: otherUserId, email: `${otherUserId}@test.dev` },
-      ],
-      skipDuplicates: true,
-    });
+    await Promise.all(
+      [callerId, receiverId, otherUserId].map((id) =>
+        prisma.user.upsert({
+          where: { id },
+          update: { email: `${id}@test.dev` },
+          create: { id, email: `${id}@test.dev` },
+        })
+      )
+    );
 
     await prisma.receiverProfile.upsert({
       where: { userId: receiverId },
@@ -254,6 +254,14 @@ describe("UI call lifecycle", () => {
 
   it("rejects accept responses after the request window expires", async () => {
     setSession(callerId);
+    await appendLedgerEntry({
+      userId: callerId,
+      type: "credit",
+      amountTokens: MIN_CALL_BALANCE_SECONDS * ratePerSecondTokens * 2,
+      source: "crypto_deposit",
+      txHash: `seed-expire-${randomUUID()}`,
+      idempotencyKey: `seed-expire-${randomUUID()}`,
+    });
     const requestRes = await requestCallPOST(
       new Request("http://localhost/api/calls/request", {
         method: "POST",
@@ -290,6 +298,14 @@ describe("UI call lifecycle", () => {
 
   it("refunds preauth when a receiver declines", async () => {
     setSession(callerId);
+    await appendLedgerEntry({
+      userId: callerId,
+      type: "credit",
+      amountTokens: MIN_CALL_BALANCE_SECONDS * ratePerSecondTokens * 2,
+      source: "crypto_deposit",
+      txHash: `seed-decline-${randomUUID()}`,
+      idempotencyKey: `seed-decline-${randomUUID()}`,
+    });
     const requestRes = await requestCallPOST(
       new Request("http://localhost/api/calls/request", {
         method: "POST",
@@ -317,5 +333,6 @@ describe("UI call lifecycle", () => {
 });
 
 afterAll(async () => {
+  resetCookieReaderForTests();
   await prisma.$disconnect();
 });

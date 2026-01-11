@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { appendLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { AVAILABILITY_PING_FEE_TOKENS } from "@/lib/constants";
-import { AvailabilityQuestion } from "@prisma/client";
+import { AvailabilityQuestion } from "@/lib/domain";
 import { createHash, randomUUID } from "crypto";
 
 export const runtime = "nodejs";

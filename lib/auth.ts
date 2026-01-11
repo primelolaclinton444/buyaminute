@@ -19,6 +19,21 @@ const ARGON2_MEMORY_KIB = 16384;
 const ARGON2_ITERATIONS = 3;
 const ARGON2_PARALLELISM = 1;
 
+type CookieStore = {
+  get: (name: string) => { value: string } | undefined;
+  set: (...args: unknown[]) => void;
+};
+
+let cookieReader: () => CookieStore = () => cookies() as CookieStore;
+
+export function setCookieReaderForTests(reader: () => CookieStore) {
+  cookieReader = reader;
+}
+
+export function resetCookieReaderForTests() {
+  cookieReader = () => cookies() as CookieStore;
+}
+
 function getSessionSecret() {
   const secret = process.env.AUTH_SESSION_SECRET;
   if (secret) return secret;
@@ -60,7 +75,7 @@ export function createSessionToken(userId: string) {
 }
 
 export function setSessionCookie(token: string) {
-  cookies().set(SESSION_COOKIE_NAME, token, {
+  cookieReader().set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -70,7 +85,7 @@ export function setSessionCookie(token: string) {
 }
 
 export function clearSessionCookie() {
-  cookies().set(SESSION_COOKIE_NAME, "", {
+  cookieReader().set(SESSION_COOKIE_NAME, "", {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -80,7 +95,7 @@ export function clearSessionCookie() {
 }
 
 export function getSessionUserId() {
-  const sessionCookie = cookies().get(SESSION_COOKIE_NAME);
+  const sessionCookie = cookieReader().get(SESSION_COOKIE_NAME);
   if (!sessionCookie?.value) {
     return null;
   }

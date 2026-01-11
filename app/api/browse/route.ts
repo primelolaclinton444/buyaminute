@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { SECONDS_IN_MINUTE, TOKEN_UNIT_USD } from "@/lib/constants";
+import { CallStatus } from "@/lib/domain";
 
-const BUSY_STATUSES = ["ringing", "connected"] as const;
+const BUSY_STATUSES: CallStatus[] = ["ringing", "connected"];
 
 export async function GET() {
   const receiverProfiles = await prisma.receiverProfile.findMany({

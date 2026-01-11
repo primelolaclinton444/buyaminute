@@ -3,9 +3,11 @@
 // Phase 2
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
 import { TOKENS_PER_USD } from "../lib/constants";
+import { randomUUID } from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -13,6 +15,18 @@ const TEST_USER_ID = "deposit-test-user";
 const TEST_TX_HASH = "0xtesttxhash123";
 
 describe("USDT-TRC20 deposits", () => {
+  beforeAll(async () => {
+    await prisma.user.upsert({
+      where: { id: TEST_USER_ID },
+      update: {},
+      create: { id: TEST_USER_ID },
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.$disconnect();
+  });
+
   it("records a deposit without crediting tokens", async () => {
     await prisma.cryptoDeposit.create({
       data: {
@@ -47,6 +61,7 @@ describe("USDT-TRC20 deposits", () => {
 
   it("prevents double credit for same txHash", async () => {
     const tokens = 10 * TOKENS_PER_USD;
+    const duplicateTxHash = `0x${randomUUID()}`;
 
     // First credit
     await appendLedgerEntry({
@@ -54,14 +69,25 @@ describe("USDT-TRC20 deposits", () => {
       type: "credit",
       amountTokens: tokens,
       source: "crypto_deposit",
-      txHash: TEST_TX_HASH,
+      txHash: duplicateTxHash,
       idempotencyKey: "deposit-test-credit-1",
     });
 
-    // Second attempt (should be prevented by idempotency in watcher logic)
+    // Second attempt should fail due to unique txHash constraint.
+    await expect(
+      appendLedgerEntry({
+        userId: TEST_USER_ID,
+        type: "credit",
+        amountTokens: tokens,
+        source: "crypto_deposit",
+        txHash: duplicateTxHash,
+        idempotencyKey: "deposit-test-credit-2",
+      })
+    ).rejects.toThrow();
+
     const ledgerEntries = await prisma.ledgerEntry.findMany({
       where: {
-        txHash: TEST_TX_HASH,
+        txHash: duplicateTxHash,
         source: "crypto_deposit",
       },
     });

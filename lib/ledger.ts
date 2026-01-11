@@ -3,7 +3,7 @@
 // Phase 1
 // ================================
 
-import { LedgerType, LedgerSource } from "@prisma/client";
+import { LedgerType, LedgerSource } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 

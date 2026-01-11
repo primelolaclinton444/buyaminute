@@ -2,6 +2,7 @@
 // BuyAMinute — Route smoke tests
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import HomePage from "../app/page";
 import LoginPage from "../app/login/page";
 import SignupPage from "../app/signup/page";
@@ -13,8 +14,20 @@ import CallReceiptPage from "../app/call/[id]/receipt/page";
 import { buildAuthRedirect } from "../components/auth/AuthGuard";
 import { GET as getIncoming } from "../app/api/calls/incoming/route";
 import { POST as postRequest } from "../app/api/calls/request/route";
+import { resetCookieReaderForTests, setCookieReaderForTests } from "../lib/auth";
 
 describe("Route smoke tests", () => {
+  beforeAll(() => {
+    setCookieReaderForTests(() => ({
+      get: () => undefined,
+      set: () => {},
+    }));
+  });
+
+  afterAll(() => {
+    resetCookieReaderForTests();
+  });
+
   it("loads landing, auth, and call page modules", () => {
     expect(typeof HomePage).toBe("function");
     expect(typeof LoginPage).toBe("function");

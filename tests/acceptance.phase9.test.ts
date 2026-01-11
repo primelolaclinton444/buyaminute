@@ -2,6 +2,7 @@
 // BuyAMinute — Phase 9 Acceptance Tests
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { computeBillableSeconds, settleCallBilling } from "../lib/billing";
@@ -15,10 +16,15 @@ const callerId = "acc-caller";
 const receiverId = "acc-receiver";
 
 async function seedUsers() {
-  await prisma.user.createMany({
-    data: [{ id: callerId }, { id: receiverId }],
-    skipDuplicates: true,
-  });
+  await Promise.all(
+    [callerId, receiverId].map((id) =>
+      prisma.user.upsert({
+        where: { id },
+        update: {},
+        create: { id },
+      })
+    )
+  );
 }
 
 async function resetBalances() {
@@ -42,6 +48,26 @@ async function resetBalances() {
       idempotencyKey: `reset-${receiverId}-${randomUUID()}`,
     });
   }
+}
+
+async function ensureCall(callId: string, ratePerSecondTokens: number) {
+  await prisma.call.upsert({
+    where: { id: callId },
+    update: { ratePerSecondTokens },
+    create: {
+      id: callId,
+      callerId,
+      receiverId,
+      status: "ended",
+      ratePerSecondTokens,
+      previewApplied: false,
+    },
+  });
+  await prisma.callParticipant.upsert({
+    where: { callId },
+    update: {},
+    create: { callId },
+  });
 }
 
 describe("Phase 9 — Acceptance", () => {
@@ -83,6 +109,7 @@ describe("Phase 9 — Acceptance", () => {
     expect(billable).toBe(0);
 
     // Settlement should do nothing
+    await ensureCall("call-20s", rate);
     await settleCallBilling({
       callId: "call-20s",
       callerId,
@@ -137,6 +164,7 @@ describe("Phase 9 — Acceptance", () => {
 
     expect(billable).toBe(40 - PREVIEW_SECONDS); // 10
 
+    await ensureCall("call-40s", rate);
     await settleCallBilling({
       callId: "call-40s",
       callerId,
@@ -173,6 +201,7 @@ describe("Phase 9 — Acceptance", () => {
 
     expect(billable).toBe(1);
 
+    await ensureCall("call-31s", rate);
     await settleCallBilling({
       callId: "call-31s",
       callerId,

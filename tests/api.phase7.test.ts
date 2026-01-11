@@ -2,6 +2,7 @@
 // BuyAMinute — Phase 7 API Tests
 // ================================
 
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
 import { MIN_CALL_BALANCE_SECONDS } from "../lib/constants";
@@ -18,18 +19,27 @@ const receiverId = "receiver-test";
 function makePostRequest(url: string, body: any) {
   return new Request(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-internal-key": process.env.INTERNAL_API_KEY ?? "",
+    },
     body: JSON.stringify(body),
   });
 }
 
 describe("Phase 7 API invariants", () => {
   beforeAll(async () => {
+    process.env.INTERNAL_API_KEY = "test-internal-key";
     // Create users (simple seed)
-    await prisma.user.createMany({
-      data: [{ id: callerId }, { id: receiverId }],
-      skipDuplicates: true,
-    });
+    await Promise.all(
+      [callerId, receiverId].map((id) =>
+        prisma.user.upsert({
+          where: { id },
+          update: {},
+          create: { id },
+        })
+      )
+    );
   });
 
   beforeEach(async () => {

@@ -3,9 +3,10 @@
 // Phase 11
 // ================================
 
+import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { randomUUID } from "crypto";
-import { appendLedgerEntry } from "../lib/ledger";
+import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
 import { settleEndedCall } from "../lib/settlement";
 import { MIN_CALL_BALANCE_SECONDS } from "../lib/constants";
 import { POST as createCallPOST } from "../app/api/calls/create/route";
@@ -18,10 +19,15 @@ const callerId = "caller-phase11";
 const receiverId = "receiver-phase11";
 
 async function seedUsers() {
-  await prisma.user.createMany({
-    data: [{ id: callerId }, { id: receiverId }],
-    skipDuplicates: true,
-  });
+  await Promise.all(
+    [callerId, receiverId].map((id) =>
+      prisma.user.upsert({
+        where: { id },
+        update: {},
+        create: { id },
+      })
+    )
+  );
 }
 
 function makeInternalRequest(url: string, body: Record<string, unknown>) {
@@ -137,6 +143,17 @@ describe("Internal call flow", () => {
   it("creates, accepts, and ends a call with preauth refund", async () => {
     const ratePerSecondTokens = 3;
     const txHash = `seed-${randomUUID()}`;
+    const balance = await getWalletBalance(callerId);
+    if (balance < 0) {
+      await appendLedgerEntry({
+        userId: callerId,
+        type: "credit",
+        amountTokens: Math.abs(balance),
+        source: "crypto_deposit",
+        txHash: `seed-reset-${randomUUID()}`,
+        idempotencyKey: `seed-reset-${randomUUID()}`,
+      });
+    }
 
     await prisma.receiverProfile.upsert({
       where: { userId: receiverId },

@@ -157,6 +157,7 @@ export async function POST(request: Request) {
     const ledgerEntry = await tx.ledgerEntry.findUnique({
       where: { idempotencyKey: ledgerKey },
     });
+    const shouldAppendLedger = feeTokens > 0 && !ledgerEntry;
 
     if (ledgerEntry) {
       const existing = await tx.availabilityPing.findUnique({
@@ -177,7 +178,7 @@ export async function POST(request: Request) {
       },
     });
 
-    if (feeTokens > 0) {
+    if (shouldAppendLedger) {
       await appendLedgerEntryWithClient(tx, {
         userId: auth.user.id,
         type: "debit",

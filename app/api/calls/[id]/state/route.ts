@@ -5,15 +5,17 @@ import { getCallState } from "@/lib/api/calls";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export async function GET(
+  _req: Request,
+  { params }: { params: { id?: string } }
+) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const url = new URL(req.url);
-  const id = url.searchParams.get("id");
-  if (!id) {
+  const callId = params.id?.trim();
+  if (!callId) {
     return jsonError("Missing call id", 400, "invalid_payload");
   }
 
-  return getCallState({ callId: id, userId: auth.user.id });
+  return getCallState({ callId, userId: auth.user.id });
 }

@@ -328,6 +328,14 @@ Success (200):
 ```
 Errors: JSON error shape.
 
+### GET /api/calls/[id]/state
+Auth: session cookie required.
+Success (200):
+```json
+{ "call": { "id": "string", "caller": "string", "receiver": "string", "mode": "voice | video" } }
+```
+Errors: JSON error shape.
+
 ### GET /api/calls/incoming
 Auth: session cookie required.
 Success (200):
@@ -360,6 +368,24 @@ Success (200):
 ```
 Errors: JSON error shape.
 
+### POST /api/calls/[id]/accept
+Auth: session cookie required.
+Request body: none.
+Success (200):
+```json
+{ "requestId": "string", "status": "accepted", "updatedAt": "ISO-8601" }
+```
+Errors: JSON error shape.
+
+### POST /api/calls/[id]/decline
+Auth: session cookie required.
+Request body: none.
+Success (200):
+```json
+{ "requestId": "string", "status": "declined", "updatedAt": "ISO-8601" }
+```
+Errors: JSON error shape.
+
 ### POST /api/calls/end
 Auth: session cookie required, or `x-internal-key` for internal callers.
 Request body:
@@ -372,7 +398,34 @@ Success (200):
 ```
 Errors: JSON error shape.
 
+### POST /api/calls/[id]/end
+Auth: session cookie required.
+Request body: none.
+Success (200):
+```json
+{ "ok": true }
+```
+Errors: JSON error shape.
+
 ### GET /api/calls/receipt?id=...
+Auth: session cookie required.
+Success (200):
+```json
+{
+  "receipt": {
+    "id": "string",
+    "caller": "string",
+    "receiver": "string",
+    "duration": "mm:ss",
+    "previewApplied": "mm:ss",
+    "totalCharged": "string",
+    "refunded": "string"
+  }
+}
+```
+Errors: JSON error shape.
+
+### GET /api/calls/[id]/receipt
 Auth: session cookie required.
 Success (200):
 ```json

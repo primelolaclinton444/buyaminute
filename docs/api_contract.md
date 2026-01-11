@@ -82,7 +82,7 @@ Success (200):
   "profiles": [/* same shape as featured */]
 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/profile?username=...
 Request params:
@@ -106,7 +106,7 @@ Success (200):
   }
 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/profile/public?userId=...
 Request params:
@@ -123,7 +123,7 @@ Success (200):
 }
 ```
 Notes: If `earningsVisible` is false, `totalEarningsTokens` and `minutesSold` are omitted.
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ---
 
@@ -209,14 +209,16 @@ Success (200):
 Errors: JSON error shape.
 
 ### GET /api/settings
+Auth: session cookie required.
 Request params: none.
 Success (200):
 ```json
 { "settings": { "displayName": "string", "email": "string", "timezone": "string", "marketingOptIn": true } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### POST /api/settings
+Auth: session cookie required.
 Request body:
 ```json
 { "displayName": "string", "email": "string", "timezone": "string", "marketingOptIn": true }
@@ -225,7 +227,7 @@ Success (200):
 ```json
 { "settings": { "displayName": "string", "email": "string", "timezone": "string", "marketingOptIn": true } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ### GET /api/pings
 Request params: none.

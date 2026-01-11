@@ -35,8 +35,10 @@ function mapTopicToQuestion(topic: string): AvailabilityQuestion {
   return "when_good_time";
 }
 
-function getPingId(idempotencyKey: string) {
-  const digest = createHash("sha256").update(idempotencyKey).digest("hex");
+function getPingId(idempotencyKey: string, userId: string) {
+  const digest = createHash("sha256")
+    .update(`${userId}:${idempotencyKey}`)
+    .digest("hex");
   return `ping_${digest}`;
 }
 
@@ -117,8 +119,8 @@ export async function POST(request: Request) {
   }
 
   const effectiveKey = idempotencyKey ?? randomUUID();
-  const pingId = getPingId(effectiveKey);
-  const ledgerKey = `availability_ping:${effectiveKey}`;
+  const pingId = getPingId(effectiveKey, auth.user.id);
+  const ledgerKey = `availability_ping:${auth.user.id}:${effectiveKey}`;
 
   const existingPing = await prisma.availabilityPing.findUnique({
     where: { id: pingId },

@@ -5,7 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
-import { getWalletBalance } from "@/lib/ledger";
+import { ensureLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { MIN_CALL_BALANCE_SECONDS } from "@/lib/constants";
 
 export const runtime = "nodejs";
@@ -79,15 +79,28 @@ export async function POST(req: Request) {
     }
   }
 
-  const call = await prisma.call.create({
-    data: {
-      callerId,
-      receiverId,
-      status: "ringing",
-      ratePerSecondTokens,
-      previewApplied: false,
-      participants: { create: {} },
-    },
+  const call = await prisma.$transaction(async (tx) => {
+    const created = await tx.call.create({
+      data: {
+        callerId,
+        receiverId,
+        status: "ringing",
+        ratePerSecondTokens,
+        previewApplied: false,
+        participants: { create: {} },
+      },
+    });
+
+    await ensureLedgerEntryWithClient(tx, {
+      userId: callerId,
+      type: "debit",
+      amountTokens: minRequiredTokens,
+      source: "call_billing",
+      callId: created.id,
+      idempotencyKey: `call:${created.id}:preauth:debit:${callerId}`,
+    });
+
+    return created;
   });
 
   return Response.json({ ok: true, callId: call.id });

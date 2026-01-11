@@ -3,7 +3,7 @@
 // Phase 6
 // ================================
 import { prisma } from "@/lib/prisma";
-import { computeBillableSeconds, settleCallBilling } from "./billing";
+import { computeBillableSeconds, settleCallBillingWithPreauth } from "./billing";
 /**
  * Settle a call AFTER it has ended.
  * - Computes connected overlap as (endedAt - bothConnectedAt)
@@ -18,13 +18,10 @@ export async function settleEndedCall(callId: string) {
 
   if (!call) throw new Error("Call not found");
   if (!call.endedAt) throw new Error("Call is not ended");
-  if (!call.participants?.bothConnectedAt) {
-    // Never had a real connection → nothing to bill
-    return;
-  }
 
-  const overlapMs =
-    call.endedAt.getTime() - call.participants.bothConnectedAt.getTime();
+  const overlapMs = call.participants?.bothConnectedAt
+    ? call.endedAt.getTime() - call.participants.bothConnectedAt.getTime()
+    : 0;
 
   // Conservative billing: never overcharge partial seconds
   const connectedOverlapSeconds = Math.max(0, Math.floor(overlapMs / 1000));
@@ -34,7 +31,7 @@ export async function settleEndedCall(callId: string) {
     previewApplied: call.previewApplied,
   });
 
-  await settleCallBilling({
+  await settleCallBillingWithPreauth({
     callId: call.id,
     callerId: call.callerId,
     receiverId: call.receiverId,

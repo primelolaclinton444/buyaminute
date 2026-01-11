@@ -76,6 +76,34 @@ export async function appendLedgerEntryWithClient(
   });
 }
 
+export async function ensureLedgerEntryWithClient(
+  tx: Prisma.TransactionClient,
+  params: {
+    userId: string;
+    type: LedgerType;
+    amountTokens: number;
+    source: LedgerSource;
+    idempotencyKey: string;
+    callId?: string;
+    withdrawalRequestId?: string;
+    txHash?: string;
+  }
+) {
+  if (params.amountTokens <= 0) {
+    return;
+  }
+
+  const existing = await tx.ledgerEntry.findUnique({
+    where: { idempotencyKey: params.idempotencyKey },
+  });
+
+  if (existing) {
+    return;
+  }
+
+  await appendLedgerEntryWithClient(tx, params);
+}
+
 /**
  * Read wallet balance (cached).
  * Ledger remains source of truth.

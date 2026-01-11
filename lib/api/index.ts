@@ -37,6 +37,7 @@ export type BrowseResponse = {
 
 export type ProfileResponse = {
   profile: BrowseProfile & {
+    videoAllowed: boolean;
     bio: string;
     responseTime: string;
     languages: string[];

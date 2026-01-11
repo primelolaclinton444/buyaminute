@@ -12,6 +12,7 @@ type CallSummary = {
   caller: string;
   receiver: string;
   mode: "voice" | "video";
+  viewerRole: "caller" | "receiver";
 };
 
 export default function ActiveCallPage() {
@@ -27,6 +28,7 @@ export default function ActiveCallPage() {
   const [speakerOn, setSpeakerOn] = useState(true);
   const [captionsOn, setCaptionsOn] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cameraPromptOpen, setCameraPromptOpen] = useState(false);
   const confirmRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -37,6 +39,9 @@ export default function ActiveCallPage() {
     }
     loadCall();
   }, [id]);
+
+  const isReceiverVideo =
+    summary?.mode === "video" && summary?.viewerRole === "receiver";
 
   useEffect(() => {
     if (connectionState !== "connected") return;
@@ -52,6 +57,21 @@ export default function ActiveCallPage() {
     }
   }, [confirmOpen]);
 
+  useEffect(() => {
+    if (isReceiverVideo) {
+      setCameraOn(true);
+    }
+  }, [isReceiverVideo]);
+
+  useEffect(() => {
+    if (!isReceiverVideo) return;
+    if (!cameraOn) {
+      setCameraPromptOpen(true);
+      return;
+    }
+    setCameraPromptOpen(false);
+  }, [cameraOn, isReceiverVideo]);
+
   const formattedTime = useMemo(() => {
     const minutes = Math.floor(secondsElapsed / 60)
       .toString()
@@ -59,6 +79,12 @@ export default function ActiveCallPage() {
     const seconds = (secondsElapsed % 60).toString().padStart(2, "0");
     return `${minutes}:${seconds}`;
   }, [secondsElapsed]);
+
+  const counterparty = summary
+    ? summary.viewerRole === "caller"
+      ? summary.receiver
+      : summary.caller
+    : "your host";
 
   function handleConfirmKey(event: React.KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
@@ -83,7 +109,7 @@ export default function ActiveCallPage() {
         <div className={styles.container}>
           <header className={styles.header}>
             <p className={styles.pill}>In call</p>
-            <h1>Call with {summary ? `@${summary.receiver}` : "your host"}</h1>
+            <h1>Call with {summary ? `@${counterparty}` : "your host"}</h1>
             <p className={styles.subtitle}>
               Track the connection state, preview timer, and billing controls.
             </p>
@@ -154,7 +180,11 @@ export default function ActiveCallPage() {
                 data-active={cameraOn}
                 type="button"
                 aria-label={cameraOn ? "Turn off camera" : "Turn on camera"}
-                onClick={() => setCameraOn((prev) => !prev)}
+                onClick={() => {
+                  if (isReceiverVideo) return;
+                  setCameraOn((prev) => !prev);
+                }}
+                disabled={isReceiverVideo}
               >
                 {cameraOn ? "📷" : "🚫"}
               </button>
@@ -221,6 +251,35 @@ export default function ActiveCallPage() {
                   onClick={() => setConfirmOpen(false)}
                 >
                   Keep talking
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {cameraPromptOpen ? (
+          <div className={styles.modalBackdrop} role="presentation">
+            <div
+              className={styles.modal}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="camera-required-title"
+            >
+              <h2 id="camera-required-title">Camera required</h2>
+              <p className={styles.subtitle}>
+                Video calls require your camera to stay on. Please enable camera
+                access to continue.
+              </p>
+              <div className={styles.row}>
+                <button
+                  className={styles.button}
+                  type="button"
+                  onClick={() => {
+                    setCameraOn(true);
+                    setCameraPromptOpen(false);
+                  }}
+                >
+                  Enable camera
                 </button>
               </div>
             </div>

@@ -47,6 +47,7 @@ export async function GET(request: Request) {
       name,
       username: name,
       rate,
+      videoAllowed: user.receiverProfile.isVideoEnabled,
       tagline: user.receiverProfile.isAvailable
         ? "Available for new calls."
         : "Currently unavailable.",

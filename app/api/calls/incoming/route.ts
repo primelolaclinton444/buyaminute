@@ -60,7 +60,7 @@ export async function GET() {
       return {
         id: call.id,
         caller: callerMap.get(call.callerId) ?? call.callerId,
-        mode: "voice",
+        mode: call.mode === "video" ? "video" : "voice",
         ratePerMinute: formatRatePerMinute(call.ratePerSecondTokens),
         expiresAt,
         status: "pending",

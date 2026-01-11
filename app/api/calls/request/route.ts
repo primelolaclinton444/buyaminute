@@ -77,13 +77,11 @@ export async function POST(req: Request) {
   }
 
   if (mode === "video" && !receiverProfile.isVideoEnabled) {
-    return Response.json({
-      requestId: null,
-      status: "offline",
-      username,
-      mode,
-      expiresAt: null,
-    });
+    return jsonError(
+      "Receiver does not allow video calls.",
+      400,
+      "VIDEO_NOT_ALLOWED"
+    );
   }
 
   const ratePerSecondTokens = receiverProfile.ratePerSecondTokens;
@@ -145,6 +143,7 @@ export async function POST(req: Request) {
         id: callId ?? undefined,
         callerId: auth.user.id,
         receiverId: receiver.id,
+        mode,
         status: "ringing",
         ratePerSecondTokens,
         previewApplied: false,

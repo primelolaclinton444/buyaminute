@@ -157,7 +157,7 @@ export default function ReceiverPage() {
           checked={isVideoEnabled}
           onChange={(e) => setIsVideoEnabled(e.target.checked)}
         />
-        Allow Video Requests
+        Allow video calls
       </label>
 
       <button onClick={save}>Save</button>

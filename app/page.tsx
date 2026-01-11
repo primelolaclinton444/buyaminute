@@ -28,7 +28,7 @@ const dualModes = [
   {
     icon: "🎯",
     title: "Request a Call",
-    description: "See the rate. Pre-authorize 1 minute.",
+    description: "See the rate. Meet the 1-minute minimum.",
     highlight: "20 seconds to accept",
   },
   {
@@ -53,7 +53,7 @@ const receiveSteps = [
   {
     title: "Accept or Decline (20s)",
     description:
-      "You see caller + type + rate + prepaid minutes. You have 20 seconds to decide.",
+      "You see caller + type + rate + minimum requirement. You have 20 seconds to decide.",
   },
   {
     title: "Get Paid",
@@ -79,7 +79,7 @@ const callSteps = [
   {
     title: "Preview → Bill Per Second",
     description:
-      "30s free preview (once per 24h per pair), then billing starts. End anytime. Unused prepaid time is refunded.",
+      "30s free preview (once per 24h per pair), then billing starts. End anytime. You are only charged for billable seconds.",
   },
 ];
 

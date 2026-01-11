@@ -41,6 +41,20 @@ export async function POST(req: Request) {
     return jsonError("Call already ended", 400, "call_ended");
   }
 
+  if (call.mode === "video") {
+    const receiverProfile = await prisma.receiverProfile.findUnique({
+      where: { userId: call.receiverId },
+      select: { isVideoEnabled: true },
+    });
+    if (!receiverProfile?.isVideoEnabled) {
+      return jsonError(
+        "Receiver does not allow video calls.",
+        400,
+        "VIDEO_NOT_ALLOWED"
+      );
+    }
+  }
+
   // If it's still created/ringing, move to connected state.
   // LiveKit events will set timestamps and consume preview.
   await prisma.call.update({

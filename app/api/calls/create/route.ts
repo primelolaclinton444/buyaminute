@@ -18,6 +18,7 @@ export const dynamic = "force-dynamic";
  * {
  *   callerId: string,
  *   receiverId: string,
+ *   mode?: "voice" | "video",
  *   minIntendedSeconds?: number
  * }
  *
@@ -31,7 +32,8 @@ export async function POST(req: Request) {
   if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
 
   const body = await req.json();
-  const { callerId, receiverId, minIntendedSeconds } = body;
+  const { callerId, receiverId, minIntendedSeconds, mode } = body;
+  const resolvedMode = mode === "video" ? "video" : "voice";
 
   if (!callerId || !receiverId) {
     return jsonError("Invalid payload", 400, "invalid_payload");
@@ -51,6 +53,14 @@ export async function POST(req: Request) {
 
   if (!receiverProfile.isAvailable) {
     return jsonError("Receiver is not available", 400, "receiver_unavailable");
+  }
+
+  if (resolvedMode === "video" && !receiverProfile.isVideoEnabled) {
+    return jsonError(
+      "Receiver does not allow video calls.",
+      400,
+      "VIDEO_NOT_ALLOWED"
+    );
   }
 
   const ratePerSecondTokens = receiverProfile.ratePerSecondTokens;
@@ -89,6 +99,7 @@ export async function POST(req: Request) {
       data: {
         callerId,
         receiverId,
+        mode: resolvedMode,
         status: "ringing",
         ratePerSecondTokens,
         previewApplied: false,

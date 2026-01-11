@@ -1,47 +1,61 @@
-import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { SECONDS_IN_MINUTE, TOKEN_UNIT_USD } from "@/lib/constants";
 
-const profiles = [
-  {
-    id: "host-1",
-    name: "Avery Park",
-    username: "avery",
-    rate: 4.5,
-    tagline: "Rapid feedback on product launches & pitch decks.",
-    categories: ["Startups", "Product"],
-    status: "available",
-  },
-  {
-    id: "host-2",
-    name: "Ravi Singh",
-    username: "ravi",
-    rate: 3.8,
-    tagline: "Go-to-market strategy and pricing reviews.",
-    categories: ["Marketing", "Growth"],
-    status: "busy",
-  },
-  {
-    id: "host-3",
-    name: "Taylor Chen",
-    username: "taylor",
-    rate: 5.2,
-    tagline: "Hiring, leadership coaching, and team scaling.",
-    categories: ["Leadership", "People"],
-    status: "available",
-  },
-  {
-    id: "host-4",
-    name: "Nova Reed",
-    username: "nova",
-    rate: 2.5,
-    tagline: "Copy edits, content strategy, and brand voice.",
-    categories: ["Content", "Brand"],
-    status: "offline",
-  },
-];
+const BUSY_STATUSES = ["ringing", "connected"] as const;
 
 export async function GET() {
-  return NextResponse.json({
-    categories: ["All", "Startups", "Product", "Marketing", "Leadership", "Brand"],
+  const receiverProfiles = await prisma.receiverProfile.findMany({
+    include: {
+      user: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+
+  if (receiverProfiles.length === 0) {
+    return Response.json({ categories: ["All"], featured: [], profiles: [] });
+  }
+
+  const receiverIds = receiverProfiles.map((profile) => profile.userId);
+  const activeCalls = await prisma.call.findMany({
+    where: {
+      receiverId: { in: receiverIds },
+      status: { in: BUSY_STATUSES },
+    },
+    select: { receiverId: true },
+  });
+  const busyReceivers = new Set(activeCalls.map((call) => call.receiverId));
+
+  const profiles = receiverProfiles.map((profile) => {
+    const name = profile.user.name ?? profile.user.email ?? profile.user.id;
+    const rate = profile.ratePerSecondTokens * SECONDS_IN_MINUTE * TOKEN_UNIT_USD;
+    const status = profile.isAvailable
+      ? busyReceivers.has(profile.userId)
+        ? "busy"
+        : "available"
+      : "offline";
+
+    return {
+      id: profile.userId,
+      name,
+      username: name,
+      rate,
+      tagline: profile.isAvailable ? "Available for new calls." : "Currently unavailable.",
+      categories: [] as string[],
+      status,
+    };
+  });
+
+  const categories = [
+    "All",
+    ...Array.from(
+      new Set(profiles.flatMap((profile) => profile.categories))
+    ).sort(),
+  ];
+
+  return Response.json({
+    categories,
     featured: profiles.slice(0, 2),
     profiles,
   });

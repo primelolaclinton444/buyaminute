@@ -39,6 +39,14 @@ function isProdOrPreview() {
 }
 
 try {
+  if ((isVercelBuild() || isProdOrPreview()) && !process.env.DATABASE_URL) {
+    console.error(
+      "\n[fatal] DATABASE_URL is not set for this Vercel build.\n" +
+        "Add DATABASE_URL (and DIRECT_URL) in Vercel Project Settings.\n"
+    );
+    process.exit(1);
+  }
+
   // Always generate client (postinstall also does this, but keep here for determinism)
   run("npx prisma generate");
 

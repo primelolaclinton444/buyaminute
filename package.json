@@ -10,9 +10,10 @@
     "build": "node scripts/vercel-build.js",
     "start": "next start",
     "test": "npm run test:build && node --require ./tests/register-test-env.js --test --test-concurrency 1 .test-dist/tests/**/*.test.js",
-    "test:build": "prisma generate && tsc -p tsconfig.test.json",
+    "test:build": "npm run prisma:validate && prisma generate && tsc -p tsconfig.test.json",
     "postinstall": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
+    "prisma:validate": "DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" prisma validate",
+    "prisma:migrate": "DATABASE_URL=\"${DATABASE_URL:-file:./dev.db}\" prisma migrate deploy",
     "send:deposit": "node --loader ts-node/esm scripts/send-deposit-intake.ts"
   },
   "dependencies": {

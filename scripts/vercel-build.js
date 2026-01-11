@@ -38,6 +38,35 @@ function isProdOrPreview() {
   );
 }
 
+function getDatasourceProvider() {
+  const schemaPath = path.join(process.cwd(), "prisma", "schema.prisma");
+  try {
+    const schema = fs.readFileSync(schemaPath, "utf8");
+    const match = schema.match(/datasource\s+\w+\s*{[^}]*provider\s*=\s*"([^"]+)"/s);
+    return match?.[1] || null;
+  } catch {
+    return null;
+  }
+}
+
+function ensureSqliteDatabaseUrl() {
+  const provider = getDatasourceProvider();
+  if (provider !== "sqlite") {
+    return;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL || "";
+  if (databaseUrl.startsWith("file:")) {
+    return;
+  }
+
+  process.env.DATABASE_URL = "file:./dev.db";
+  console.warn(
+    "\n[warn] DATABASE_URL must start with \"file:\" for SQLite. " +
+      "Using fallback \"file:./dev.db\" for this build."
+  );
+}
+
 try {
   if ((isVercelBuild() || isProdOrPreview()) && !process.env.DATABASE_URL) {
     console.error(

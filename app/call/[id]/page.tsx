@@ -31,7 +31,7 @@ export default function ActiveCallPage() {
 
   useEffect(() => {
     async function loadCall() {
-      const res = await fetch(`/api/calls/mock/active?id=${id}`);
+      const res = await fetch(`/api/calls/active?id=${id}`);
       const data = await res.json();
       setSummary(data.call ?? null);
     }
@@ -66,9 +66,14 @@ export default function ActiveCallPage() {
     }
   }
 
-  function handleEndCall() {
+  async function handleEndCall() {
     setConfirmOpen(false);
     setConnectionState("ended");
+    await fetch("/api/calls/end", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ callId: id }),
+    });
     router.push(`/call/${id}/receipt`);
   }
 

@@ -36,6 +36,26 @@ function normalizePayload(payload: any) {
   return { eventName, callId, participantRole };
 }
 
+async function hasSettledLedgerEntries(callId: string, callerId: string, receiverId: string) {
+  const settled = await prisma.ledgerEntry.findFirst({
+    where: {
+      callId,
+      source: "call_billing",
+      idempotencyKey: {
+        in: [
+          `call:${callId}:credit:${receiverId}`,
+          `call:${callId}:refund:${callerId}`,
+          `call:${callId}:debit:${callerId}`,
+          `call:${callId}:debit:extra:${callerId}`,
+        ],
+      },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(settled);
+}
+
 async function handleParticipantConnected(callId: string, participantRole: string) {
   const now = new Date();
 
@@ -46,29 +66,45 @@ async function handleParticipantConnected(callId: string, participantRole: strin
 
   if (!call || call.status === "ended") return;
 
-  if (!call.participants) {
-    await prisma.callParticipant.create({
+  const alreadySettled = await hasSettledLedgerEntries(
+    callId,
+    call.callerId,
+    call.receiverId
+  );
+  if (alreadySettled) return;
+
+  let participants = call.participants;
+  if (!participants) {
+    participants = await prisma.callParticipant.create({
       data: { callId },
     });
   }
 
+  const updatePayload: {
+    callerConnectedAt?: Date;
+    receiverConnectedAt?: Date;
+  } = {};
+
   if (participantRole === "caller") {
-    await prisma.callParticipant.update({
-      where: { callId },
-      data: { callerConnectedAt: call.participants?.callerConnectedAt ?? now },
-    });
+    if (!participants.callerConnectedAt) {
+      updatePayload.callerConnectedAt = now;
+    }
   } else if (participantRole === "receiver") {
-    await prisma.callParticipant.update({
-      where: { callId },
-      data: { receiverConnectedAt: call.participants?.receiverConnectedAt ?? now },
-    });
+    if (!participants.receiverConnectedAt) {
+      updatePayload.receiverConnectedAt = now;
+    }
   } else {
     return;
   }
 
-  const updated = await prisma.callParticipant.findUnique({
-    where: { callId },
-  });
+  if (Object.keys(updatePayload).length > 0) {
+    participants = await prisma.callParticipant.update({
+      where: { callId },
+      data: updatePayload,
+    });
+  }
+
+  const updated = participants;
 
   if (
     updated?.callerConnectedAt &&
@@ -87,13 +123,15 @@ async function handleParticipantConnected(callId: string, participantRole: strin
 
     const previewApplied = !hasLock;
 
-    await prisma.call.update({
-      where: { id: callId },
-      data: {
-        status: "connected",
-        previewApplied,
-      },
-    });
+    if (call.status !== "connected" || call.previewApplied !== previewApplied) {
+      await prisma.call.update({
+        where: { id: callId },
+        data: {
+          status: "connected",
+          previewApplied,
+        },
+      });
+    }
 
     if (previewApplied) {
       await consumePreview({
@@ -101,7 +139,7 @@ async function handleParticipantConnected(callId: string, participantRole: strin
         receiverId: call.receiverId,
       });
     }
-  } else {
+  } else if (call.status !== "connected") {
     await prisma.call.update({
       where: { id: callId },
       data: { status: "connected" },
@@ -110,14 +148,26 @@ async function handleParticipantConnected(callId: string, participantRole: strin
 }
 
 async function handleParticipantDisconnected(callId: string) {
-  const updated = await prisma.call.updateMany({
-    where: { id: callId, status: { not: "ended" } },
+  const call = await prisma.call.findUnique({
+    where: { id: callId },
+  });
+
+  if (!call || call.status === "ended") return;
+
+  const alreadySettled = await hasSettledLedgerEntries(
+    callId,
+    call.callerId,
+    call.receiverId
+  );
+
+  const updated = await prisma.call.update({
+    where: { id: callId },
     data: { status: "ended", endedAt: new Date() },
   });
 
-  if (updated.count === 0) return;
+  if (alreadySettled) return;
 
-  await settleEndedCall(callId);
+  await settleEndedCall(updated.id);
 }
 
 export async function POST(req: Request) {

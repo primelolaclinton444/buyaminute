@@ -19,7 +19,7 @@ export default function IncomingRequestsPage() {
 
   useEffect(() => {
     async function loadRequests() {
-      const res = await fetch("/api/calls/mock/incoming");
+      const res = await fetch("/api/calls/incoming");
       const data = await res.json();
       setRequests(data.requests ?? []);
     }
@@ -49,7 +49,7 @@ export default function IncomingRequestsPage() {
           : request
       )
     );
-    await fetch("/api/calls/mock/respond", {
+    await fetch("/api/calls/respond", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ requestId: id, action }),

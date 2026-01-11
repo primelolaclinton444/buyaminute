@@ -248,27 +248,30 @@ Errors: plain-text response with HTTP status.
 
 ---
 
-## Calls (Mock UI Flow)
+## Calls (Frontend)
 
-### POST /api/calls/mock/request
+### POST /api/calls/request
+Auth: session cookie required.
 Request body:
 ```json
-{ "username": "string", "mode": "voice | video", "scenario": "pending | timeout | insufficient | offline | accepted" }
+{ "username": "string", "mode": "voice | video", "minIntendedSeconds": 0 }
 ```
 Success (200):
 ```json
-{ "requestId": "string", "status": "string", "username": "string", "mode": "string", "expiresAt": "ISO-8601 | null" }
+{ "requestId": "string | null", "status": "pending | insufficient | offline", "username": "string", "mode": "voice | video", "expiresAt": "ISO-8601 | null" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
-### GET /api/calls/mock/active?id=...
+### GET /api/calls/active?id=...
+Auth: session cookie required.
 Success (200):
 ```json
-{ "call": { "id": "string", "caller": "string", "receiver": "string", "mode": "string" } }
+{ "call": { "id": "string", "caller": "string", "receiver": "string", "mode": "voice | video" } }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
-### GET /api/calls/mock/incoming
+### GET /api/calls/incoming
+Auth: session cookie required.
 Success (200):
 ```json
 {
@@ -285,9 +288,10 @@ Success (200):
   ]
 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
-### POST /api/calls/mock/respond
+### POST /api/calls/respond
+Auth: session cookie required.
 Request body:
 ```json
 { "requestId": "string", "action": "accept | decline" }
@@ -296,9 +300,22 @@ Success (200):
 ```json
 { "requestId": "string", "status": "accepted | declined", "updatedAt": "ISO-8601" }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
-### GET /api/calls/mock/receipt?id=...
+### POST /api/calls/end
+Auth: session cookie required, or `x-internal-key` for internal callers.
+Request body:
+```json
+{ "callId": "string", "endedBy": "caller | receiver | system" }
+```
+Success (200):
+```json
+{ "ok": true }
+```
+Errors: JSON error shape.
+
+### GET /api/calls/receipt?id=...
+Auth: session cookie required.
 Success (200):
 ```json
 {
@@ -313,7 +330,7 @@ Success (200):
   }
 }
 ```
-Errors: plain-text response with HTTP status.
+Errors: JSON error shape.
 
 ---
 

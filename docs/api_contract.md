@@ -246,6 +246,64 @@ Success (201):
 ```
 Errors: plain-text response with HTTP status.
 
+### GET /api/pings/inbox
+Auth: session cookie required.
+Success (200):
+```json
+{ "pings": [{
+  "id": "string",
+  "callerId": "string",
+  "receiverId": "string",
+  "question": "available_now | available_later | when_good_time",
+  "response": "available_now | available_later | not_available | null",
+  "status": "sent | delivered | replied",
+  "feeTokens": 0,
+  "createdAt": "ISO-8601",
+  "respondedAt": "ISO-8601 | null"
+}] }
+```
+Errors: JSON error shape.
+
+### GET /api/pings/outbox
+Auth: session cookie required.
+Success (200):
+```json
+{ "pings": [{
+  "id": "string",
+  "callerId": "string",
+  "receiverId": "string",
+  "question": "available_now | available_later | when_good_time",
+  "response": "available_now | available_later | not_available | null",
+  "status": "sent | delivered | replied",
+  "feeTokens": 0,
+  "createdAt": "ISO-8601",
+  "respondedAt": "ISO-8601 | null"
+}] }
+```
+Errors: JSON error shape.
+
+### POST /api/pings/{id}/reply
+Auth: session cookie required.
+Request body:
+```json
+{ "response": "available_now | available_later | not_available" }
+```
+Success (200):
+```json
+{ "ping": {
+  "id": "string",
+  "callerId": "string",
+  "receiverId": "string",
+  "question": "available_now | available_later | when_good_time",
+  "response": "available_now | available_later | not_available",
+  "status": "replied",
+  "feeTokens": 0,
+  "createdAt": "ISO-8601",
+  "respondedAt": "ISO-8601"
+} }
+```
+Errors: JSON error shape.
+
 ---
 
 ## Calls (Frontend)
@@ -392,6 +450,7 @@ Success (200):
 ```json
 { "ok": true, "pingId": "string" }
 ```
+Notes: Uses `idempotency-key` header to avoid double charging ping fees.
 Errors: plain-text response with HTTP status.
 
 ### GET /api/availability/ping?receiverId=...&limit=...

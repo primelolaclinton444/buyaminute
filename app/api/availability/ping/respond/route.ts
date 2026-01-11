@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     where: { id: pingId },
     data: {
       response,
+      status: "replied",
       respondedAt: new Date(),
     },
   });

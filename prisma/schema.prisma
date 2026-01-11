@@ -188,12 +188,19 @@ model AvailabilityPing {
   receiverId String
   question   AvailabilityQuestion
   response   AvailabilityResponse?
+  status     AvailabilityPingStatus @default(sent)
   feeTokens  Int
   createdAt  DateTime @default(now())
   respondedAt DateTime?
 
   @@index([callerId])
   @@index([receiverId])
+}
+
+enum AvailabilityPingStatus {
+  sent
+  delivered
+  replied
 }
 
 enum AvailabilityQuestion {

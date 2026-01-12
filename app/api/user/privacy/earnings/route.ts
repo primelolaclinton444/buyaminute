@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireInternalKey } from "@/lib/internalAuth";
 import { EARNINGS_VISIBILITY_COOLDOWN_HOURS } from "@/lib/constants";
 import { jsonError } from "@/lib/api/errors";
+import { requireAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,18 +21,28 @@ export const dynamic = "force-dynamic";
  * }
  */
 export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
-  if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
-
   const body = await req.json();
-  const { userId, earningsVisible } = body;
+  const { userId: bodyUserId, earningsVisible } = body;
 
-  if (!userId || earningsVisible === undefined) {
+  if (earningsVisible === undefined) {
     return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   if (typeof earningsVisible !== "boolean") {
     return jsonError("Invalid earningsVisible", 400, "invalid_payload");
+  }
+
+  const gate = requireInternalKey(req as any);
+  let userId = bodyUserId;
+
+  if (!gate.ok) {
+    const auth = await requireAuth();
+    if (!auth.ok) return auth.response;
+    userId = auth.user.id;
+  }
+
+  if (!userId) {
+    return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });

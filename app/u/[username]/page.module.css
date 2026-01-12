@@ -19,6 +19,32 @@
   color: #475569;
 }
 
+.earningsLine {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+}
+
+.privacyToggle {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.toggleLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.privacyError {
+  margin: 0;
+  font-size: 12px;
+  color: #b91c1c;
+}
+
 .section {
   display: grid;
   gap: 16px;

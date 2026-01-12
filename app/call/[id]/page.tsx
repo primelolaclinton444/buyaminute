@@ -275,7 +275,7 @@ export default function ActiveCallPage() {
       room.off(RoomEvent.ConnectionStateChanged, handleConnectionState);
       room.off(RoomEvent.ParticipantConnected, updateParticipants);
       room.off(RoomEvent.ParticipantDisconnected, updateParticipants);
-      room.localParticipant.tracks.forEach((publication) => {
+      room.localParticipant.trackPublications.forEach((publication) => {
         publication.track?.stop();
       });
       room.disconnect();
@@ -328,7 +328,7 @@ export default function ActiveCallPage() {
 
     const room = roomRef.current;
     if (room) {
-      room.localParticipant.tracks.forEach((publication) => {
+      room.localParticipant.trackPublications.forEach((publication) => {
         publication.track?.stop();
       });
       await Promise.resolve(room.disconnect());

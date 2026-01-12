@@ -619,9 +619,9 @@ These endpoints proxy to the internal secured APIs and return the same response 
 - POST /api/ui/wallet/deposit-address → /api/wallet/deposit-address
 - GET /api/ui/wallet/deposit-address → /api/wallet/deposit-address
 - POST /api/ui/wallet/withdraw → /api/wallet/withdraw
-- POST /api/ui/calls/create → /api/calls/create
-- POST /api/ui/calls/accept → /api/calls/accept
-- POST /api/ui/calls/end → /api/calls/end
+- POST /api/ui/calls/create → Deprecated (410). Use /api/calls/request
+- POST /api/ui/calls/accept → Deprecated (410). Use /api/calls/respond
+- POST /api/ui/calls/end → Deprecated (410). Use /api/calls/end
 - POST /api/ui/receiver/profile/upsert → /api/receiver/profile/upsert
 - GET /api/ui/receiver/profile/get → /api/receiver/profile/get
 

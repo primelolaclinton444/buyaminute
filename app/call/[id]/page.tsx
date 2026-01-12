@@ -62,7 +62,7 @@ function ParticipantMedia({
     const updateTracks = () => {
       const video: Track[] = [];
       const audio: Track[] = [];
-      participant.tracks.forEach((publication) => {
+      participant.trackPublications.forEach((publication) => {
         if (!publication.track) return;
         if (publication.kind === Track.Kind.Video) {
           video.push(publication.track);

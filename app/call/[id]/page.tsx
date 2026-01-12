@@ -2,10 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import {
+  ConnectionState,
+  Participant,
+  ParticipantEvent,
+  Room,
+  RoomEvent,
+  Track,
+} from "livekit-client";
 import AuthGuard from "@/components/auth/AuthGuard";
 import styles from "../call.module.css";
 
-type ConnectionState = "connecting" | "connected" | "reconnecting" | "ended";
+type ConnectionStateLabel =
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "disconnected"
+  | "ended";
 
 type CallSummary = {
   id: string;
@@ -15,11 +28,134 @@ type CallSummary = {
   viewerRole: "caller" | "receiver";
 };
 
+type LiveKitTokenResponse = {
+  token: string;
+  url: string;
+  roomName: string;
+};
+
+function mapConnectionState(state: ConnectionState): ConnectionStateLabel {
+  if (state === ConnectionState.Connected) return "connected";
+  if (state === ConnectionState.Reconnecting) return "reconnecting";
+  if (state === ConnectionState.Disconnected) return "disconnected";
+  return "connecting";
+}
+
+function ParticipantMedia({
+  participant,
+  label,
+  isLocal,
+  speakerOn,
+}: {
+  participant: Participant;
+  label: string;
+  isLocal: boolean;
+  speakerOn: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [tracks, setTracks] = useState<{ video: Track[]; audio: Track[] }>(
+    () => ({ video: [], audio: [] })
+  );
+
+  useEffect(() => {
+    const updateTracks = () => {
+      const video: Track[] = [];
+      const audio: Track[] = [];
+      participant.tracks.forEach((publication) => {
+        if (!publication.track) return;
+        if (publication.kind === Track.Kind.Video) {
+          video.push(publication.track);
+        }
+        if (publication.kind === Track.Kind.Audio) {
+          audio.push(publication.track);
+        }
+      });
+      setTracks({ video, audio });
+    };
+
+    updateTracks();
+
+    const handleUpdate = () => updateTracks();
+
+    participant.on(ParticipantEvent.TrackPublished, handleUpdate);
+    participant.on(ParticipantEvent.TrackUnpublished, handleUpdate);
+    participant.on(ParticipantEvent.TrackSubscribed, handleUpdate);
+    participant.on(ParticipantEvent.TrackUnsubscribed, handleUpdate);
+    participant.on(ParticipantEvent.TrackMuted, handleUpdate);
+    participant.on(ParticipantEvent.TrackUnmuted, handleUpdate);
+
+    return () => {
+      participant.off(ParticipantEvent.TrackPublished, handleUpdate);
+      participant.off(ParticipantEvent.TrackUnpublished, handleUpdate);
+      participant.off(ParticipantEvent.TrackSubscribed, handleUpdate);
+      participant.off(ParticipantEvent.TrackUnsubscribed, handleUpdate);
+      participant.off(ParticipantEvent.TrackMuted, handleUpdate);
+      participant.off(ParticipantEvent.TrackUnmuted, handleUpdate);
+    };
+  }, [participant]);
+
+  useEffect(() => {
+    const track = tracks.video[0];
+    const element = videoRef.current;
+    if (!track || !element) return;
+
+    track.attach(element);
+    return () => {
+      track.detach(element);
+    };
+  }, [tracks.video]);
+
+  useEffect(() => {
+    if (isLocal) return;
+    const track = tracks.audio[0];
+    const element = audioRef.current;
+    if (!track || !element) return;
+
+    track.attach(element);
+    return () => {
+      track.detach(element);
+    };
+  }, [isLocal, tracks.audio]);
+
+  useEffect(() => {
+    if (isLocal) return;
+    if (audioRef.current) {
+      audioRef.current.muted = !speakerOn;
+    }
+  }, [isLocal, speakerOn]);
+
+  const hasVideo = tracks.video.length > 0;
+
+  return (
+    <div className={styles.mediaTile}>
+      <p className={styles.subtitle}>{label}</p>
+      {hasVideo ? (
+        <video
+          ref={videoRef}
+          className={styles.mediaVideo}
+          autoPlay
+          playsInline
+          muted={isLocal}
+        />
+      ) : (
+        <div className={styles.mediaPlaceholder}>
+          <span>No video</span>
+        </div>
+      )}
+      {!isLocal ? (
+        <audio ref={audioRef} autoPlay playsInline muted={!speakerOn} />
+      ) : null}
+    </div>
+  );
+}
+
 export default function ActiveCallPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [summary, setSummary] = useState<CallSummary | null>(null);
-  const [connectionState, setConnectionState] = useState<ConnectionState>(
+  const [roomName, setRoomName] = useState<string | null>(null);
+  const [connectionState, setConnectionState] = useState<ConnectionStateLabel>(
     "connecting"
   );
   const [secondsElapsed, setSecondsElapsed] = useState(0);
@@ -29,11 +165,22 @@ export default function ActiveCallPage() {
   const [captionsOn, setCaptionsOn] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cameraPromptOpen, setCameraPromptOpen] = useState(false);
+  const [remoteParticipants, setRemoteParticipants] = useState<Participant[]>(
+    []
+  );
+  const [error, setError] = useState<string | null>(null);
   const confirmRef = useRef<HTMLButtonElement | null>(null);
+  const roomRef = useRef<Room | null>(null);
+  const [room, setRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     async function loadCall() {
       const res = await fetch(`/api/calls/active?id=${id}`);
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null);
+        setError(payload?.error?.message ?? "Unable to load call state.");
+        return;
+      }
       const data = await res.json();
       setSummary(data.call ?? null);
     }
@@ -58,10 +205,14 @@ export default function ActiveCallPage() {
   }, [confirmOpen]);
 
   useEffect(() => {
+    if (summary?.mode !== "video") {
+      setCameraOn(false);
+      return;
+    }
     if (isReceiverVideo) {
       setCameraOn(true);
     }
-  }, [isReceiverVideo]);
+  }, [isReceiverVideo, summary?.mode]);
 
   useEffect(() => {
     if (!isReceiverVideo) return;
@@ -71,6 +222,68 @@ export default function ActiveCallPage() {
     }
     setCameraPromptOpen(false);
   }, [cameraOn, isReceiverVideo]);
+
+  useEffect(() => {
+    if (!summary) return;
+
+    const room = new Room({ adaptiveStream: true, dynacast: true });
+    roomRef.current = room;
+    setRoom(room);
+    setConnectionState("connecting");
+    setError(null);
+
+    const updateParticipants = () => {
+      setRemoteParticipants(Array.from(room.remoteParticipants.values()));
+    };
+
+    const handleConnectionState = (state: ConnectionState) => {
+      setConnectionState(mapConnectionState(state));
+    };
+
+    room.on(RoomEvent.ConnectionStateChanged, handleConnectionState);
+    room.on(RoomEvent.ParticipantConnected, updateParticipants);
+    room.on(RoomEvent.ParticipantDisconnected, updateParticipants);
+
+    const connectToRoom = async () => {
+      const tokenRes = await fetch(`/api/livekit/token?callId=${id}`);
+      if (!tokenRes.ok) {
+        const payload = await tokenRes.json().catch(() => null);
+        setError(payload?.error?.message ?? "Unable to join LiveKit room.");
+        setConnectionState("disconnected");
+        return;
+      }
+
+      const data = (await tokenRes.json()) as LiveKitTokenResponse;
+      setRoomName(data.roomName);
+      await room.connect(data.url, data.token);
+      updateParticipants();
+
+      const enableCamera = summary.mode === "video";
+      await room.localParticipant.setMicrophoneEnabled(true);
+      await room.localParticipant.setCameraEnabled(enableCamera);
+      setMuted(false);
+      setCameraOn(enableCamera);
+    };
+
+    connectToRoom().catch((connectError) => {
+      console.error(connectError);
+      setError("Unable to connect to LiveKit.");
+      setConnectionState("disconnected");
+    });
+
+    return () => {
+      room.off(RoomEvent.ConnectionStateChanged, handleConnectionState);
+      room.off(RoomEvent.ParticipantConnected, updateParticipants);
+      room.off(RoomEvent.ParticipantDisconnected, updateParticipants);
+      room.localParticipant.tracks.forEach((publication) => {
+        publication.track?.stop();
+      });
+      room.disconnect();
+      room.removeAllListeners();
+      roomRef.current = null;
+      setRoom(null);
+    };
+  }, [id, summary]);
 
   const formattedTime = useMemo(() => {
     const minutes = Math.floor(secondsElapsed / 60)
@@ -92,14 +305,50 @@ export default function ActiveCallPage() {
     }
   }
 
+  async function handleToggleMic() {
+    const room = roomRef.current;
+    if (!room) return;
+    const nextMuted = !muted;
+    setMuted(nextMuted);
+    await room.localParticipant.setMicrophoneEnabled(!nextMuted);
+  }
+
+  async function handleToggleCamera() {
+    if (isReceiverVideo || summary?.mode !== "video") return;
+    const room = roomRef.current;
+    if (!room) return;
+    const nextCamera = !cameraOn;
+    setCameraOn(nextCamera);
+    await room.localParticipant.setCameraEnabled(nextCamera);
+  }
+
   async function handleEndCall() {
     setConfirmOpen(false);
     setConnectionState("ended");
-    await fetch("/api/calls/end", {
+
+    const room = roomRef.current;
+    if (room) {
+      room.localParticipant.tracks.forEach((publication) => {
+        publication.track?.stop();
+      });
+      await Promise.resolve(room.disconnect());
+      room.removeAllListeners();
+      roomRef.current = null;
+      setRoom(null);
+    }
+
+    const res = await fetch("/api/calls/end", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ callId: id }),
     });
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      setError(payload?.error?.message ?? "Unable to end call.");
+      return;
+    }
+
     router.push(`/call/${id}/receipt`);
   }
 
@@ -111,7 +360,8 @@ export default function ActiveCallPage() {
             <p className={styles.pill}>In call</p>
             <h1>Call with {summary ? `@${counterparty}` : "your host"}</h1>
             <p className={styles.subtitle}>
-              Track the connection state, preview timer, and billing controls.
+              Track the LiveKit connection state, preview timer, and billing
+              controls.
             </p>
           </header>
 
@@ -140,26 +390,55 @@ export default function ActiveCallPage() {
                 <span>30s free preview remaining</span>
               </div>
               <div className={styles.status} data-tone="warning">
-                <strong>Connection checks</strong>
-                <span>Auto-reconnecting if signal drops</span>
+                <strong>LiveKit room</strong>
+                <span>{roomName ?? "Connecting…"}</span>
               </div>
             </div>
 
-            <div className={styles.row}>
-              <button
-                className={styles.button}
-                type="button"
-                onClick={() => setConnectionState("connected")}
-              >
-                Simulate connect
-              </button>
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                type="button"
-                onClick={() => setConnectionState("reconnecting")}
-              >
-                Simulate reconnect
-              </button>
+            {error ? (
+              <div className={styles.status} data-tone="danger">
+                <strong>Connection error</strong>
+                <span>{error}</span>
+              </div>
+            ) : null}
+          </section>
+
+          <section className={styles.card}>
+            <h2>Live media</h2>
+            <div className={styles.mediaGrid}>
+              {room ? (
+                <ParticipantMedia
+                  participant={room.localParticipant}
+                  label="You"
+                  isLocal
+                  speakerOn={speakerOn}
+                />
+              ) : (
+                <div className={styles.mediaTile}>
+                  <p className={styles.subtitle}>You</p>
+                  <div className={styles.mediaPlaceholder}>
+                    <span>Connecting…</span>
+                  </div>
+                </div>
+              )}
+              {remoteParticipants.length > 0 ? (
+                remoteParticipants.map((participant) => (
+                  <ParticipantMedia
+                    key={participant.identity}
+                    participant={participant}
+                    label={`@${counterparty}`}
+                    isLocal={false}
+                    speakerOn={speakerOn}
+                  />
+                ))
+              ) : (
+                <div className={styles.mediaTile}>
+                  <p className={styles.subtitle}>@{counterparty}</p>
+                  <div className={styles.mediaPlaceholder}>
+                    <span>Waiting for participant…</span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -171,7 +450,7 @@ export default function ActiveCallPage() {
                 data-active={!muted}
                 type="button"
                 aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-                onClick={() => setMuted((prev) => !prev)}
+                onClick={handleToggleMic}
               >
                 {muted ? "🔇" : "🎙️"}
               </button>
@@ -180,11 +459,8 @@ export default function ActiveCallPage() {
                 data-active={cameraOn}
                 type="button"
                 aria-label={cameraOn ? "Turn off camera" : "Turn on camera"}
-                onClick={() => {
-                  if (isReceiverVideo) return;
-                  setCameraOn((prev) => !prev);
-                }}
-                disabled={isReceiverVideo}
+                onClick={handleToggleCamera}
+                disabled={isReceiverVideo || summary?.mode !== "video"}
               >
                 {cameraOn ? "📷" : "🚫"}
               </button>
@@ -277,6 +553,7 @@ export default function ActiveCallPage() {
                   onClick={() => {
                     setCameraOn(true);
                     setCameraPromptOpen(false);
+                    roomRef.current?.localParticipant.setCameraEnabled(true);
                   }}
                 >
                   Enable camera

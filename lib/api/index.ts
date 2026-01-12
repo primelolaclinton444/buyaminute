@@ -50,6 +50,23 @@ export type ProfileResponse = {
   };
 };
 
+export type PublicProfileResponse = {
+  ok: boolean;
+  userId: string;
+  earningsVisible: boolean;
+  totalEarningsTokens?: number;
+  minutesSold?: number;
+};
+
+export type EarningsPrivacyResponse = {
+  ok: boolean;
+  user: {
+    id: string;
+    earningsVisible: boolean;
+    earningsVisibilityLockedUntil: string | null;
+  };
+};
+
 export type WalletTransaction = {
   id: string;
   type: "deposit" | "withdrawal" | "earning";
@@ -155,6 +172,18 @@ export const browseApi = {
 export const profileApi = {
   getProfile: (username: string) =>
     apiFetch<ProfileResponse>(`/api/profile?username=${encodeURIComponent(username)}`),
+  getPublicProfile: (username: string) =>
+    apiFetch<PublicProfileResponse>(
+      `/api/profile/public?username=${encodeURIComponent(username)}`
+    ),
+};
+
+export const userApi = {
+  setEarningsPrivacy: (earningsVisible: boolean) =>
+    apiFetch<EarningsPrivacyResponse>("/api/user/privacy/earnings", {
+      method: "POST",
+      body: JSON.stringify({ earningsVisible }),
+    }),
 };
 
 export const walletApi = {

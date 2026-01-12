@@ -14,15 +14,28 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("userId");
+  const userId = searchParams.get("userId")?.trim();
+  const username = searchParams.get("username")?.trim();
 
-  if (!userId) {
-    return jsonError("Missing userId", 400, "invalid_payload");
+  if (!userId && !username) {
+    return jsonError("Missing userId or username", 400, "invalid_payload");
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  let user = null;
+
+  if (userId) {
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+  }
+
+  if (!user && username) {
+    user = await prisma.user.findFirst({
+      where: {
+        OR: [{ id: username }, { email: username }, { name: username }],
+      },
+    });
+  }
 
   if (!user) {
     return jsonError("User not found", 404, "not_found");
@@ -36,7 +49,7 @@ export async function GET(req: Request) {
     minutesSold?: number;
   } = {
     ok: true,
-    userId,
+    userId: user.id,
     earningsVisible: user.earningsVisible,
   };
 
@@ -46,7 +59,7 @@ export async function GET(req: Request) {
 
   const credits = await prisma.ledgerEntry.findMany({
     where: {
-      userId,
+      userId: user.id,
       type: "credit",
       source: "call_billing",
     },

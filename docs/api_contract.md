@@ -311,7 +311,7 @@ Errors: JSON error shape.
 
 ## Calls (Frontend)
 
-### POST /api/calls/request
+### POST /api/calls/request (Canonical)
 Auth: session cookie required.
 Request body:
 ```json
@@ -323,7 +323,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### GET /api/calls/active?id=...
+### GET /api/calls/active?id=... (Canonical)
 Auth: session cookie required.
 Success (200):
 ```json
@@ -331,7 +331,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### GET /api/calls/[id]/state
+### GET /api/calls/[id]/state (Wrapper → `/api/calls/active?id=...`)
 Auth: session cookie required.
 Success (200):
 ```json
@@ -339,7 +339,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### GET /api/calls/incoming
+### GET /api/calls/incoming (Canonical)
 Auth: session cookie required.
 Success (200):
 ```json
@@ -359,7 +359,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### POST /api/calls/respond
+### POST /api/calls/respond (Canonical)
 Auth: session cookie required.
 Request body:
 ```json
@@ -371,25 +371,31 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### POST /api/calls/[id]/accept
-Auth: session cookie required.
-Request body: none.
-Success (200):
+### POST /api/calls/[id]/accept (Deprecated — 410 Gone)
+Always returns 410.
 ```json
-{ "requestId": "string", "status": "accepted", "updatedAt": "ISO-8601" }
+{
+  "error": {
+    "code": "DEPRECATED_ENDPOINT",
+    "message": "string",
+    "use": "/api/calls/respond"
+  }
+}
 ```
-Errors: JSON error shape.
 
-### POST /api/calls/[id]/decline
-Auth: session cookie required.
-Request body: none.
-Success (200):
+### POST /api/calls/[id]/decline (Deprecated — 410 Gone)
+Always returns 410.
 ```json
-{ "requestId": "string", "status": "declined", "updatedAt": "ISO-8601" }
+{
+  "error": {
+    "code": "DEPRECATED_ENDPOINT",
+    "message": "string",
+    "use": "/api/calls/respond"
+  }
+}
 ```
-Errors: JSON error shape.
 
-### POST /api/calls/end
+### POST /api/calls/end (Canonical)
 Auth: session cookie required, or `x-internal-key` for internal callers.
 Request body:
 ```json
@@ -401,7 +407,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### POST /api/calls/[id]/end
+### POST /api/calls/[id]/end (Wrapper → `/api/calls/end`)
 Auth: session cookie required.
 Request body: none.
 Success (200):
@@ -410,7 +416,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### GET /api/calls/receipt?id=...
+### GET /api/calls/receipt?id=... (Canonical)
 Auth: session cookie required.
 Success (200):
 ```json
@@ -428,7 +434,7 @@ Success (200):
 ```
 Errors: JSON error shape.
 
-### GET /api/calls/[id]/receipt
+### GET /api/calls/[id]/receipt (Wrapper → `/api/calls/receipt?id=...`)
 Auth: session cookie required.
 Success (200):
 ```json

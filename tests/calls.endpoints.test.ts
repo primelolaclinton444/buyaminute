@@ -19,6 +19,9 @@ import { GET as receiptGET } from "../app/api/calls/receipt/route";
 import { GET as receiptIdGET } from "../app/api/calls/[id]/receipt/route";
 import { POST as deprecatedAcceptPOST } from "../app/api/calls/[id]/accept/route";
 import { POST as deprecatedDeclinePOST } from "../app/api/calls/[id]/decline/route";
+import { POST as uiCreatePOST } from "../app/api/ui/calls/create/route";
+import { POST as uiAcceptPOST } from "../app/api/ui/calls/accept/route";
+import { POST as uiEndPOST } from "../app/api/ui/calls/end/route";
 
 const prisma = new PrismaClient();
 let sessionToken: string | null = null;
@@ -143,6 +146,33 @@ describe("Call endpoint canonicalization", () => {
 
     expect(acceptJson.error?.code).toBe("DEPRECATED_ENDPOINT");
     expect(declineJson.error?.code).toBe("DEPRECATED_ENDPOINT");
+  });
+
+  it("returns 410 for deprecated ui call proxies", async () => {
+    const createRes = await uiCreatePOST(
+      new Request("http://localhost/api/ui/calls/create", { method: "POST" })
+    );
+    const acceptRes = await uiAcceptPOST(
+      new Request("http://localhost/api/ui/calls/accept", { method: "POST" })
+    );
+    const endRes = await uiEndPOST(
+      new Request("http://localhost/api/ui/calls/end", { method: "POST" })
+    );
+
+    expect(createRes.status).toBe(410);
+    expect(acceptRes.status).toBe(410);
+    expect(endRes.status).toBe(410);
+
+    const createJson = await createRes.json();
+    const acceptJson = await acceptRes.json();
+    const endJson = await endRes.json();
+
+    expect(createJson.error?.code).toBe("DEPRECATED_ENDPOINT");
+    expect(acceptJson.error?.code).toBe("DEPRECATED_ENDPOINT");
+    expect(endJson.error?.code).toBe("DEPRECATED_ENDPOINT");
+    expect(createJson.error?.use).toBe("/api/calls/request");
+    expect(acceptJson.error?.use).toBe("/api/calls/respond");
+    expect(endJson.error?.use).toBe("/api/calls/end");
   });
 });
 

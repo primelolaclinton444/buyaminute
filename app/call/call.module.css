@@ -220,6 +220,43 @@
   flex-wrap: wrap;
 }
 
+.mediaGrid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.mediaTile {
+  background: rgba(10, 14, 30, 0.85);
+  border: 1px solid rgba(120, 140, 255, 0.2);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mediaVideo {
+  width: 100%;
+  border-radius: 12px;
+  background: #02040c;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.mediaPlaceholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 7, 18, 0.85);
+  border: 1px dashed rgba(120, 140, 255, 0.3);
+  color: rgba(245, 247, 255, 0.7);
+  font-size: 0.95rem;
+}
+
 .modalBackdrop {
   position: fixed;
   inset: 0;

@@ -58,8 +58,16 @@ export async function POST(req: Request) {
     return created;
   });
 
-  const token = createSessionToken(user.id);
-  setSessionCookie(token);
+  try {
+    const token = createSessionToken(user.id);
+    setSessionCookie(token);
+  } catch (error) {
+    return jsonError(
+      error instanceof Error ? error.message : "Unable to create session.",
+      500,
+      "auth_session_error"
+    );
+  }
 
   return Response.json({ user });
 }

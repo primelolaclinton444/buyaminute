@@ -136,7 +136,7 @@ export default function HomePage() {
               you for it.
             </span>
             <span className={styles.headlineLine}>
-              Or you, finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
+              Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
             </span>
           </h1>
           <div className={styles.supportingBlock}>

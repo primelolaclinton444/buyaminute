@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import Nav from "@/components/Nav";
 import Button from "@/components/ui/Button";
@@ -9,97 +8,79 @@ import Section from "@/components/ui/Section";
 import styles from "./page.module.css";
 
 const stats = [
-  { label: "Min Rate", value: "$0.10" },
-  {
-    label: "Free Preview",
-    value: "30s",
-    footnote: "One free preview per person every 24 hours.",
-  },
-  { label: "Set Any Rate", value: "∞" },
+  { label: "Min Rate", value: "$0.10/min" },
+  { label: "Preview", value: "30s", footnote: "One free preview per pair every 24 hours." },
+  { label: "Clearing", value: "Per Second" },
 ];
 
-const dualModes = [
+const modeCards = [
   {
-    icon: "💸",
-    title: "Get Paid",
-    description: "Set your rate. Go live.",
-    highlight: "Earn per second",
+    title: "Receive Mode",
+    description: "When someone initiates, you are the icon.",
+    highlight: "Set your rate. Go live. Earn per second.",
   },
   {
-    icon: "🎯",
-    title: "Request a Call",
-    description: "See the rate. Meet the 1-minute minimum.",
-    highlight: "20 seconds to accept",
-  },
-  {
-    icon: "📍",
-    title: "Paid Availability Ping",
-    description: "No texting. Pay a small fee to ask",
-    highlight: "“Available now?”",
+    title: "Call Mode",
+    description: "When you initiate, you are the caller.",
+    highlight: "See the rate. Prepay at least one minute.",
   },
 ];
 
-const receiveSteps = [
+const transactionSteps = [
   {
-    title: "Set Your Rate",
-    description:
-      "Choose any rate ≥ $0.10/min. Change it anytime with a 24-hour cooldown.",
+    title: "Request",
+    description: "Caller chooses a live icon, sees rate, and pre-authorizes time.",
   },
   {
-    title: "Go Live",
-    description:
-      "Turn availability ON to receive requests. OFF means no one can call you.",
+    title: "Decision (20s)",
+    description: "Icon sees caller + type + prepaid minutes and accepts or declines.",
   },
   {
-    title: "Accept or Decline (20s)",
-    description:
-      "You see caller + type + rate + minimum requirement. You have 20 seconds to decide.",
+    title: "Preview (30s)",
+    description: "One free preview per pair every 24 hours. No billing during preview.",
   },
   {
-    title: "Get Paid",
-    description:
-      "Per-second billing after preview. Withdraw to USDT (TRC20) via manual request.",
+    title: "Billing",
+    description: "Per-second billing after preview. End anytime. Unused time returns.",
   },
 ];
 
-const callSteps = [
+const protocolChecklist = [
   {
-    title: "Find Someone Live",
-    description: "Browse available icons. See their rate and public earnings.",
+    title: "Rate Floor",
+    description: "Set any rate ≥ $0.10/min. Changes allowed after a 24-hour cooldown.",
   },
   {
-    title: "Buy Credits",
-    description: "Add USDT (TRC20) to your wallet. You need at least 1 minute worth to request.",
+    title: "Live Gate",
+    description: "OFF means unreachable. ON means requestable.",
   },
   {
-    title: "Request Call",
-    description:
-      "Tap “Buy a Minute.” Choose voice or video (only if the receiver allows video).",
+    title: "No DMs",
+    description: "No free chat. Paid calls + paid pings only.",
   },
   {
-    title: "Preview → Bill Per Second",
-    description:
-      "30s free preview (once per 24h per pair), then billing starts. End anytime. You are only charged for billable seconds.",
+    title: "Settlement",
+    description: "Per-second billing after preview. Withdraw to USDT (TRC20) via manual request.",
   },
 ];
 
-const pingSteps = [
+const optionalMechanics = [
   {
-    title: "Tap “Check Availability”",
-    description: "Pay a small flat fee (non-refundable). No typing. No conversation.",
+    title: "Preview Safeguard",
+    description:
+      "30s preview is a control step, not a conversation. One free preview per pair every 24 hours.",
   },
   {
-    title: "Choose a Preset",
-    description: "“Available now?” “Available later today?” “When’s a good time?”",
+    title: "Availability Ping (Optional)",
+    description:
+      "Pay a small flat fee to ask availability. Presets only. No texting. No conversation.",
   },
-  {
-    title: "One-Tap Reply",
-    description: "Receiver responds: Available now / Available later / Not available.",
-  },
-  {
-    title: "Then You Request a Call",
-    description: "If they’re live, the 20-second accept window applies. No DMs, ever.",
-  },
+];
+
+const pingRules = [
+  "Presets: “Available now?” · “Available later today?” · “When’s a good time?”",
+  "Replies: Available now · Available later · Not available.",
+  "If they’re live, the 20-second decision window applies.",
 ];
 
 export default function HomePage() {
@@ -115,28 +96,6 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem("buyaminute_wireframe", wireframe ? "1" : "0");
   }, [wireframe]);
-
-  useEffect(() => {
-    const elements = Array.from(document.querySelectorAll("[data-reveal]"));
-    if (!elements.length) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add(styles.isVisible);
-          }
-        });
-      },
-      { threshold: 0.25, rootMargin: "0px 0px -50px 0px" }
-    );
-
-    elements.forEach((element) => observer.observe(element));
-
-    return () => observer.disconnect();
-  }, []);
 
   return (
     <main className={styles.page} data-wireframe={wireframe ? "on" : "off"}>
@@ -187,148 +146,165 @@ export default function HomePage() {
             <strong>No DMs. No free chat.</strong> Every interaction is paid or doesn’t exist.
           </div>
 
-          <div className={styles.dualMode}>
-            {dualModes.map((mode) => (
-              <div
-                key={mode.title}
-                className={`${styles.modeCard} ${styles.reveal}`}
-                data-reveal
-              >
-                <div className={styles.modeIcon}>{mode.icon}</div>
+          <div className={styles.ctaContainer}>
+            <Button
+              href="/signup"
+              size="lg"
+              className={`${styles.ctaPrimary} ${styles.ctaGlow}`}
+            >
+              Enter to Earn
+            </Button>
+            <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+              Enter to Call
+            </Button>
+          </div>
+        </Container>
+      </Section>
+
+      <Section className={styles.roleSection} id="modes">
+        <Container>
+          <p className={styles.sectionEyebrow}>Who Participates</p>
+          <h2 className={styles.sectionTitle}>One Account. Two Modes.</h2>
+          <p className={styles.sectionSubtitle}>
+            You are not choosing an identity. You switch modes based on action: initiate = caller,
+            receive = icon.
+          </p>
+          <div className={styles.modeGrid}>
+            {modeCards.map((mode) => (
+              <div key={mode.title} className={styles.modeCard}>
                 <h3 className={styles.modeTitle}>{mode.title}</h3>
-                <p className={styles.modeDescription}>
-                  {mode.description} <span className={styles.modeHighlight}>{mode.highlight}</span>.
-                </p>
+                <p className={styles.modeDescription}>{mode.description}</p>
+                <p className={styles.modeHighlight}>{mode.highlight}</p>
               </div>
             ))}
           </div>
+        </Container>
+      </Section>
 
+      <Section className={styles.browseSection} id="browse">
+        <Container>
+          <p className={styles.sectionEyebrow}>Primary Entry Surface</p>
+          <h2 className={styles.sectionTitle}>Browse Icons</h2>
+          <p className={styles.sectionSubtitle}>
+            This is a market surface for reachability. Live status gates access. Rates are visible
+            before you request.
+          </p>
+          <div className={styles.browsePanel}>
+            <div>
+              <h3 className={styles.panelTitle}>Live First. Rates Visible.</h3>
+              <p className={styles.panelBody}>
+                You do not message. You request paid access. If they are live, you can buy a minute.
+              </p>
+            </div>
+            <Button href="/browse" size="lg" className={styles.ctaPrimary}>
+              Browse Icons
+            </Button>
+          </div>
+        </Container>
+      </Section>
+
+      <Section className={styles.transactionSection} id="flow">
+        <Container>
+          <p className={styles.sectionEyebrow}>How It Works</p>
+          <h2 className={styles.sectionTitle}>Transaction Path</h2>
+          <p className={styles.sectionSubtitle}>
+            Request → decision → preview → billing. The sequence is fixed.
+          </p>
+          <div className={styles.stepsGrid}>
+            {transactionSteps.map((step, index) => (
+              <div key={step.title} className={styles.step}>
+                <div className={styles.stepNumber}>{index + 1}</div>
+                <h3 className={styles.stepTitle}>{step.title}</h3>
+                <p className={styles.stepDescription}>{step.description}</p>
+              </div>
+            ))}
+          </div>
+        </Container>
+      </Section>
+
+      <Section className={styles.instrumentSection} id="instrument">
+        <Container>
+          <p className={styles.sectionEyebrow}>What Enforces It</p>
+          <h2 className={styles.sectionTitle}>Time Is the Instrument</h2>
+          <p className={styles.sectionSubtitle}>
+            Not attention. Not fame. Time. Paid access only.
+          </p>
           <div className={styles.statsGrid}>
             {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className={`${styles.stat} ${styles.reveal}`}
-                data-reveal
-              >
+              <div key={stat.label} className={styles.stat}>
                 <span className={styles.statValue}>{stat.value}</span>
                 <span className={styles.statLabel}>{stat.label}</span>
                 {stat.footnote ? <p className={styles.statFootnote}>{stat.footnote}</p> : null}
               </div>
             ))}
           </div>
-
-          <div className={styles.ctaContainer}>
-            <Button href="/signup" size="lg" className={styles.ctaPrimary}>
-              Start Earning
-            </Button>
-            <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-              Make a Call
-            </Button>
-          </div>
         </Container>
       </Section>
 
-      <Section className={styles.howItWorks}>
+      <Section className={styles.protocolSection} id="protocol">
         <Container>
-          <h2 className={styles.sectionTitle}>Two Ways to Use BuyAMinute</h2>
-          <p className={styles.sectionSubtitle}>
-            One account. One profile. You become the caller when you initiate — and the icon when
-            you receive. No free chat. Paid calls + paid pings only.
-          </p>
-
-          <div className={styles.flowContainer}>
-            <div
-              className={`${styles.flowSection} ${styles.reveal}`}
-              id="start-earning"
-              data-reveal
-            >
-              <div className={styles.flowHeader}>
-                <span className={styles.flowLabel}>Receive Mode</span>
-                <h3 className={styles.flowTitle}>Earn from Your Time</h3>
-                <p className={styles.flowDescription}>When someone calls you, you’re the icon.</p>
-              </div>
-              <div className={styles.stepsGrid}>
-                {receiveSteps.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className={`${styles.step} ${styles.reveal}`}
-                    data-reveal
-                  >
-                    <div className={styles.stepNumber}>{index + 1}</div>
-                    <h4 className={styles.stepTitle}>{step.title}</h4>
-                    <p className={styles.stepDescription}>{step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div
-              className={`${styles.flowSection} ${styles.reveal}`}
-              id="make-a-call"
-              data-reveal
-            >
-              <div className={styles.flowHeader}>
-                <span className={styles.flowLabel}>Call Mode</span>
-                <h3 className={styles.flowTitle}>Access Someone’s Time</h3>
-                <p className={styles.flowDescription}>When you initiate, you’re the caller.</p>
-              </div>
-              <div className={styles.stepsGrid}>
-                {callSteps.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className={`${styles.step} ${styles.reveal}`}
-                    data-reveal
-                  >
-                    <div className={styles.stepNumber}>{index + 1}</div>
-                    <h4 className={styles.stepTitle}>{step.title}</h4>
-                    <p className={styles.stepDescription}>{step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className={`${styles.flowSection} ${styles.reveal}`} data-reveal>
-              <div className={styles.flowHeader}>
-                <span className={styles.flowLabel}>No Chat Replacement</span>
-                <h3 className={styles.flowTitle}>Paid Availability Ping</h3>
-                <p className={styles.flowDescription}>Check availability without messaging.</p>
-              </div>
-              <div className={styles.stepsGrid}>
-                {pingSteps.map((step, index) => (
-                  <div
-                    key={step.title}
-                    className={`${styles.step} ${styles.reveal}`}
-                    data-reveal
-                  >
-                    <div className={styles.stepNumber}>{index + 1}</div>
-                    <h4 className={styles.stepTitle}>{step.title}</h4>
-                    <p className={styles.stepDescription}>{step.description}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Container>
-      </Section>
-
-      <Section className={styles.proofSection}>
-        <Container>
-          <h2 className={styles.sectionTitle}>No Free Interaction</h2>
-          <div className={styles.proofStats}>
-            {[
-              { value: "0", label: "Free Messages" },
-              { value: "0", label: "Free Calls" },
-              { value: "100%", label: "Paid Attention" },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className={`${styles.proofStat} ${styles.reveal}`}
-                data-reveal
-              >
-                <span className={styles.proofValue}>{item.value}</span>
-                <span className={styles.proofLabel}>{item.label}</span>
+          <p className={styles.sectionEyebrow}>Protocol</p>
+          <h2 className={styles.sectionTitle}>System Checklist</h2>
+          <p className={styles.sectionSubtitle}>A contract, not a conversation.</p>
+          <div className={styles.protocolGrid}>
+            {protocolChecklist.map((item, index) => (
+              <div key={item.title} className={styles.protocolItem}>
+                <div className={styles.protocolNumber}>{String(index + 1).padStart(2, "0")}</div>
+                <div>
+                  <h3 className={styles.protocolTitle}>{item.title}</h3>
+                  <p className={styles.protocolDescription}>{item.description}</p>
+                </div>
               </div>
             ))}
+          </div>
+        </Container>
+      </Section>
+
+      <Section className={styles.optionalSection} id="optional">
+        <Container>
+          <p className={styles.sectionEyebrow}>Optional Mechanics</p>
+          <h2 className={styles.sectionTitle}>Safeguards & Pings</h2>
+          <p className={styles.sectionSubtitle}>
+            These do not replace the core transaction. They reduce waste.
+          </p>
+          <div className={styles.optionalGrid}>
+            <div className={styles.optionalCard}>
+              <h3 className={styles.optionalTitle}>{optionalMechanics[0].title}</h3>
+              <p className={styles.optionalDescription}>{optionalMechanics[0].description}</p>
+            </div>
+            <div className={styles.optionalCard}>
+              <h3 className={styles.optionalTitle}>{optionalMechanics[1].title}</h3>
+              <p className={styles.optionalDescription}>{optionalMechanics[1].description}</p>
+              <ul className={styles.optionalList}>
+                {pingRules.map((rule) => (
+                  <li key={rule}>{rule}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Container>
+      </Section>
+
+      <Section className={styles.finalSection} id="enter">
+        <Container className={styles.finalContainer}>
+          <div>
+            <p className={styles.sectionEyebrow}>Entry Intent</p>
+            <h2 className={styles.sectionTitle}>Choose How You Enter</h2>
+            <p className={styles.sectionSubtitle}>
+              One account. Two modes. Pick your intent for this session.
+            </p>
+          </div>
+          <div className={styles.ctaContainer}>
+            <Button
+              href="/signup"
+              size="lg"
+              className={`${styles.ctaPrimary} ${styles.ctaGlow}`}
+            >
+              Enter to Earn
+            </Button>
+            <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+              Enter to Call
+            </Button>
           </div>
         </Container>
       </Section>

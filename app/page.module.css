@@ -142,30 +142,40 @@
 }
 
 .mainHeadline {
-  font-size: clamp(2.2rem, 5.6vw, 4.4rem);
-  font-weight: 900;
-  line-height: 1.15;
+  font-size: clamp(2.15rem, 4.8vw, 4.15rem);
+  font-weight: 800;
+  line-height: 1.12;
   letter-spacing: -0.02em;
-  font-family: var(--font-space);
+  font-style: normal;
+  font-family: inherit;
   color: #f5f7ff;
-  max-width: 900px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
+.headlineLine {
+  display: block;
+}
+
+.headlineLine + .headlineLine {
+  margin-top: clamp(0.5rem, 1.6vw, 0.9rem);
+}
+
 .emphasis {
-  color: #00ff88;
-  font-weight: 800;
+  color: #86d9b5;
+  font-weight: 850;
 }
 
 .supportingBlock {
-  padding: 1.2rem 1.6rem;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(245, 247, 255, 0.72);
-  font-size: clamp(0.95rem, 2.2vw, 1.1rem);
-  line-height: 1.65;
+  padding: clamp(1rem, 2.4vw, 1.5rem) clamp(1.1rem, 3vw, 1.8rem);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(245, 247, 255, 0.68);
+  font-size: clamp(0.95rem, 2.1vw, 1.05rem);
+  line-height: 1.7;
   max-width: 760px;
+  width: min(100%, 760px);
   margin: 0 auto;
   text-align: left;
 }
@@ -251,6 +261,7 @@
 .ctaPrimary {
   background: #fff;
   color: #000;
+  min-height: 44px;
 }
 
 .ctaPrimary:hover {
@@ -260,6 +271,7 @@
 .ctaSecondary {
   border: 2px solid #fff;
   color: #fff;
+  min-height: 44px;
 }
 
 .ctaSecondary:hover {

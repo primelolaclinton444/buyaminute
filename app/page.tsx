@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Nav from "@/components/Nav";
 import Button from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
@@ -100,8 +99,6 @@ export default function HomePage() {
   return (
     <main className={styles.page} data-wireframe={wireframe ? "on" : "off"}>
       <div className={styles.heroGlow} aria-hidden="true" />
-      <Nav />
-
       <div className={styles.previewBar} aria-label="Preview controls">
         <span className={styles.previewPill}>Wireframe</span>
         <input
@@ -133,17 +130,20 @@ export default function HomePage() {
         <Container className={styles.heroContainer}>
           <div className={styles.heroLogo}>BUYAMINUTE</div>
           <h1 className={styles.mainHeadline}>
-            Every user is an <span className={styles.iconText}>ICON</span>.
+            Imagine fans, random strangers, or acquaintances <span className={styles.emphasis}>wanting your attention</span> badly enough to pay you for it.
             <br />
-            Pay for their attention.
-            <br />
-            Or get paid for yours.
+            Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
           </h1>
-          <p className={styles.subheadline}>
-            Everyone is accessible when you buyaminute — but only when they’re live.
-          </p>
-          <div className={styles.rulesStrip}>
-            <strong>No DMs. No free chat.</strong> Every interaction is paid or doesn’t exist.
+          <div className={styles.supportingBlock}>
+            <p>
+              BuyAMinute turns reachability into a market.
+              <br />
+              No DMs. No free chat. Only paid access.
+              <br />
+              If they’re live, you can buy a minute (video or call).
+              <br />
+              If you’re live, you can sell yours.
+            </p>
           </div>
 
           <div className={styles.ctaContainer}>

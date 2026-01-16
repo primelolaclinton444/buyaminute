@@ -111,59 +111,44 @@ export default function HomePage() {
         />
       </div>
 
+      {/* =========================
+          HERO — STATEMENT COMPOSITION
+          ========================= */}
       <Section className={styles.heroSection}>
-        <div className={styles.tickerWrapper} aria-hidden="true">
-          <div className={styles.ticker}>
-            PAY OR GET PAID · PAY OR GET PAID · PAY OR GET PAID · PAY OR GET PAID ·
-          </div>
-          <div className={styles.ticker}>
-            EVERY USER IS AN ICON · EVERY USER IS AN ICON · EVERY USER IS AN ICON ·
-          </div>
-          <div className={styles.ticker}>
-            BUYAMINUTE · BUYAMINUTE · BUYAMINUTE · BUYAMINUTE · BUYAMINUTE ·
-          </div>
-          <div className={styles.ticker}>
-            $0.10/min · $0.10/min · $0.10/min · $0.10/min · $0.10/min ·
-          </div>
-        </div>
-
         <Container className={styles.heroContainer}>
-          <div className={styles.heroLogo}>BUYAMINUTE</div>
-          <div className={styles.heroCopy}>
-            <h1 className={styles.mainHeadline}>
-              <span className={styles.headlineLine}>
-                Imagine fans, random strangers, or acquaintances{" "}
-                <span className={styles.emphasis}>wanting your attention</span> badly enough to pay
-                you for it.
-              </span>
-              <span className={styles.headlineLine}>
-                Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
-              </span>
-            </h1>
-            <div className={styles.supportingBlock}>
-              <p>
-                BuyAMinute turns reachability into a market.
-                <br />
-                No DMs. No free chat. Only paid access.
-                <br />
-                If they’re live, you can buy a minute (video or call).
-                <br />
-                If you’re live, you can sell yours.
-              </p>
-            </div>
-          </div>
+          <div className={styles.heroInner}>
+            <div className={styles.heroMeasure}>
+              <h1 className={styles.mainHeadline}>
+                <span className={styles.headlineLine}>
+                  Imagine fans, random strangers, or acquaintances{" "}
+                  <span className={styles.emphasis}>wanting your attention</span> badly enough to pay
+                  you for it.
+                </span>
+                <span className={styles.headlineLine}>
+                  Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
+                </span>
+              </h1>
 
-          <div className={styles.ctaContainer}>
-            <Button
-              href="/signup"
-              size="lg"
-              className={`${styles.ctaPrimary} ${styles.ctaGlow}`}
-            >
-              Enter to Earn
-            </Button>
-            <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-              Enter to Call
-            </Button>
+              <div className={styles.supportingBlock}>
+                <p className={styles.supportingCopy}>
+                  <span className={styles.supportingLine}>BuyAMinute turns reachability into a market.</span>
+                  <span className={styles.supportingLine}>No DMs. No free chat. Only paid access.</span>
+                  <span className={styles.supportingLine}>
+                    If they’re live, you can buy a minute (video or call).
+                  </span>
+                  <span className={styles.supportingLine}>If you’re live, you can sell yours.</span>
+                </p>
+              </div>
+
+              <div className={styles.ctaContainer}>
+                <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
+                  Enter to Earn
+                </Button>
+                <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                  Enter to Call
+                </Button>
+              </div>
+            </div>
           </div>
         </Container>
       </Section>
@@ -233,9 +218,7 @@ export default function HomePage() {
         <Container>
           <p className={styles.sectionEyebrow}>What Enforces It</p>
           <h2 className={styles.sectionTitle}>Time Is the Instrument</h2>
-          <p className={styles.sectionSubtitle}>
-            Not attention. Not fame. Time. Paid access only.
-          </p>
+          <p className={styles.sectionSubtitle}>Not attention. Not fame. Time. Paid access only.</p>
           <div className={styles.statsGrid}>
             {stats.map((stat) => (
               <div key={stat.label} className={styles.stat}>
@@ -271,9 +254,7 @@ export default function HomePage() {
         <Container>
           <p className={styles.sectionEyebrow}>Optional Mechanics</p>
           <h2 className={styles.sectionTitle}>Safeguards & Pings</h2>
-          <p className={styles.sectionSubtitle}>
-            These do not replace the core transaction. They reduce waste.
-          </p>
+          <p className={styles.sectionSubtitle}>These do not replace the core transaction. They reduce waste.</p>
           <div className={styles.optionalGrid}>
             <div className={styles.optionalCard}>
               <h3 className={styles.optionalTitle}>{optionalMechanics[0].title}</h3>
@@ -297,16 +278,10 @@ export default function HomePage() {
           <div>
             <p className={styles.sectionEyebrow}>Entry Intent</p>
             <h2 className={styles.sectionTitle}>Choose How You Enter</h2>
-            <p className={styles.sectionSubtitle}>
-              One account. Two modes. Pick your intent for this session.
-            </p>
+            <p className={styles.sectionSubtitle}>One account. Two modes. Pick your intent for this session.</p>
           </div>
           <div className={styles.ctaContainer}>
-            <Button
-              href="/signup"
-              size="lg"
-              className={`${styles.ctaPrimary} ${styles.ctaGlow}`}
-            >
+            <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
               Enter to Earn
             </Button>
             <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>

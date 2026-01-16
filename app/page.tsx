@@ -129,21 +129,28 @@ export default function HomePage() {
 
         <Container className={styles.heroContainer}>
           <div className={styles.heroLogo}>BUYAMINUTE</div>
-          <h1 className={styles.mainHeadline}>
-            Imagine fans, random strangers, or acquaintances <span className={styles.emphasis}>wanting your attention</span> badly enough to pay you for it.
-            <br />
-            Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
-          </h1>
-          <div className={styles.supportingBlock}>
-            <p>
-              BuyAMinute turns reachability into a market.
-              <br />
-              No DMs. No free chat. Only paid access.
-              <br />
-              If they’re live, you can buy a minute (video or call).
-              <br />
-              If you’re live, you can sell yours.
-            </p>
+          <div className={styles.heroCopy}>
+            <h1 className={styles.mainHeadline}>
+              <span className={styles.headlineLine}>
+                Imagine fans, random strangers, or acquaintances{" "}
+                <span className={styles.emphasis}>wanting your attention</span> badly enough to pay
+                you for it.
+              </span>
+              <span className={styles.headlineLine}>
+                Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
+              </span>
+            </h1>
+            <div className={styles.supportingBlock}>
+              <p>
+                BuyAMinute turns reachability into a market.
+                <br />
+                No DMs. No free chat. Only paid access.
+                <br />
+                If they’re live, you can buy a minute (video or call).
+                <br />
+                If you’re live, you can sell yours.
+              </p>
+            </div>
           </div>
 
           <div className={styles.ctaContainer}>

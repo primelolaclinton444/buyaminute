@@ -67,18 +67,45 @@ export type EarningsPrivacyResponse = {
   };
 };
 
+export type WalletTransactionType =
+  | "deposit"
+  | "hold"
+  | "release"
+  | "call_settlement"
+  | "withdrawal_request"
+  | "withdrawal_paid";
+
 export type WalletTransaction = {
   id: string;
-  type: "deposit" | "withdrawal" | "earning";
-  amount: number;
+  type: WalletTransactionType;
+  amountTokens: number;
   status: "pending" | "completed" | "failed";
   createdAt: string;
 };
 
 export type WalletSummary = {
-  balanceTokens: number;
-  availableUsd: number;
+  totalTokens: number;
+  availableTokens: number;
+  onHoldTokens: number;
+  pendingTokens: number;
+  withdrawalAddressOnFile: boolean;
+  latestWithdrawal: {
+    status: "none" | "pending" | "sent" | "failed";
+    amountTokens?: number;
+    createdAt?: string;
+    processedAt?: string | null;
+  };
+};
+
+export type WalletDepositInfo = {
+  network: string;
+  address: string;
+  memo: string | null;
+};
+
+export type WalletTransactionsResponse = {
   transactions: WalletTransaction[];
+  nextCursor: string | null;
 };
 
 export type SettingsPayload = {
@@ -187,11 +214,21 @@ export const userApi = {
 };
 
 export const walletApi = {
-  getWallet: () => apiFetch<WalletSummary>("/api/wallet"),
-  withdraw: (amount: number) =>
-    apiFetch<{ success: boolean }>("/api/wallet", {
+  getSummary: () => apiFetch<WalletSummary>("/api/wallet/summary"),
+  getDepositInfo: () => apiFetch<WalletDepositInfo>("/api/wallet/deposit-info"),
+  getTransactions: (params?: { cursor?: string | null; type?: WalletTransactionType }) => {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set("cursor", params.cursor);
+    if (params?.type) search.set("type", params.type);
+    const query = search.toString();
+    return apiFetch<WalletTransactionsResponse>(
+      `/api/wallet/transactions${query ? `?${query}` : ""}`
+    );
+  },
+  withdraw: (amountTokens: number) =>
+    apiFetch<{ ok: boolean; withdrawalId?: string }>("/api/wallet/withdraw", {
       method: "POST",
-      body: JSON.stringify({ amount }),
+      body: JSON.stringify({ amountTokens }),
     }),
 };
 

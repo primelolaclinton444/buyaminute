@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { buildAuthRedirect } from "@/components/auth/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import Button from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
@@ -84,6 +87,13 @@ const pingRules = [
 
 export default function HomePage() {
   const [wireframe, setWireframe] = useState(false);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const { status, expired } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     const saved = localStorage.getItem("buyaminute_wireframe");
@@ -95,6 +105,54 @@ export default function HomePage() {
   useEffect(() => {
     localStorage.setItem("buyaminute_wireframe", wireframe ? "1" : "0");
   }, [wireframe]);
+
+  const handleInviteClick = async () => {
+    if (status !== "authenticated") {
+      router.push(buildAuthRedirect({ pathname, expired }));
+      return;
+    }
+
+    setIsCreatingInvite(true);
+    setInviteError(null);
+    setInviteUrl(null);
+    setCopyStatus("idle");
+
+    try {
+      const res = await fetch("/api/invites/create", { method: "POST" });
+      const data = (await res.json()) as
+        | { inviteUrl: string; token: string }
+        | { error?: { message?: string } };
+
+      if (!res.ok) {
+        const message =
+          "error" in data && data.error?.message
+            ? data.error.message
+            : "Unable to create invite link.";
+        setInviteError(message);
+        return;
+      }
+
+      if ("inviteUrl" in data) {
+        setInviteUrl(data.inviteUrl);
+      } else {
+        setInviteError("Unable to create invite link.");
+      }
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Unable to create invite link.");
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setCopyStatus("copied");
+    } catch {
+      setCopyStatus("error");
+    }
+  };
 
   return (
     <main className={styles.page} data-wireframe={wireframe ? "on" : "off"}>
@@ -140,13 +198,56 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className={styles.ctaContainer}>
-                <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
-                  Enter to Earn
-                </Button>
-                <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-                  Enter to Call
-                </Button>
+              <div className={styles.ctaBlock}>
+                <div className={styles.ctaContainer}>
+                  <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
+                    Enter to Earn
+                  </Button>
+                  <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                    Enter to Call
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className={styles.ctaSecondary}
+                    onClick={handleInviteClick}
+                    disabled={isCreatingInvite}
+                    aria-busy={isCreatingInvite}
+                  >
+                    Invite Someone
+                  </Button>
+                </div>
+                {status === "unauthenticated" ? (
+                  <p className={styles.inviteHelper}>Log in to create a paid invite link</p>
+                ) : null}
+                {status === "authenticated" && (inviteUrl || inviteError) ? (
+                  <div className={styles.invitePanel} role="status" aria-live="polite">
+                    <p className={styles.inviteLabel}>Share this invite link</p>
+                    <div className={styles.inviteRow}>
+                      <input
+                        className={styles.inviteInput}
+                        value={inviteUrl ?? ""}
+                        readOnly
+                        onFocus={(event) => event.currentTarget.select()}
+                        aria-label="Invite URL"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="md"
+                        className={styles.inviteCopyButton}
+                        onClick={handleCopyInvite}
+                        disabled={!inviteUrl}
+                      >
+                        {copyStatus === "copied" ? "Copied" : "Copy link"}
+                      </Button>
+                    </div>
+                    {inviteError ? <p className={styles.inviteError}>{inviteError}</p> : null}
+                    <p className={styles.inviteFootnote}>Paid access only. No free chat.</p>
+                    {copyStatus === "error" ? (
+                      <p className={styles.inviteError}>Unable to copy. Please select and copy.</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

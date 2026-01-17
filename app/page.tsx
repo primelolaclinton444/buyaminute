@@ -15,19 +15,6 @@ const stats = [
   { label: "Clearing", value: "Per Second" },
 ];
 
-const modeCards = [
-  {
-    title: "Receive Mode",
-    description: "When someone initiates, you are the icon.",
-    highlight: "Set your rate. Go live. Earn per second.",
-  },
-  {
-    title: "Call Mode",
-    description: "When you initiate, you are the caller.",
-    highlight: "See the rate. Prepay at least one minute.",
-  },
-];
-
 const transactionSteps = [
   {
     title: "Request",
@@ -254,23 +241,67 @@ export default function HomePage() {
         </Container>
       </Section>
 
-      <Section className={styles.roleSection} id="modes">
+      <Section className={styles.exchangeSection} id="exchange">
         <Container>
-          <p className={styles.sectionEyebrow}>Who Participates</p>
-          <h2 className={styles.sectionTitle}>One Account. Two Modes.</h2>
-          <p className={styles.sectionSubtitle}>
-            You are not choosing an identity. You switch modes based on action: initiate = caller,
-            receive = icon.
-          </p>
-          <div className={styles.modeGrid}>
-            {modeCards.map((mode) => (
-              <div key={mode.title} className={styles.modeCard}>
-                <h3 className={styles.modeTitle}>{mode.title}</h3>
-                <p className={styles.modeDescription}>{mode.description}</p>
-                <p className={styles.modeHighlight}>{mode.highlight}</p>
-              </div>
-            ))}
+          <header className={styles.exchangeHeader}>
+            <h2 className={styles.exchangeTitle}>THE EXCHANGE.</h2>
+            <p className={styles.exchangeSupportingTitle}>ONE ACCOUNT. TWO MODES.</p>
+            <p className={styles.exchangeMicroline}>
+              Two modes. One system. Simply turn live on to switch.
+            </p>
+          </header>
+          <div className={styles.exchangeGrid}>
+            <article className={styles.exchangeCard}>
+              <p className={styles.exchangeCardTitle}>WHEN YOU BUYAMINUTE</p>
+              <p className={styles.exchangeCardNote}>(This should feel like dialing a number)</p>
+              <ul className={styles.exchangeList}>
+                <li>
+                  You select the icon and send a{" "}
+                  <span className={styles.exchangeHighlight}>paid call request</span> — not a message
+                </li>
+                <li>
+                  You see the icon’s <span className={styles.exchangeHighlight}>rate</span> and{" "}
+                  <span className={styles.exchangeHighlight}>pre-authorize time</span>
+                </li>
+                <li>
+                  If the icon is <span className={styles.exchangeHighlight}>live</span>, they receive your
+                  request and <span className={styles.exchangeHighlight}>respond</span>
+                </li>
+                <li>
+                  If your <span className={styles.exchangeHighlight}>prepaid time</span> covers their rate,
+                  the call connects
+                </li>
+              </ul>
+            </article>
+            <article className={styles.exchangeCard}>
+              <p className={styles.exchangeCardTitle}>WHEN YOU CHARGE FOR REACHABILITY</p>
+              <p className={styles.exchangeCardNote}>(This should feel like switching into earning mode)</p>
+              <ul className={styles.exchangeList}>
+                <li>
+                  You <span className={styles.exchangeHighlight}>become the icon</span>
+                </li>
+                <li>
+                  You <span className={styles.exchangeHighlight}>set your rate</span> and turn{" "}
+                  <span className={styles.exchangeHighlight}>live</span> on
+                </li>
+                <li>
+                  Incoming requests show the <span className={styles.exchangeHighlight}>caller</span> and{" "}
+                  <span className={styles.exchangeHighlight}>prepaid time</span>
+                </li>
+                <li>
+                  You <span className={styles.exchangeHighlight}>accept or decline</span> and get{" "}
+                  <span className={styles.exchangeHighlight}>paid per second</span>
+                </li>
+                <li>
+                  Your <span className={styles.exchangeHighlight}>rate</span> is the only limit
+                </li>
+              </ul>
+            </article>
           </div>
+          <p className={styles.exchangeDoctrine}>
+            You are not choosing an identity. You become the caller when you initiate — and the icon when
+            you receive.
+          </p>
         </Container>
       </Section>
 
@@ -374,23 +405,6 @@ export default function HomePage() {
         </Container>
       </Section>
 
-      <Section className={styles.finalSection} id="enter">
-        <Container className={styles.finalContainer}>
-          <div>
-            <p className={styles.sectionEyebrow}>Entry Intent</p>
-            <h2 className={styles.sectionTitle}>Choose How You Enter</h2>
-            <p className={styles.sectionSubtitle}>One account. Two modes. Pick your intent for this session.</p>
-          </div>
-          <div className={styles.ctaContainer}>
-            <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
-              Enter to Earn
-            </Button>
-            <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-              Enter to Call
-            </Button>
-          </div>
-        </Container>
-      </Section>
 
       <footer className={styles.footer}>
         <p>© 2026 BuyAMinute. Every user is an icon. Pay or get paid.</p>

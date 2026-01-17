@@ -164,45 +164,59 @@ export default function HomePage() {
           <div className={styles.heroInner}>
             <div className={styles.heroMeasure}>
               <h1 className={styles.mainHeadline}>
-                <span className={styles.headlineLine}>
-                  Imagine fans, random strangers, or friends{" "}
-                  <span className={styles.emphasis}>wanting your attention</span> badly enough to pay
-                  you for it.
+                <span className={`${styles.headlineTier} ${styles.headlineTierOne}`}>
+                  Imagine fans, random strangers, or friends
                 </span>
-                <span className={styles.headlineLine}>
-                  Or you, finally reaching <em>that</em> someone <span className={styles.emphasis}>worth reaching</span>—
+                <span className={`${styles.headlineTier} ${styles.headlineTierTwo}`}>
+                  <span className={styles.emphasis}>wanting your attention</span> badly enough to pay you for it.
+                </span>
+                <span className={`${styles.headlineTier} ${styles.headlineTierThree}`}>
+                  Or you, finally reaching <em className={styles.whisper}>that</em>{" "}
+                  <span className={styles.whisperSomeone}>someone</span>{" "}
+                  <span className={styles.emphasis}>worth reaching</span>—
                 </span>
               </h1>
 
               <div className={styles.supportingBlock}>
-                <p className={styles.supportingCopy}>
-                  <span className={styles.supportingLine}>BuyAMinute turns reachability into a market.</span>
-                  <span className={styles.supportingLine}>No DMs. No free chat. Only paid access.</span>
-                  <span className={styles.supportingLine}>
+                <div className={styles.supportingCopy} role="list">
+                  <span className={styles.supportingLine} role="listitem">
+                    BuyAMinute turns reachability into a market.
+                  </span>
+                  <span className={styles.supportingLine} role="listitem">
+                    No DMs. No free chat. Only paid access.
+                  </span>
+                  <span className={styles.supportingLine} role="listitem">
                     If they’re live, you can buy a minute (video or call).
                   </span>
-                  <span className={styles.supportingLine}>If you’re live, you can sell yours.</span>
-                </p>
+                  <span className={styles.supportingLine} role="listitem">
+                    If you’re live, you can sell yours.
+                  </span>
+                </div>
               </div>
 
               <div className={styles.ctaBlock}>
                 <div className={styles.ctaContainer}>
-                  <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
-                    Enter to Earn
-                  </Button>
-                  <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-                    Enter to Call
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    className={styles.ctaSecondary}
-                    onClick={handleInviteClick}
-                    disabled={isCreatingInvite}
-                    aria-busy={isCreatingInvite}
-                  >
-                    Invite Someone
-                  </Button>
+                  <div className={styles.ctaRowPrimary}>
+                    <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
+                      Enter to Earn
+                    </Button>
+                    <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                      Enter to Call
+                    </Button>
+                  </div>
+                  <div className={styles.ctaRowInvite}>
+                    <Button
+                      variant="ghost"
+                      size="md"
+                      className={styles.ctaTertiary}
+                      onClick={handleInviteClick}
+                      disabled={isCreatingInvite}
+                      aria-busy={isCreatingInvite}
+                    >
+                      Invite Someone
+                    </Button>
+                    <p className={styles.inviteMicrocopy}>Create a paid access link</p>
+                  </div>
                 </div>
                 {status === "unauthenticated" ? (
                   <p className={styles.inviteHelper}>Log in to create a paid invite link</p>
@@ -302,6 +316,7 @@ export default function HomePage() {
             You are not choosing an identity. You become the caller when you initiate — and the icon when
             you receive.
           </p>
+          <p className={styles.exchangeDoctrineFooter}>Doctrine: Reachability is a paid surface.</p>
         </Container>
       </Section>
 

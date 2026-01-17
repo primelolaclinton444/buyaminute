@@ -122,34 +122,89 @@
   width: min(100%, 820px);
   padding: 0 clamp(18px, 3vw, 28px);
   text-align: left;
+  position: relative;
 }
 
 /* Statement */
 .mainHeadline {
-  font-size: clamp(2.05rem, 3.8vw, 3.65rem);
-  font-weight: 640;
-  line-height: 1.08;
-  letter-spacing: -0.018em;
+  font-size: clamp(2.2rem, 4.2vw, 4rem);
+  font-weight: 400;
+  line-height: 1.14;
+  letter-spacing: 0.01em;
   font-style: normal;
-  font-family: inherit;
-  color: rgba(245, 247, 255, 0.94);
+  font-family: "SaolDisplay";
+  color: rgba(245, 247, 255, 0.96);
   margin: 0;
   text-wrap: pretty;
 }
 
-.headlineLine {
+.headlineTier {
   display: block;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: heroTierReveal 0.6s ease forwards;
 }
 
-.headlineLine + .headlineLine {
-  margin-top: clamp(0.55rem, 1.4vw, 0.95rem);
+.headlineTierOne {
+  font-size: clamp(2.4rem, 4.6vw, 4.3rem);
+  animation-delay: 0.05s;
+}
+
+.headlineTierTwo {
+  margin-top: clamp(0.45rem, 1.3vw, 0.85rem);
+  font-size: clamp(2.1rem, 4vw, 3.6rem);
+  letter-spacing: 0.008em;
+  animation-delay: 0.18s;
+  color: rgba(245, 247, 255, 0.9);
+}
+
+.headlineTierThree {
+  margin-top: clamp(0.5rem, 1.5vw, 1rem);
+  font-size: clamp(1.95rem, 3.5vw, 3.25rem);
+  animation-delay: 0.3s;
+  color: rgba(245, 247, 255, 0.88);
 }
 
 /* Subtle-only emphasis: discovered, not shouted */
 .emphasis {
   color: rgba(245, 247, 255, 0.98);
-  font-weight: 690;
-  letter-spacing: -0.008em;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
+.whisper {
+  font-style: italic;
+  opacity: 0.92;
+  letter-spacing: 0.015em;
+}
+
+.whisperSomeone {
+  font-style: italic;
+  opacity: 0.92;
+  letter-spacing: 0.015em;
+  font-size: 0.97em;
+}
+
+.heroMeasure::before {
+  content: "";
+  position: absolute;
+  left: clamp(10px, 1vw, 14px);
+  top: -20px;
+  bottom: -20px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  opacity: 0.6;
+}
+
+.heroMeasure::after {
+  content: "";
+  position: absolute;
+  inset: -24px -18px;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(8, 10, 18, 0.15), transparent 60%);
+  pointer-events: none;
+  z-index: -1;
 }
 
 /* Pause + Reality */
@@ -179,22 +234,34 @@
   line-height: 1.7;
   font-weight: 420;
   text-wrap: pretty;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: grid;
+  gap: 0.6rem;
 }
 
 .supportingLine {
   display: block;
+  position: relative;
+  padding-left: 18px;
 }
 
-.supportingLine + .supportingLine {
-  margin-top: 0.35rem;
+.supportingLine::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.75em;
+  width: 10px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.65), transparent);
 }
 
 /* Next step (CTA) — calm, integrated */
 .ctaContainer {
   display: flex;
+  flex-direction: column;
   gap: 14px;
-  flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   margin-top: clamp(18px, 2.6vw, 26px);
 }
@@ -203,12 +270,32 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  opacity: 0;
+  transform: translateY(6px);
+  animation: heroTierReveal 0.6s ease forwards;
+  animation-delay: 0.45s;
+}
+
+.ctaRowPrimary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ctaRowInvite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-left: clamp(10px, 1.4vw, 18px);
 }
 
 .ctaPrimary {
   background: #fff;
   color: #000;
   min-height: 44px;
+  box-shadow: 0 0 22px rgba(255, 255, 255, 0.18);
 }
 
 .ctaPrimary:hover {
@@ -216,14 +303,36 @@
 }
 
 .ctaSecondary {
-  border: 2px solid rgba(255, 255, 255, 0.92);
-  color: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.86);
   min-height: 44px;
 }
 
 .ctaSecondary:hover {
   background: #fff;
   color: #000;
+}
+
+.ctaTertiary {
+  padding-inline: 0;
+  min-height: 32px;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.72);
+  border: 1px solid transparent;
+}
+
+.ctaTertiary:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.inviteMicrocopy {
+  font-size: 0.75rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.45);
 }
 
 .inviteHelper {
@@ -361,6 +470,8 @@
   z-index: 1;
   text-align: left;
   max-width: 780px;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  padding-left: clamp(16px, 2vw, 22px);
 }
 
 .exchangeTitle {
@@ -468,6 +579,31 @@
   letter-spacing: 0.14em;
   color: rgba(245, 247, 255, 0.55);
   max-width: 960px;
+}
+
+.exchangeDoctrineFooter {
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.35);
+  max-width: 920px;
+}
+
+@keyframes heroTierReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .headlineTier,
+  .ctaBlock {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .statsGrid {
@@ -765,9 +901,9 @@
     right: 10px;
   }
 
-  /* Mobile: keep inevitability, slightly more centered without “marketing center-stack” */
+  /* Mobile: keep inevitability, left-aligned and steady */
   .heroMeasure {
-    text-align: center;
+    text-align: left;
   }
 
   .supportingBlock::before {

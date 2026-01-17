@@ -82,6 +82,7 @@
   align-items: center;
   justify-content: flex-start;
   position: relative;
+  overflow: hidden;
 }
 
 /* Editorial vignette + depth, low-noise */
@@ -91,7 +92,8 @@
   inset: -240px;
   background:
     radial-gradient(780px 460px at 50% 18%, rgba(255, 255, 255, 0.05), transparent 62%),
-    radial-gradient(520px 360px at 22% 12%, rgba(124, 92, 255, 0.10), transparent 66%);
+    radial-gradient(520px 360px at 22% 12%, rgba(124, 92, 255, 0.12), transparent 66%),
+    radial-gradient(520px 320px at 72% 18%, rgba(124, 92, 255, 0.08), transparent 70%);
   pointer-events: none;
   z-index: 0;
   opacity: 0.8;
@@ -101,7 +103,9 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(3, 4, 10, 0) 40%, rgba(3, 4, 10, 0.88) 100%);
+  background:
+    linear-gradient(180deg, rgba(3, 4, 10, 0) 32%, rgba(3, 4, 10, 0.94) 100%),
+    radial-gradient(1200px 520px at 60% -10%, rgba(255, 255, 255, 0.05), transparent 70%);
   pointer-events: none;
   z-index: 0;
 }
@@ -113,10 +117,24 @@
   padding: 0 clamp(20px, 6vw, 96px);
 }
 
+.heroContainer::before {
+  content: "";
+  position: absolute;
+  inset: -120px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0.025) 1px, transparent 1px, transparent 3px),
+    radial-gradient(circle at 18% 30%, rgba(255, 255, 255, 0.04), transparent 40%);
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .heroInner {
   display: flex;
   justify-content: flex-start;
   position: relative;
+  perspective: 1200px;
 }
 
 .heroVignette {
@@ -124,21 +142,30 @@
   inset: -80px auto -80px clamp(-10px, -2vw, -24px);
   width: min(820px, 90vw);
   background:
-    radial-gradient(480px 320px at 18% 20%, rgba(255, 255, 255, 0.12), transparent 60%),
-    radial-gradient(520px 360px at 40% 10%, rgba(124, 92, 255, 0.18), transparent 62%);
-  filter: blur(6px);
-  opacity: 0.7;
+    radial-gradient(480px 320px at 18% 20%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(520px 360px at 40% 10%, rgba(124, 92, 255, 0.24), transparent 62%),
+    radial-gradient(360px 240px at 80% 28%, rgba(255, 255, 255, 0.08), transparent 60%);
+  filter: blur(8px);
+  opacity: 0.78;
   pointer-events: none;
   z-index: 0;
 }
 
 .heroMeasure {
   width: min(100%, 940px);
-  padding: 0 clamp(8px, 1vw, 16px);
+  padding: clamp(28px, 4vw, 40px) clamp(20px, 3vw, 32px);
   margin-left: clamp(0px, 4vw, 56px);
   text-align: left;
   position: relative;
   z-index: 1;
+  background: linear-gradient(120deg, rgba(12, 16, 26, 0.74), rgba(8, 10, 18, 0.5));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  box-shadow:
+    0 28px 80px rgba(4, 6, 12, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+  transform: rotateX(1.5deg) rotateY(-1deg);
 }
 
 /* Statement */
@@ -208,8 +235,20 @@
   top: -20px;
   bottom: -20px;
   width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.28), transparent);
-  opacity: 0.6;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  opacity: 0.8;
+}
+
+.heroMeasure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  background:
+    linear-gradient(120deg, rgba(255, 255, 255, 0.08), transparent 48%),
+    linear-gradient(200deg, rgba(124, 92, 255, 0.12), transparent 60%);
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 /* Pause + Reality */
@@ -232,18 +271,18 @@
   left: 0;
   width: min(520px, 72%);
   height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.06), transparent);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.08), transparent);
   opacity: 0.55;
 }
 
 .supportingCopy {
   margin: 0;
-  color: rgba(245, 247, 255, 0.84);
+  color: rgba(245, 247, 255, 0.82);
   font-size: clamp(0.92rem, 1.2vw, 1.02rem);
   line-height: 1.7;
   font-weight: 420;
   text-wrap: pretty;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   display: grid;
   gap: 0.75rem;
@@ -264,8 +303,10 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.45);
-  box-shadow: 0 0 12px rgba(124, 92, 255, 0.45);
+  background: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 0 12px rgba(124, 92, 255, 0.45),
+    0 0 24px rgba(255, 255, 255, 0.18);
 }
 
 .supportingLine::after {
@@ -287,6 +328,11 @@
   align-items: flex-start;
   justify-content: flex-start;
   margin-top: clamp(18px, 2.6vw, 26px);
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(6, 8, 14, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .ctaBlock {
@@ -321,6 +367,7 @@
   box-shadow:
     0 0 24px rgba(255, 255, 255, 0.22),
     0 0 40px rgba(124, 92, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 .ctaPrimary:hover {
@@ -329,9 +376,10 @@
 
 .ctaSecondary {
   border: 1px solid rgba(255, 255, 255, 0.6);
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(255, 255, 255, 0.9);
   min-height: 44px;
-  background: transparent;
+  background: rgba(12, 14, 20, 0.65);
+  backdrop-filter: blur(4px);
 }
 
 .ctaSecondary:hover {
@@ -342,11 +390,12 @@
 .ctaTertiary {
   padding-inline: 0;
   min-height: 32px;
-  font-size: 0.9rem;
-  letter-spacing: 0.18em;
+  font-size: 0.85rem;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgba(245, 247, 255, 0.75);
   border: 1px solid transparent;
+  font-family: "Space Mono", "IBM Plex Mono", monospace;
 }
 
 .ctaTertiary:hover {
@@ -356,7 +405,7 @@
 
 .inviteMicrocopy {
   font-size: 0.75rem;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgba(245, 247, 255, 0.62);
 }

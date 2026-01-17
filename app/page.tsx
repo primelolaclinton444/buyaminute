@@ -165,12 +165,12 @@ export default function HomePage() {
             <div className={styles.heroMeasure}>
               <h1 className={styles.mainHeadline}>
                 <span className={styles.headlineLine}>
-                  Imagine fans, random strangers, or acquaintances{" "}
+                  Imagine fans, random strangers, or friends{" "}
                   <span className={styles.emphasis}>wanting your attention</span> badly enough to pay
                   you for it.
                 </span>
                 <span className={styles.headlineLine}>
-                  Or you finally reaching someone <span className={styles.emphasis}>worth reaching</span>—
+                  Or you, finally reaching <em>that</em> someone <span className={styles.emphasis}>worth reaching</span>—
                 </span>
               </h1>
 

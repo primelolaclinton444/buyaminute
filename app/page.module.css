@@ -80,7 +80,7 @@
   min-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   position: relative;
 }
 
@@ -110,26 +110,42 @@
   position: relative;
   z-index: 1;
   width: 100%;
+  padding: 0 clamp(20px, 6vw, 96px);
 }
 
-/* Center the composition within the page, but keep editorial alignment */
 .heroInner {
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
+  position: relative;
+}
+
+.heroVignette {
+  position: absolute;
+  inset: -80px auto -80px clamp(-10px, -2vw, -24px);
+  width: min(820px, 90vw);
+  background:
+    radial-gradient(480px 320px at 18% 20%, rgba(255, 255, 255, 0.12), transparent 60%),
+    radial-gradient(520px 360px at 40% 10%, rgba(124, 92, 255, 0.18), transparent 62%);
+  filter: blur(6px);
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .heroMeasure {
-  width: min(100%, 820px);
-  padding: 0 clamp(18px, 3vw, 28px);
+  width: min(100%, 940px);
+  padding: 0 clamp(8px, 1vw, 16px);
+  margin-left: clamp(0px, 4vw, 56px);
   text-align: left;
   position: relative;
+  z-index: 1;
 }
 
 /* Statement */
 .mainHeadline {
   font-size: clamp(2.2rem, 4.2vw, 4rem);
   font-weight: 400;
-  line-height: 1.14;
+  line-height: 1.15;
   letter-spacing: 0.01em;
   font-style: normal;
   font-family: "SaolDisplay";
@@ -179,9 +195,9 @@
 }
 
 .whisperSomeone {
-  font-style: italic;
+  font-style: normal;
   opacity: 0.92;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.012em;
   font-size: 0.97em;
 }
 
@@ -196,23 +212,16 @@
   opacity: 0.6;
 }
 
-.heroMeasure::after {
-  content: "";
-  position: absolute;
-  inset: -24px -18px;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(8, 10, 18, 0.15), transparent 60%);
-  pointer-events: none;
-  z-index: -1;
-}
-
 /* Pause + Reality */
 .supportingBlock {
   position: relative;
   margin-top: clamp(18px, 2.3vw, 24px);
   padding-top: clamp(14px, 2vw, 18px);
   max-width: 760px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: heroTierReveal 0.6s ease forwards;
+  animation-delay: 0.4s;
 }
 
 /* Hairline "breath" divider — blends, not blocks */
@@ -229,21 +238,22 @@
 
 .supportingCopy {
   margin: 0;
-  color: rgba(245, 247, 255, 0.70);
-  font-size: clamp(0.98rem, 1.35vw, 1.06rem);
+  color: rgba(245, 247, 255, 0.84);
+  font-size: clamp(0.92rem, 1.2vw, 1.02rem);
   line-height: 1.7;
   font-weight: 420;
   text-wrap: pretty;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   display: grid;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .supportingLine {
   display: block;
   position: relative;
-  padding-left: 18px;
+  padding-left: 22px;
+  padding-bottom: 0.35rem;
 }
 
 .supportingLine::before {
@@ -251,9 +261,22 @@
   position: absolute;
   left: 0;
   top: 0.75em;
-  width: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 0 12px rgba(124, 92, 255, 0.45);
+}
+
+.supportingLine::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 0;
+  bottom: 0;
   height: 1px;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.65), transparent);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.25), transparent 75%);
+  opacity: 0.6;
 }
 
 /* Next step (CTA) — calm, integrated */
@@ -273,7 +296,7 @@
   opacity: 0;
   transform: translateY(6px);
   animation: heroTierReveal 0.6s ease forwards;
-  animation-delay: 0.45s;
+  animation-delay: 0.55s;
 }
 
 .ctaRowPrimary {
@@ -288,14 +311,16 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
-  margin-left: clamp(10px, 1.4vw, 18px);
+  margin-left: clamp(12px, 2vw, 28px);
 }
 
 .ctaPrimary {
   background: #fff;
   color: #000;
   min-height: 44px;
-  box-shadow: 0 0 22px rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 0 24px rgba(255, 255, 255, 0.22),
+    0 0 40px rgba(124, 92, 255, 0.2);
 }
 
 .ctaPrimary:hover {
@@ -306,6 +331,7 @@
   border: 1px solid rgba(255, 255, 255, 0.6);
   color: rgba(255, 255, 255, 0.86);
   min-height: 44px;
+  background: transparent;
 }
 
 .ctaSecondary:hover {
@@ -317,9 +343,9 @@
   padding-inline: 0;
   min-height: 32px;
   font-size: 0.9rem;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(245, 247, 255, 0.72);
+  color: rgba(245, 247, 255, 0.75);
   border: 1px solid transparent;
 }
 
@@ -330,9 +356,9 @@
 
 .inviteMicrocopy {
   font-size: 0.75rem;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(245, 247, 255, 0.45);
+  color: rgba(245, 247, 255, 0.62);
 }
 
 .inviteHelper {
@@ -512,13 +538,13 @@
 .exchangeCard {
   border-radius: 18px;
   padding: 2.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   background:
     linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
     rgba(10, 12, 20, 0.7);
   box-shadow:
-    0 0 40px rgba(124, 92, 255, 0.08),
-    inset 0 0 24px rgba(255, 255, 255, 0.02);
+    0 0 40px rgba(124, 92, 255, 0.12),
+    inset 0 0 30px rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(14px);
 }
 
@@ -599,10 +625,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   .headlineTier,
-  .ctaBlock {
+  .ctaBlock,
+  .supportingBlock {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .heroSection {
+    padding: 120px 0 90px;
+  }
+
+  .mainHeadline {
+    line-height: 1.18;
+  }
+
+  .heroMeasure::before {
+    left: 6px;
   }
 }
 

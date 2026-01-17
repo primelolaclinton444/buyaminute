@@ -339,36 +339,135 @@
   margin: 0 auto;
 }
 
-.modeCard {
-  text-align: center;
-  padding: 2rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+.exchangeSection {
+  padding: 110px 0;
   position: relative;
   overflow: hidden;
 }
 
-.modeTitle {
-  font-size: 1.4rem;
+.exchangeSection::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(124, 92, 255, 0.12), transparent 45%),
+    radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.08), transparent 48%);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.exchangeHeader {
+  position: relative;
+  z-index: 1;
+  text-align: left;
+  max-width: 780px;
+}
+
+.exchangeTitle {
+  font-size: clamp(2.4rem, 5.6vw, 4rem);
   font-weight: 900;
-  margin-bottom: 0.6rem;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  margin: 0 0 0.4rem;
+  font-family: var(--font-space);
 }
 
-.modeDescription {
-  color: rgba(245, 247, 255, 0.62);
-  line-height: 1.5;
-}
-
-.modeHighlight {
-  margin-top: 0.75rem;
-  color: rgba(245, 247, 255, 0.85);
+.exchangeSupportingTitle {
+  font-size: clamp(1.05rem, 2vw, 1.4rem);
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: rgba(245, 247, 255, 0.75);
+  margin: 0 0 0.35rem;
   font-weight: 700;
+}
+
+.exchangeMicroline {
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-size: 0.85rem;
+  letter-spacing: 0.38em;
+  color: rgba(245, 247, 255, 0.45);
+  margin: 0;
+}
+
+.exchangeGrid {
+  position: relative;
+  z-index: 1;
+  margin-top: 2.6rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.exchangeCard {
+  border-radius: 18px;
+  padding: 2.2rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
+    rgba(10, 12, 20, 0.7);
+  box-shadow:
+    0 0 40px rgba(124, 92, 255, 0.08),
+    inset 0 0 24px rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(14px);
+}
+
+.exchangeCardTitle {
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.6);
+  margin: 0 0 0.6rem;
+}
+
+.exchangeCardNote {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0 0 1.6rem;
+  color: rgba(245, 247, 255, 0.92);
+}
+
+.exchangeList {
+  list-style: none;
+  display: grid;
+  gap: 0.9rem;
+  margin: 0;
+  padding: 0;
+  color: rgba(245, 247, 255, 0.7);
+  line-height: 1.6;
+  font-size: 0.98rem;
+}
+
+.exchangeList li {
+  position: relative;
+  padding-left: 1.5rem;
+}
+
+.exchangeList li::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.35);
+  position: absolute;
+  left: 0;
+  top: 0.6rem;
+  box-shadow: 0 0 10px rgba(124, 92, 255, 0.35);
+}
+
+.exchangeHighlight {
+  color: #7c5cff;
+  font-weight: 700;
+}
+
+.exchangeDoctrine {
+  position: relative;
+  z-index: 1;
+  margin-top: 2.5rem;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(245, 247, 255, 0.55);
+  max-width: 960px;
 }
 
 .statsGrid {
@@ -441,12 +540,10 @@
 }
 
 .browseSection,
-.roleSection,
 .transactionSection,
 .instrumentSection,
 .protocolSection,
-.optionalSection,
-.finalSection {
+.optionalSection {
   padding: 96px 0;
 }
 
@@ -493,13 +590,6 @@
   line-height: 1.6;
 }
 
-.modeGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
-  max-width: 880px;
-  margin: 0 auto;
-}
 
 .stepsGrid {
   display: grid;
@@ -610,16 +700,6 @@
   line-height: 1.6;
 }
 
-.finalSection {
-  padding: 96px 0 120px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.finalContainer {
-  display: grid;
-  gap: 24px;
-  text-align: center;
-}
 
 .footer {
   padding: 3rem 2rem 4rem;
@@ -642,7 +722,7 @@
   display: none;
 }
 
-.page[data-wireframe="on"] .modeCard,
+.page[data-wireframe="on"] .exchangeCard,
 .page[data-wireframe="on"] .stat,
 .page[data-wireframe="on"] .browsePanel,
 .page[data-wireframe="on"] .step,
@@ -660,7 +740,7 @@
   border: 2px dashed rgba(255, 255, 255, 0.45) !important;
 }
 
-.page[data-wireframe="on"] .modeHighlight,
+.page[data-wireframe="on"] .exchangeHighlight,
 .page[data-wireframe="on"] .statValue {
   color: #fff !important;
 }
@@ -715,6 +795,23 @@
 
   .stepsGrid {
     grid-template-columns: 1fr;
+  }
+
+  .exchangeHeader {
+    text-align: center;
+    margin-inline: auto;
+  }
+
+  .exchangeMicroline {
+    letter-spacing: 0.28em;
+  }
+
+  .exchangeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .exchangeCard {
+    padding: 1.8rem;
   }
 }
 

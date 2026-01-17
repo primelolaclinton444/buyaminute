@@ -27,6 +27,20 @@ model User {
   wallet Wallet?
   receiverProfile ReceiverProfile?
   depositAddress DepositAddress?
+  invites Invite[]
+}
+
+model Invite {
+  id            String   @id @default(cuid())
+  token         String   @unique
+  inviterUserId String
+  createdAt     DateTime @default(now())
+  revokedAt     DateTime?
+  expiresAt     DateTime?
+
+  inviter User @relation(fields: [inviterUserId], references: [id])
+
+  @@index([inviterUserId])
 }
 
 model Wallet {

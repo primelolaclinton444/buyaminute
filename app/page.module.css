@@ -199,6 +199,12 @@
   margin-top: clamp(18px, 2.6vw, 26px);
 }
 
+.ctaBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .ctaPrimary {
   background: #fff;
   color: #000;
@@ -218,6 +224,63 @@
 .ctaSecondary:hover {
   background: #fff;
   color: #000;
+}
+
+.inviteHelper {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.invitePanel {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(10, 14, 26, 0.55);
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+  width: min(520px, 100%);
+}
+
+.inviteLabel {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.inviteRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.inviteInput {
+  flex: 1 1 260px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.inviteCopyButton {
+  min-height: 40px;
+  padding-inline: 16px;
+}
+
+.inviteFootnote {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.inviteError {
+  font-size: 0.85rem;
+  color: #ff98b1;
 }
 
 /* Keep glow behavior but make it less “neon shout” */

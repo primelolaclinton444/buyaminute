@@ -160,8 +160,9 @@ export default function HomePage() {
           HERO — STATEMENT COMPOSITION
           ========================= */}
       <Section className={styles.heroSection}>
-        <Container className={styles.heroContainer}>
+        <div className={styles.heroContainer}>
           <div className={styles.heroInner}>
+            <div className={styles.heroVignette} aria-hidden="true" />
             <div className={styles.heroMeasure}>
               <h1 className={styles.mainHeadline}>
                 <span className={`${styles.headlineTier} ${styles.headlineTierOne}`}>
@@ -252,7 +253,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </Container>
+        </div>
       </Section>
 
       <Section className={styles.exchangeSection} id="exchange">
@@ -261,7 +262,7 @@ export default function HomePage() {
             <h2 className={styles.exchangeTitle}>THE EXCHANGE.</h2>
             <p className={styles.exchangeSupportingTitle}>ONE ACCOUNT. TWO MODES.</p>
             <p className={styles.exchangeMicroline}>
-              Two modes. One system. Simply turn live on to switch.
+              Two modes. One system. A request becomes a decision.
             </p>
           </header>
           <div className={styles.exchangeGrid}>

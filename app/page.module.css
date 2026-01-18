@@ -1,6 +1,6 @@
 .page {
   position: relative;
-  background: linear-gradient(180deg, #050608 0%, #090b11 100%);
+  background: #f5f3ee;
   overflow-x: hidden;
 }
 
@@ -8,11 +8,8 @@
 .heroGlow {
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 42% 14%, rgba(255, 255, 255, 0.06), transparent 56%),
-    radial-gradient(circle at 18% 12%, rgba(124, 92, 255, 0.10), transparent 58%),
-    radial-gradient(circle at 78% 22%, rgba(255, 255, 255, 0.05), transparent 64%);
-  opacity: 0.8;
+  background: none;
+  opacity: 0;
   pointer-events: none;
 }
 
@@ -83,7 +80,7 @@
   justify-content: flex-start;
   position: relative;
   overflow: hidden;
-  background: #fbf9f3;
+  background: #f5f3ee;
 }
 
 /* Editorial vignette + depth, low-noise */
@@ -118,10 +115,10 @@
   position: absolute;
   inset: -120px;
   background:
-    repeating-linear-gradient(0deg, rgba(17, 24, 39, 0.03), rgba(17, 24, 39, 0.03) 1px, transparent 1px, transparent 4px),
-    radial-gradient(circle at 18% 30%, rgba(17, 24, 39, 0.03), transparent 42%);
+    repeating-linear-gradient(0deg, rgba(11, 11, 11, 0.02), rgba(11, 11, 11, 0.02) 1px, transparent 1px, transparent 4px),
+    radial-gradient(circle at 18% 30%, rgba(11, 11, 11, 0.02), transparent 42%);
   opacity: 0.22;
-  mix-blend-mode: screen;
+  mix-blend-mode: multiply;
   pointer-events: none;
   z-index: 0;
 }
@@ -138,8 +135,8 @@
   inset: -80px auto -80px clamp(-10px, -2vw, -24px);
   width: min(820px, 90vw);
   background:
-    radial-gradient(520px 320px at 18% 20%, rgba(17, 24, 39, 0.06), transparent 60%),
-    radial-gradient(520px 360px at 40% 10%, rgba(12, 48, 140, 0.08), transparent 62%);
+    radial-gradient(520px 320px at 18% 20%, rgba(11, 11, 11, 0.05), transparent 60%),
+    radial-gradient(520px 360px at 40% 10%, rgba(11, 11, 11, 0.06), transparent 62%);
   filter: blur(4px);
   opacity: 0.6;
   pointer-events: none;
@@ -147,60 +144,42 @@
 }
 
 .heroMeasure {
-  width: min(100%, 940px);
+  width: min(100%, 1040px);
   padding: clamp(28px, 4vw, 40px) clamp(20px, 3vw, 32px);
   margin-left: clamp(0px, 4vw, 56px);
   text-align: left;
   position: relative;
   z-index: 1;
-  background: linear-gradient(120deg, rgba(12, 16, 26, 0.74), rgba(8, 10, 18, 0.5));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 28px;
-  box-shadow:
-    0 28px 80px rgba(4, 6, 12, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(14px);
-  transform: rotateX(1.5deg) rotateY(-1deg);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
 }
 
 /* Statement */
 .mainHeadline {
   font-size: clamp(2.2rem, 4.2vw, 4rem);
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.12;
   letter-spacing: 0.005em;
   font-style: normal;
-  font-family: "SaolDisplay";
-  color: #151515;
+  font-family: var(--font-libre-baskerville), "Libre Baskerville", serif;
+  color: #0b0b0b;
   margin: 0;
   text-wrap: pretty;
+  white-space: pre-line;
 }
 
-.headlineTier {
-  display: block;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: heroTierReveal 0.6s ease forwards;
+.mainHeadline strong {
+  font-weight: 700;
+  font-style: normal;
 }
 
-.headlineTierOne {
-  font-size: clamp(2.4rem, 4.6vw, 4.3rem);
-  animation-delay: 0.05s;
-}
-
-.headlineTierTwo {
-  margin-top: clamp(0.45rem, 1.3vw, 0.85rem);
-  font-size: clamp(2.1rem, 4vw, 3.6rem);
-  letter-spacing: 0.008em;
-  animation-delay: 0.18s;
-  color: #151515;
-}
-
-.headlineTierThree {
-  margin-top: clamp(0.5rem, 1.5vw, 1rem);
-  font-size: clamp(1.95rem, 3.5vw, 3.25rem);
-  animation-delay: 0.3s;
-  color: #1d1d1d;
+.mainHeadline em {
+  font-weight: 400;
+  font-style: italic;
 }
 
 /* Subtle-only emphasis: discovered, not shouted */
@@ -230,7 +209,7 @@
   top: -20px;
   bottom: -20px;
   width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(11, 11, 11, 0.9), transparent);
+  background: linear-gradient(180deg, transparent, rgba(11, 11, 11, 0.75), transparent);
   opacity: 1;
 }
 
@@ -242,7 +221,8 @@
   font-size: 0.7rem;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: rgba(15, 23, 42, 0.65);
+  color: rgba(11, 11, 11, 0.7);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 /* Pause + Reality */
@@ -256,7 +236,7 @@
   animation: heroTierReveal 0.6s ease forwards;
   animation-delay: 0.4s;
   padding-left: 20px;
-  border-left: 1px solid rgba(12, 48, 140, 0.6);
+  border-left: 1px solid rgba(11, 11, 11, 0.75);
 }
 
 /* Hairline "breath" divider — blends, not blocks */
@@ -267,22 +247,22 @@
   left: 0;
   width: min(520px, 72%);
   height: 1px;
-  background: linear-gradient(90deg, rgba(12, 48, 140, 0.45), rgba(12, 48, 140, 0.05), transparent);
+  background: linear-gradient(90deg, rgba(11, 11, 11, 0.65), rgba(11, 11, 11, 0.1), transparent);
   opacity: 0.55;
 }
 
 .supportingCopy {
   margin: 0;
-  color: rgba(15, 23, 42, 0.8);
+  color: #0b0b0b;
   font-size: clamp(0.85rem, 1.1vw, 0.98rem);
   line-height: 1.7;
-  font-weight: 420;
+  font-weight: 400;
   text-wrap: pretty;
   letter-spacing: 0.06em;
   text-transform: none;
   display: grid;
   gap: 0.75rem;
-  font-family: "Space Mono", "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .supportingLine {
@@ -373,7 +353,7 @@
   text-transform: uppercase;
   color: rgba(15, 23, 42, 0.6);
   border: 1px solid transparent;
-  font-family: "Space Mono", "IBM Plex Mono", monospace;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .ctaTertiary:hover {
@@ -386,12 +366,14 @@
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: rgba(15, 23, 42, 0.55);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .inviteHelper {
   margin-top: 10px;
   font-size: 0.9rem;
   color: rgba(15, 23, 42, 0.6);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .invitePanel {
@@ -667,6 +649,7 @@
 
   .mainHeadline {
     line-height: 1.18;
+    white-space: pre-line;
   }
 
   .heroMeasure::before {
@@ -981,8 +964,8 @@
     background: linear-gradient(
       90deg,
       transparent,
-      rgba(255, 255, 255, 0.18),
-      rgba(255, 255, 255, 0.06),
+      rgba(11, 11, 11, 0.18),
+      rgba(11, 11, 11, 0.06),
       transparent
     );
   }
@@ -1026,5 +1009,11 @@
 
   .statsGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .mainHeadline {
+    white-space: pre;
   }
 }

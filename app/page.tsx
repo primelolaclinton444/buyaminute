@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { IBM_Plex_Mono, Libre_Baskerville } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { buildAuthRedirect } from "@/components/auth/AuthGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -8,6 +9,19 @@ import Button from "@/components/ui/Button";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import styles from "./page.module.css";
+
+const libreBaskerville = Libre_Baskerville({
+  subsets: ["latin"],
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-libre-baskerville",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400"],
+  variable: "--font-ibm-plex-mono",
+});
 
 const stats = [
   { label: "Min Rate", value: "$0.10/min" },
@@ -142,7 +156,10 @@ export default function HomePage() {
   };
 
   return (
-    <main className={styles.page} data-wireframe={wireframe ? "on" : "off"}>
+    <main
+      className={`${styles.page} ${libreBaskerville.variable} ${ibmPlexMono.variable}`}
+      data-wireframe={wireframe ? "on" : "off"}
+    >
       <div className={styles.heroGlow} aria-hidden="true" />
       <div className={styles.previewBar} aria-label="Preview controls">
         <span className={styles.previewPill}>Wireframe</span>
@@ -165,17 +182,16 @@ export default function HomePage() {
             <div className={styles.heroVignette} aria-hidden="true" />
             <div className={styles.heroMeasure}>
               <h1 className={styles.mainHeadline}>
-                <span className={`${styles.headlineTier} ${styles.headlineTierOne}`}>
-                  Imagine fans, random strangers, or friends
-                </span>
-                <span className={`${styles.headlineTier} ${styles.headlineTierTwo}`}>
-                  <span className={styles.emphasis}>wanting your attention</span> badly enough to pay you for it.
-                </span>
-                <span className={`${styles.headlineTier} ${styles.headlineTierThree}`}>
-                  Or you, finally reaching <em className={styles.whisper}>that</em>{" "}
-                  <span className={styles.whisperSomeone}>someone</span>{" "}
-                  <span className={styles.emphasis}>worth reaching</span>—
-                </span>
+                Imagine fans, random strangers, or friends
+                <br />
+                <strong>wanting your attention</strong> badly enough to
+                <br />
+                pay you for it.
+                <br />
+                <br />
+                Or you, finally reaching <em>that</em> someone
+                <br />
+                <strong>worth reaching—</strong>
               </h1>
 
               <div className={styles.supportingBlock}>

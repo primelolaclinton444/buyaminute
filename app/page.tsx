@@ -88,19 +88,19 @@ const pingRules = [
 
 export default function HomePage() {
   const [wireframe, setWireframe] = useState(false);
+
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+
   const { status, expired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     const saved = localStorage.getItem("buyaminute_wireframe");
-    if (saved === "1") {
-      setWireframe(true);
-    }
+    if (saved === "1") setWireframe(true);
   }, []);
 
   useEffect(() => {
@@ -160,7 +160,6 @@ export default function HomePage() {
       className={`${styles.page} ${libreBaskerville.variable} ${ibmPlexMono.variable}`}
       data-wireframe={wireframe ? "on" : "off"}
     >
-      <div className={styles.heroGlow} aria-hidden="true" />
       <div className={styles.previewBar} aria-label="Preview controls">
         <span className={styles.previewPill}>Wireframe</span>
         <input
@@ -179,7 +178,6 @@ export default function HomePage() {
       <Section className={styles.heroSection}>
         <div className={styles.heroContainer}>
           <div className={styles.heroInner}>
-            <div className={styles.heroVignette} aria-hidden="true" />
             <div className={styles.heroMeasure}>
               <h1 className={styles.mainHeadline}>
                 Imagine fans, random strangers, or friends
@@ -211,76 +209,41 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className={styles.ctaBlock}>
-                <div className={styles.ctaContainer}>
-                  <div className={styles.ctaRowPrimary}>
-                    <Button href="/signup" size="lg" className={`${styles.ctaPrimary} ${styles.ctaGlow}`}>
-                      Enter to Earn
-                    </Button>
-                    <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-                      Enter to Call
-                    </Button>
-                  </div>
-                  <div className={styles.ctaRowInvite}>
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      className={styles.ctaTertiary}
-                      onClick={handleInviteClick}
-                      disabled={isCreatingInvite}
-                      aria-busy={isCreatingInvite}
-                    >
-                      Invite Someone
-                    </Button>
-                    <p className={styles.inviteMicrocopy}>Create a paid access link</p>
-                  </div>
-                </div>
-                {status === "unauthenticated" ? (
-                  <p className={styles.inviteHelper}>Log in to create a paid invite link</p>
-                ) : null}
-                {status === "authenticated" && (inviteUrl || inviteError) ? (
-                  <div className={styles.invitePanel} role="status" aria-live="polite">
-                    <p className={styles.inviteLabel}>Share this invite link</p>
-                    <div className={styles.inviteRow}>
-                      <input
-                        className={styles.inviteInput}
-                        value={inviteUrl ?? ""}
-                        readOnly
-                        onFocus={(event) => event.currentTarget.select()}
-                        aria-label="Invite URL"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="md"
-                        className={styles.inviteCopyButton}
-                        onClick={handleCopyInvite}
-                        disabled={!inviteUrl}
-                      >
-                        {copyStatus === "copied" ? "Copied" : "Copy link"}
-                      </Button>
-                    </div>
-                    {inviteError ? <p className={styles.inviteError}>{inviteError}</p> : null}
-                    <p className={styles.inviteFootnote}>Paid access only. No free chat.</p>
-                    {copyStatus === "error" ? (
-                      <p className={styles.inviteError}>Unable to copy. Please select and copy.</p>
-                    ) : null}
-                  </div>
-                ) : null}
+              {/* CTA: one clean horizontal row (desktop) */}
+              <div className={styles.heroCtas}>
+                <Button href="/signup" size="lg" className={styles.ctaPrimary}>
+                  Enter to Earn
+                </Button>
+                <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                  Enter to Call
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="lg"
+                  className={styles.ctaTertiary}
+                  onClick={handleInviteClick}
+                  disabled={isCreatingInvite}
+                  aria-busy={isCreatingInvite}
+                >
+                  Invite Someone
+                </Button>
               </div>
             </div>
           </div>
         </div>
       </Section>
 
+      {/* =========================
+          ACT 2 — DARK STAGE BEGINS
+          ========================= */}
       <Section className={styles.exchangeSection} id="exchange">
         <Container>
           <header className={styles.exchangeHeader}>
             <h2 className={styles.exchangeTitle}>THE EXCHANGE.</h2>
             <p className={styles.exchangeSupportingTitle}>ONE ACCOUNT. TWO MODES.</p>
-            <p className={styles.exchangeMicroline}>
-              Two modes. One system. A request becomes a decision.
-            </p>
+            <p className={styles.exchangeMicroline}>Two modes. One system. A request becomes a decision.</p>
           </header>
+
           <div className={styles.exchangeGrid}>
             <article className={styles.exchangeCard}>
               <p className={styles.exchangeCardTitle}>WHEN YOU BUYAMINUTE</p>
@@ -295,15 +258,16 @@ export default function HomePage() {
                   <span className={styles.exchangeHighlight}>pre-authorize time</span>
                 </li>
                 <li>
-                  If the icon is <span className={styles.exchangeHighlight}>live</span>, they receive your
-                  request and <span className={styles.exchangeHighlight}>respond</span>
+                  If the icon is <span className={styles.exchangeHighlight}>live</span>, they receive your request and{" "}
+                  <span className={styles.exchangeHighlight}>respond</span>
                 </li>
                 <li>
-                  If your <span className={styles.exchangeHighlight}>prepaid time</span> covers their rate,
-                  the call connects
+                  If your <span className={styles.exchangeHighlight}>prepaid time</span> covers their rate, the call
+                  connects
                 </li>
               </ul>
             </article>
+
             <article className={styles.exchangeCard}>
               <p className={styles.exchangeCardTitle}>WHEN YOU CHARGE FOR REACHABILITY</p>
               <p className={styles.exchangeCardNote}>(This should feel like switching into earning mode)</p>
@@ -329,9 +293,9 @@ export default function HomePage() {
               </ul>
             </article>
           </div>
+
           <p className={styles.exchangeDoctrine}>
-            You are not choosing an identity. You become the caller when you initiate — and the icon when
-            you receive.
+            You are not choosing an identity. You become the caller when you initiate — and the icon when you receive.
           </p>
           <p className={styles.exchangeDoctrineFooter}>Doctrine: Reachability is a paid surface.</p>
         </Container>
@@ -342,17 +306,17 @@ export default function HomePage() {
           <p className={styles.sectionEyebrow}>Primary Entry Surface</p>
           <h2 className={styles.sectionTitle}>Browse Icons</h2>
           <p className={styles.sectionSubtitle}>
-            This is a market surface for reachability. Live status gates access. Rates are visible
-            before you request.
+            This is a market surface for reachability. Live status gates access. Rates are visible before you request.
           </p>
+
           <div className={styles.browsePanel}>
-            <div>
+            <div className={styles.panelText}>
               <h3 className={styles.panelTitle}>Live First. Rates Visible.</h3>
               <p className={styles.panelBody}>
                 You do not message. You request paid access. If they are live, you can buy a minute.
               </p>
             </div>
-            <Button href="/browse" size="lg" className={styles.ctaPrimary}>
+            <Button href="/browse" size="lg" className={styles.stagePrimary}>
               Browse Icons
             </Button>
           </div>
@@ -363,9 +327,8 @@ export default function HomePage() {
         <Container>
           <p className={styles.sectionEyebrow}>How It Works</p>
           <h2 className={styles.sectionTitle}>Transaction Path</h2>
-          <p className={styles.sectionSubtitle}>
-            Request → decision → preview → billing. The sequence is fixed.
-          </p>
+          <p className={styles.sectionSubtitle}>Request → decision → preview → billing. The sequence is fixed.</p>
+
           <div className={styles.stepsGrid}>
             {transactionSteps.map((step, index) => (
               <div key={step.title} className={styles.step}>
@@ -383,6 +346,7 @@ export default function HomePage() {
           <p className={styles.sectionEyebrow}>What Enforces It</p>
           <h2 className={styles.sectionTitle}>Time Is the Instrument</h2>
           <p className={styles.sectionSubtitle}>Not attention. Not fame. Time. Paid access only.</p>
+
           <div className={styles.statsGrid}>
             {stats.map((stat) => (
               <div key={stat.label} className={styles.stat}>
@@ -400,6 +364,7 @@ export default function HomePage() {
           <p className={styles.sectionEyebrow}>Protocol</p>
           <h2 className={styles.sectionTitle}>System Checklist</h2>
           <p className={styles.sectionSubtitle}>A contract, not a conversation.</p>
+
           <div className={styles.protocolGrid}>
             {protocolChecklist.map((item, index) => (
               <div key={item.title} className={styles.protocolItem}>
@@ -419,11 +384,13 @@ export default function HomePage() {
           <p className={styles.sectionEyebrow}>Optional Mechanics</p>
           <h2 className={styles.sectionTitle}>Safeguards & Pings</h2>
           <p className={styles.sectionSubtitle}>These do not replace the core transaction. They reduce waste.</p>
+
           <div className={styles.optionalGrid}>
             <div className={styles.optionalCard}>
               <h3 className={styles.optionalTitle}>{optionalMechanics[0].title}</h3>
               <p className={styles.optionalDescription}>{optionalMechanics[0].description}</p>
             </div>
+
             <div className={styles.optionalCard}>
               <h3 className={styles.optionalTitle}>{optionalMechanics[1].title}</h3>
               <p className={styles.optionalDescription}>{optionalMechanics[1].description}</p>
@@ -434,9 +401,58 @@ export default function HomePage() {
               </ul>
             </div>
           </div>
+
+          {/* Invite mechanics moved OUT of hero (no copy changes) */}
+          <div className={styles.inviteSection} aria-label="Invite someone">
+            <div className={styles.inviteHeaderRow}>
+              <Button
+                variant="ghost"
+                size="md"
+                className={styles.inviteAction}
+                onClick={handleInviteClick}
+                disabled={isCreatingInvite}
+                aria-busy={isCreatingInvite}
+              >
+                Invite Someone
+              </Button>
+              <p className={styles.inviteMicrocopy}>Create a paid access link</p>
+            </div>
+
+            {status === "unauthenticated" ? (
+              <p className={styles.inviteHelper}>Log in to create a paid invite link</p>
+            ) : null}
+
+            {status === "authenticated" && (inviteUrl || inviteError) ? (
+              <div className={styles.invitePanel} role="status" aria-live="polite">
+                <p className={styles.inviteLabel}>Share this invite link</p>
+                <div className={styles.inviteRow}>
+                  <input
+                    className={styles.inviteInput}
+                    value={inviteUrl ?? ""}
+                    readOnly
+                    onFocus={(event) => event.currentTarget.select()}
+                    aria-label="Invite URL"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="md"
+                    className={styles.inviteCopyButton}
+                    onClick={handleCopyInvite}
+                    disabled={!inviteUrl}
+                  >
+                    {copyStatus === "copied" ? "Copied" : "Copy link"}
+                  </Button>
+                </div>
+                {inviteError ? <p className={styles.inviteError}>{inviteError}</p> : null}
+                <p className={styles.inviteFootnote}>Paid access only. No free chat.</p>
+                {copyStatus === "error" ? (
+                  <p className={styles.inviteError}>Unable to copy. Please select and copy.</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </Container>
       </Section>
-
 
       <footer className={styles.footer}>
         <p>© 2026 BuyAMinute. Every user is an icon. Pay or get paid.</p>

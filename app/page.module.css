@@ -144,7 +144,7 @@
 }
 
 .heroMeasure {
-  width: min(100%, 940px);
+  width: min(100%, 1040px);
   padding: clamp(28px, 4vw, 40px) clamp(20px, 3vw, 32px);
   margin-left: clamp(0px, 4vw, 56px);
   text-align: left;
@@ -169,6 +169,7 @@
   color: #0b0b0b;
   margin: 0;
   text-wrap: pretty;
+  white-space: pre-line;
 }
 
 .mainHeadline strong {
@@ -648,6 +649,7 @@
 
   .mainHeadline {
     line-height: 1.18;
+    white-space: pre-line;
   }
 
   .heroMeasure::before {
@@ -1007,5 +1009,11 @@
 
   .statsGrid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 900px) {
+  .mainHeadline {
+    white-space: pre;
   }
 }

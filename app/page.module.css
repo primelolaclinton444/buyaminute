@@ -70,20 +70,16 @@
    HERO — TOP-LEFT QUARTER
    ========================= */
 .heroSection {
-  /* quarter: top half of viewport */
-  width: 50vw;
-  max-width: 50vw;
-  height: 50vh;
-  max-height: 50vh;
-  min-height: unset;
+  width: 100%;
+  max-width: 100%;
 
   /* top-left placement */
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
 
-  /* compact so it fits inside 50vh */
-  padding: clamp(28px, 4vh, 52px) 0 0;
+  /* compact so it fits without forcing full-screen */
+  padding: clamp(24px, 3.8vh, 48px) 0 clamp(20px, 4vh, 44px);
 
   position: relative;
   background: #f5f3ee;
@@ -104,7 +100,8 @@
 
 /* lock content to left half */
 .heroMeasure {
-  width: min(50vw, 720px);
+  width: 100%;
+  max-width: 820px;
   margin-left: 0;
   padding: 0;
   text-align: left;
@@ -114,7 +111,7 @@
 
 /* LOCKED FONT stays — scaled to fit quarter */
 .mainHeadline {
-  font-size: clamp(1.55rem, 2.6vw, 2.7rem);
+  font-size: clamp(1.45rem, 2.35vw, 2.45rem);
   font-weight: 400;
   line-height: 1.08;
   letter-spacing: 0.005em;
@@ -124,7 +121,6 @@
   margin: 0;
 
   /* don’t rebalance lines; keep authored <br/> rhythm */
-  text-wrap: normal;
   white-space: normal;
 }
 
@@ -141,10 +137,10 @@
 /* Sub-hero (ONLY place with vertical rule) — tightened */
 .supportingBlock {
   position: relative;
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
   padding-left: 16px;
-  max-width: min(46vw, 520px);
+  max-width: min(64vw, 560px);
   border-left: 1px solid rgba(11, 11, 11, 0.75);
 }
 
@@ -182,7 +178,7 @@
 
 /* CTAs — must wrap inside 50vw */
 .heroCtas {
-  margin-top: 12px;
+  margin-top: 10px;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -192,7 +188,7 @@
 .ctaPrimary {
   background: #0b0b0b;
   color: #f8f5ee;
-  min-height: 42px;
+  min-height: 40px;
   padding-inline: 16px;
   border-radius: 999px;
   box-shadow: 0 10px 22px rgba(11, 11, 11, 0.18);
@@ -203,7 +199,7 @@
 }
 
 .ctaSecondary {
-  min-height: 42px;
+  min-height: 40px;
   padding-inline: 16px;
   border-radius: 999px;
   border: 1px solid rgba(11, 11, 11, 0.18);
@@ -217,7 +213,7 @@
 }
 
 .ctaTertiary {
-  min-height: 42px;
+  min-height: 40px;
   padding-inline: 16px;
   border-radius: 999px;
   border: 1px solid rgba(11, 11, 11, 0.14);

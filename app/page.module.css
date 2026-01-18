@@ -4,15 +4,9 @@
   overflow-x: hidden;
 }
 
-/* Calm, premium field — quieter than before */
-.heroGlow {
-  position: absolute;
-  inset: 0;
-  background: none;
-  opacity: 0;
-  pointer-events: none;
-}
-
+/* -------------------------
+   Preview Toggle (kept)
+   ------------------------- */
 .previewBar {
   position: fixed;
   top: 14px;
@@ -23,17 +17,18 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(11, 11, 11, 0.08);
+  backdrop-filter: blur(10px);
 }
 
 .previewPill {
   font-size: 12px;
-  color: #aaa;
+  color: rgba(11, 11, 11, 0.65);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 700;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .toggle {
@@ -41,8 +36,8 @@
   width: 46px;
   height: 26px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(11, 11, 11, 0.18);
+  background: rgba(11, 11, 11, 0.06);
   position: relative;
   cursor: pointer;
 }
@@ -52,7 +47,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
+  background: #0b0b0b;
   position: absolute;
   top: 2px;
   left: 3px;
@@ -60,8 +55,8 @@
 }
 
 .toggle:checked {
-  border-color: rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(11, 11, 11, 0.28);
+  background: rgba(11, 11, 11, 0.1);
 }
 
 .toggle:checked::after {
@@ -69,9 +64,8 @@
 }
 
 /* =========================
-   HERO — STATEMENT COMPOSITION
+   HERO — CLEAN STATEMENT
    ========================= */
-
 .heroSection {
   padding: 140px 0 120px;
   min-height: 100vh;
@@ -79,86 +73,28 @@
   align-items: center;
   justify-content: flex-start;
   position: relative;
-  overflow: hidden;
   background: #f5f3ee;
 }
 
-/* Editorial vignette + depth, low-noise */
-.heroSection::before {
-  content: "";
-  position: absolute;
-  inset: -240px;
-  background: none;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0;
-}
-
-.heroSection::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: none;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .heroContainer {
-  position: relative;
-  z-index: 1;
   width: 100%;
   padding: 0 clamp(20px, 6vw, 96px);
-}
-
-.heroContainer::before {
-  content: "";
-  position: absolute;
-  inset: -120px;
-  background:
-    repeating-linear-gradient(0deg, rgba(11, 11, 11, 0.02), rgba(11, 11, 11, 0.02) 1px, transparent 1px, transparent 4px),
-    radial-gradient(circle at 18% 30%, rgba(11, 11, 11, 0.02), transparent 42%);
-  opacity: 0.22;
-  mix-blend-mode: multiply;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .heroInner {
   display: flex;
   justify-content: flex-start;
-  position: relative;
-  perspective: 1200px;
-}
-
-.heroVignette {
-  position: absolute;
-  inset: -80px auto -80px clamp(-10px, -2vw, -24px);
-  width: min(820px, 90vw);
-  background:
-    radial-gradient(520px 320px at 18% 20%, rgba(11, 11, 11, 0.05), transparent 60%),
-    radial-gradient(520px 360px at 40% 10%, rgba(11, 11, 11, 0.06), transparent 62%);
-  filter: blur(4px);
-  opacity: 0.6;
-  pointer-events: none;
-  z-index: 0;
 }
 
 .heroMeasure {
   width: min(100%, 1040px);
-  padding: clamp(28px, 4vw, 40px) clamp(20px, 3vw, 32px);
-  margin-left: clamp(0px, 4vw, 56px);
+  margin-left: clamp(0px, 3vw, 44px);
+  padding: clamp(18px, 2.6vw, 24px) 0;
   text-align: left;
   position: relative;
-  z-index: 1;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  backdrop-filter: none;
-  transform: none;
 }
 
-/* Statement */
+/* LOCKED FONT stays */
 .mainHeadline {
   font-size: clamp(2.2rem, 4.2vw, 4rem);
   font-weight: 400;
@@ -182,64 +118,16 @@
   font-style: italic;
 }
 
-/* Subtle-only emphasis: discovered, not shouted */
-.emphasis {
-  color: #0b0b0b;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-}
-
-.whisper {
-  font-style: italic;
-  opacity: 1;
-  letter-spacing: 0.015em;
-}
-
-.whisperSomeone {
-  font-style: normal;
-  opacity: 1;
-  letter-spacing: 0.012em;
-  font-size: 0.97em;
-}
-
-.heroMeasure::before {
-  content: "";
-  position: absolute;
-  left: clamp(10px, 1vw, 14px);
-  top: -20px;
-  bottom: -20px;
-  width: 1px;
-  background: linear-gradient(180deg, transparent, rgba(11, 11, 11, 0.75), transparent);
-  opacity: 1;
-}
-
-.heroMeasure::after {
-  content: "ISSUE 001 / 2026";
-  position: absolute;
-  top: -28px;
-  right: 0;
-  font-size: 0.7rem;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: rgba(11, 11, 11, 0.7);
-  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
-}
-
-/* Pause + Reality */
+/* Sub-hero (ONLY place with vertical rule) */
 .supportingBlock {
   position: relative;
   margin-top: clamp(18px, 2.3vw, 24px);
   padding-top: clamp(14px, 2vw, 18px);
+  padding-left: 18px;
   max-width: 760px;
-  opacity: 0;
-  transform: translateY(8px);
-  animation: heroTierReveal 0.6s ease forwards;
-  animation-delay: 0.4s;
-  padding-left: 20px;
   border-left: 1px solid rgba(11, 11, 11, 0.75);
 }
 
-/* Hairline "breath" divider — blends, not blocks */
 .supportingBlock::before {
   content: "";
   position: absolute;
@@ -257,9 +145,7 @@
   font-size: clamp(0.85rem, 1.1vw, 0.98rem);
   line-height: 1.7;
   font-weight: 400;
-  text-wrap: pretty;
   letter-spacing: 0.06em;
-  text-transform: none;
   display: grid;
   gap: 0.75rem;
   font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
@@ -267,66 +153,24 @@
 
 .supportingLine {
   display: block;
-  position: relative;
-  padding-left: 0;
-  padding-bottom: 0.35rem;
 }
 
-.supportingLine::before {
-  content: none;
-}
-
-.supportingLine::after {
-  content: none;
-}
-
-/* Next step (CTA) — calm, integrated */
-.ctaContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  align-items: flex-start;
-  justify-content: flex-start;
+/* CTAs: one horizontal row (desktop), no slab */
+.heroCtas {
   margin-top: clamp(18px, 2.6vw, 26px);
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(6, 8, 14, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.ctaBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  opacity: 0;
-  transform: translateY(6px);
-  animation: heroTierReveal 0.6s ease forwards;
-  animation-delay: 0.55s;
-}
-
-.ctaRowPrimary {
   display: flex;
   gap: 12px;
-  flex-wrap: wrap;
   align-items: center;
-}
-
-.ctaRowInvite {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  margin-left: clamp(12px, 2vw, 28px);
+  flex-wrap: nowrap;
 }
 
 .ctaPrimary {
   background: #0b0b0b;
   color: #f8f5ee;
-  min-height: 44px;
-  box-shadow:
-    0 12px 24px rgba(15, 23, 42, 0.18),
-    0 2px 8px rgba(15, 23, 42, 0.12);
+  min-height: 46px;
+  padding-inline: 18px;
+  border-radius: 999px;
+  box-shadow: 0 10px 22px rgba(11, 11, 11, 0.18);
 }
 
 .ctaPrimary:hover {
@@ -334,169 +178,57 @@
 }
 
 .ctaSecondary {
-  border: 1px solid rgba(15, 23, 42, 0.2);
-  color: rgba(15, 23, 42, 0.7);
-  min-height: 44px;
-  background: rgba(255, 255, 255, 0.65);
+  min-height: 46px;
+  padding-inline: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 11, 11, 0.18);
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(11, 11, 11, 0.82);
 }
 
 .ctaSecondary:hover {
-  background: rgba(15, 23, 42, 0.08);
+  background: rgba(11, 11, 11, 0.06);
   color: #0b0b0b;
 }
 
 .ctaTertiary {
-  padding-inline: 0;
-  min-height: 32px;
-  font-size: 0.9rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: rgba(15, 23, 42, 0.6);
-  border: 1px solid transparent;
+  min-height: 46px;
+  padding-inline: 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 11, 11, 0.14);
+  background: transparent;
+  color: rgba(11, 11, 11, 0.72);
   font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
 }
 
 .ctaTertiary:hover {
-  color: rgba(15, 23, 42, 0.85);
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(11, 11, 11, 0.05);
+  color: rgba(11, 11, 11, 0.9);
 }
 
-.inviteMicrocopy {
-  font-size: 0.75rem;
-  letter-spacing: 0.28em;
-  text-transform: uppercase;
-  color: rgba(15, 23, 42, 0.55);
-  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
-}
+/* =========================
+   ACT 2 — DARK STAGE
+   ========================= */
 
-.inviteHelper {
-  margin-top: 10px;
-  font-size: 0.9rem;
-  color: rgba(15, 23, 42, 0.6);
-  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
-}
-
-.invitePanel {
-  margin-top: 12px;
-  padding: 14px 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  background: rgba(255, 255, 255, 0.7);
-  display: grid;
-  gap: 10px;
-  max-width: 520px;
-  width: min(520px, 100%);
-}
-
-.inviteLabel {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: rgba(15, 23, 42, 0.8);
-}
-
-.inviteRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-}
-
-.inviteInput {
-  flex: 1 1 260px;
-  min-width: 220px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  background: rgba(255, 255, 255, 0.95);
-  color: rgba(15, 23, 42, 0.8);
-  font-size: 0.9rem;
-}
-
-.inviteCopyButton {
-  min-height: 40px;
-  padding-inline: 16px;
-}
-
-.inviteFootnote {
-  font-size: 0.85rem;
-  color: rgba(15, 23, 42, 0.55);
-}
-
-.inviteError {
-  font-size: 0.85rem;
-  color: #ff98b1;
-}
-
-/* Keep glow behavior but make it less “neon shout” */
-.ctaGlow:hover {
-  background: #0b0b0b;
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.18);
-}
-
-/* -------------------------
-   EXISTING NON-HERO STYLES
-   ------------------------- */
-
-.tickerWrapper {
-  position: absolute;
-  inset: 0;
-  opacity: 0.015;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.ticker {
-  position: absolute;
-  white-space: nowrap;
-  font-size: clamp(32px, 6vw, 84px);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
-.ticker:nth-child(1) {
-  top: 10%;
-}
-
-.ticker:nth-child(2) {
-  top: 30%;
-}
-
-.ticker:nth-child(3) {
-  top: 50%;
-}
-
-.ticker:nth-child(4) {
-  top: 70%;
-}
-
-.heroLogo {
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: rgba(245, 247, 255, 0.8);
-}
-
-.heroCopy {
-  display: grid;
-  gap: clamp(16px, 2.6vw, 26px);
-  max-width: 820px;
-  margin: 0 auto;
-}
-
+/* Exchange now starts the dark stage with a hard boundary */
 .exchangeSection {
   padding: 110px 0;
   position: relative;
   overflow: hidden;
+  background: #06070d;
+  color: rgba(245, 247, 255, 0.92);
+  border-top: 1px solid rgba(11, 11, 11, 0.18);
 }
 
 .exchangeSection::before {
   content: "";
   position: absolute;
   inset: 0;
-  background:
-    radial-gradient(circle at 18% 18%, rgba(124, 92, 255, 0.12), transparent 45%),
-    radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.08), transparent 48%);
-  opacity: 0.8;
+  background: radial-gradient(circle at 18% 18%, rgba(124, 92, 255, 0.08), transparent 48%);
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -505,34 +237,36 @@
   z-index: 1;
   text-align: left;
   max-width: 780px;
-  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  border-left: 1px solid rgba(245, 247, 255, 0.16);
   padding-left: clamp(16px, 2vw, 22px);
 }
 
 .exchangeTitle {
-  font-size: clamp(2.4rem, 5.6vw, 4rem);
-  font-weight: 900;
-  letter-spacing: 0.1em;
+  font-size: clamp(2.2rem, 5.2vw, 3.6rem);
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   margin: 0 0 0.4rem;
-  font-family: var(--font-space);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .exchangeSupportingTitle {
-  font-size: clamp(1.05rem, 2vw, 1.4rem);
+  font-size: clamp(1.02rem, 2vw, 1.3rem);
   text-transform: uppercase;
   letter-spacing: 0.22em;
-  color: rgba(245, 247, 255, 0.75);
+  color: rgba(245, 247, 255, 0.78);
   margin: 0 0 0.35rem;
   font-weight: 700;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .exchangeMicroline {
   font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.38em;
-  color: rgba(245, 247, 255, 0.45);
+  letter-spacing: 0.32em;
+  color: rgba(245, 247, 255, 0.48);
   margin: 0;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .exchangeGrid {
@@ -541,35 +275,32 @@
   margin-top: 2.6rem;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 22px;
+  gap: 18px;
 }
 
 .exchangeCard {
-  border-radius: 18px;
-  padding: 2.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01)),
-    rgba(10, 12, 20, 0.7);
-  box-shadow:
-    0 0 40px rgba(124, 92, 255, 0.12),
-    inset 0 0 30px rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(14px);
+  border-radius: 16px;
+  padding: 2rem;
+  border: 1px solid rgba(245, 247, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(10px);
 }
 
 .exchangeCardTitle {
   font-size: 0.78rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgba(245, 247, 255, 0.6);
+  color: rgba(245, 247, 255, 0.62);
   margin: 0 0 0.6rem;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .exchangeCardNote {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  margin: 0 0 1.6rem;
-  color: rgba(245, 247, 255, 0.92);
+  margin: 0 0 1.4rem;
+  color: rgba(245, 247, 255, 0.9);
 }
 
 .exchangeList {
@@ -585,7 +316,7 @@
 
 .exchangeList li {
   position: relative;
-  padding-left: 1.5rem;
+  padding-left: 1.2rem;
 }
 
 .exchangeList li::before {
@@ -593,11 +324,10 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(245, 247, 255, 0.28);
   position: absolute;
   left: 0;
-  top: 0.6rem;
-  box-shadow: 0 0 10px rgba(124, 92, 255, 0.35);
+  top: 0.62rem;
 }
 
 .exchangeHighlight {
@@ -608,12 +338,13 @@
 .exchangeDoctrine {
   position: relative;
   z-index: 1;
-  margin-top: 2.5rem;
+  margin-top: 2.2rem;
   font-size: 0.92rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: rgba(245, 247, 255, 0.55);
+  color: rgba(245, 247, 255, 0.6);
   max-width: 960px;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .exchangeDoctrineFooter {
@@ -621,399 +352,328 @@
   font-size: 0.75rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;
-  color: rgba(245, 247, 255, 0.35);
+  color: rgba(245, 247, 255, 0.4);
   max-width: 920px;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
-@keyframes heroTierReveal {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .headlineTier,
-  .ctaBlock,
-  .supportingBlock {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .heroSection {
-    padding: 120px 0 90px;
-  }
-
-  .mainHeadline {
-    line-height: 1.18;
-    white-space: pre-line;
-  }
-
-  .heroMeasure::before {
-    left: 6px;
-  }
-}
-
-.statsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 20px;
-  max-width: 820px;
-  margin: 0 auto;
-}
-
-.stat {
-  text-align: center;
-  padding: 1.4rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-}
-
-.statValue {
-  font-size: 1.8rem;
-  font-weight: 800;
-  display: block;
-  margin-bottom: 0.45rem;
-  color: #fff;
-}
-
-.statLabel {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 700;
-}
-
-.statFootnote {
-  margin-top: 0.55rem;
-  font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.35;
-}
-
-.sectionTitle {
-  font-size: clamp(2rem, 5vw, 3.4rem);
-  font-weight: 900;
-  text-align: center;
-  margin-bottom: 1rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-family: var(--font-space);
-}
-
-.sectionSubtitle {
-  text-align: center;
-  color: rgba(245, 247, 255, 0.6);
-  font-size: 1.1rem;
-  margin-bottom: 3.5rem;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
-  line-height: 1.5;
-}
-
-.sectionEyebrow {
-  text-align: center;
-  font-size: 0.75rem;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: rgba(245, 247, 255, 0.5);
-  margin-bottom: 1rem;
-}
-
+/* Unified dark stage for sections after Exchange */
 .browseSection,
 .transactionSection,
 .instrumentSection,
 .protocolSection,
 .optionalSection {
   padding: 96px 0;
-}
-
-.browseSection {
   background: #06070d;
+  color: rgba(245, 247, 255, 0.9);
 }
 
+/* Optional slightly deeper but still same system */
 .optionalSection {
   background: #05070f;
 }
 
-.optionalSection .sectionTitle {
-  font-size: clamp(1.6rem, 4vw, 2.4rem);
+/* Shared section typography (remove undefined var(--font-space) drift) */
+.sectionEyebrow {
+  text-align: center;
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.52);
+  margin-bottom: 1rem;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
-.optionalSection .sectionSubtitle {
-  margin-bottom: 2rem;
+.sectionTitle {
+  font-size: clamp(1.9rem, 4.4vw, 3rem);
+  font-weight: 800;
+  text-align: center;
+  margin-bottom: 1rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
+.sectionSubtitle {
+  text-align: center;
+  color: rgba(245, 247, 255, 0.62);
+  font-size: 1.05rem;
+  margin-bottom: 3.2rem;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.55;
+}
+
+/* Browse panel: flattened, quieter */
 .browsePanel {
-  margin-top: 2.5rem;
-  padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  margin-top: 2.2rem;
+  padding: 1.6rem 1.6rem;
+  border: 1px solid rgba(245, 247, 255, 0.12);
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 18px;
   flex-wrap: wrap;
 }
 
+.panelText {
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+}
+
 .panelTitle {
-  font-size: 1.2rem;
+  font-size: 1.02rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 0.6rem;
+  letter-spacing: 0.1em;
+  margin: 0;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
 .panelBody {
-  color: rgba(245, 247, 255, 0.6);
-  max-width: 520px;
+  color: rgba(245, 247, 255, 0.62);
   line-height: 1.6;
+  margin: 0;
 }
 
+/* A stage button for dark sections (not reusing hero CTA styles) */
+.stagePrimary {
+  background: rgba(245, 247, 255, 0.92);
+  color: #0b0b0b;
+  min-height: 46px;
+  padding-inline: 18px;
+  border-radius: 999px;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.3);
+}
 
+.stagePrimary:hover {
+  background: rgba(245, 247, 255, 0.98);
+}
+
+/* Steps: cleaner */
 .stepsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 24px;
+  gap: 18px;
 }
 
 .step {
-  text-align: center;
-  padding: 1.8rem 1.2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  text-align: left;
+  padding: 1.4rem 1.2rem;
+  border: 1px solid rgba(245, 247, 255, 0.12);
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.02);
 }
 
 .stepNumber {
-  width: 48px;
-  height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.1rem;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(245, 247, 255, 0.18);
+    border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: rgba(245, 247, 255, 0.86);
   font-weight: 800;
-  margin: 0 auto 1.2rem;
-  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.12em;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+  margin-bottom: 0.9rem;
 }
 
 .stepTitle {
-  font-size: 1rem;
+  margin: 0 0 0.55rem;
+  font-size: 1.02rem;
   font-weight: 800;
-  margin-bottom: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
-.stepDescription {
-  color: rgba(245, 247, 255, 0.6);
-  line-height: 1.6;
-  font-size: 0.95rem;
+.stepBody {
+  margin: 0;
+  color: rgba(245, 247, 255, 0.62);
+  line-height: 1.65;
+  font-size: 0.98rem;
 }
 
+/* Protocol cards */
 .protocolGrid {
   display: grid;
-  gap: 16px;
-  max-width: 900px;
-  margin: 0 auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
 }
 
-.protocolItem {
+.protocolCard {
+  border-radius: 16px;
+  padding: 1.8rem 1.6rem;
+  border: 1px solid rgba(245, 247, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28);
+}
+
+.protocolCardTitle {
+  margin: 0 0 0.7rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: rgba(245, 247, 255, 0.58);
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+}
+
+.protocolCardBody {
+  margin: 0;
+  color: rgba(245, 247, 255, 0.76);
+  line-height: 1.7;
+  font-size: 1rem;
+}
+
+/* Transaction / Instrument grids */
+.featureGrid {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
-  padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+}
+
+.featureCard {
+  border-radius: 16px;
+  padding: 1.7rem 1.5rem;
+  border: 1px solid rgba(245, 247, 255, 0.12);
   background: rgba(255, 255, 255, 0.02);
 }
 
-.protocolNumber {
-  font-size: 0.9rem;
-  letter-spacing: 0.2em;
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.protocolTitle {
-  margin: 0 0 0.5rem;
-  font-size: 1rem;
+.featureTitle {
+  margin: 0 0 0.65rem;
+  font-size: 0.86rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  color: rgba(245, 247, 255, 0.78);
+  font-weight: 800;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
-.protocolDescription {
+.featureBody {
   margin: 0;
   color: rgba(245, 247, 255, 0.6);
+  line-height: 1.7;
+  font-size: 0.98rem;
 }
 
-.optionalGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
+/* Optional section CTA row */
+.optionalCtaRow {
+  margin-top: 2.4rem;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.optionalCard {
-  padding: 1.6rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.optionalTitle {
-  font-size: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: 0.6rem;
-}
-
-.optionalDescription {
-  color: rgba(245, 247, 255, 0.6);
-  line-height: 1.6;
-}
-
-.optionalList {
-  margin-top: 1rem;
-  padding-left: 1.1rem;
-  color: rgba(245, 247, 255, 0.55);
-  line-height: 1.6;
-}
-
-
+/* Footer */
 .footer {
-  padding: 3rem 2rem 4rem;
-  text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  padding: 70px 0;
+  background: #05070f;
+  color: rgba(245, 247, 255, 0.7);
+  border-top: 1px solid rgba(245, 247, 255, 0.08);
 }
 
-.page[data-wireframe="on"] {
-  background: #0a0a0a;
+.footerInner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
 }
 
-.page[data-wireframe="on"] * {
-  animation: none !important;
-  transition: none !important;
-  box-shadow: none !important;
+.footerBrand {
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 800;
+  font-size: 0.9rem;
+  margin: 0;
 }
 
-.page[data-wireframe="on"] .tickerWrapper {
-  display: none;
+.footerNote {
+  margin: 0.75rem 0 0;
+  color: rgba(245, 247, 255, 0.45);
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
-.page[data-wireframe="on"] .exchangeCard,
-.page[data-wireframe="on"] .stat,
-.page[data-wireframe="on"] .browsePanel,
-.page[data-wireframe="on"] .step,
-.page[data-wireframe="on"] .protocolItem,
-.page[data-wireframe="on"] .optionalCard {
-  background: rgba(255, 255, 255, 0.02) !important;
-  border: 1px dashed rgba(255, 255, 255, 0.35) !important;
-  outline: 1px dashed rgba(255, 255, 255, 0.22);
+.footerLinks {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
-.page[data-wireframe="on"] .ctaPrimary,
-.page[data-wireframe="on"] .ctaSecondary {
-  background: transparent !important;
-  color: #fff !important;
-  border: 2px dashed rgba(255, 255, 255, 0.45) !important;
+.footerLinks a {
+  color: rgba(245, 247, 255, 0.62);
+  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
 }
 
-.page[data-wireframe="on"] .exchangeHighlight,
-.page[data-wireframe="on"] .statValue {
-  color: #fff !important;
+.footerLinks a:hover {
+  color: rgba(245, 247, 255, 0.92);
 }
 
-.page[data-wireframe="on"] .mainHeadline {
-  color: #fff !important;
-  background: none !important;
-  -webkit-background-clip: border-box !important;
-  background-clip: border-box !important;
-  text-shadow: none !important;
-}
-
-@media (max-width: 900px) {
-  .heroSection {
-    padding: 120px 0 96px;
-  }
-}
-
-@media (max-width: 768px) {
-  .previewBar {
-    top: 10px;
-    right: 10px;
-  }
-
-  /* Mobile: keep inevitability, left-aligned and steady */
-  .heroMeasure {
-    text-align: left;
-  }
-
-  .supportingBlock::before {
-    left: 50%;
-    transform: translateX(-50%);
-    width: min(520px, 86%);
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(11, 11, 11, 0.18),
-      rgba(11, 11, 11, 0.06),
-      transparent
-    );
-  }
-
-  .ctaContainer {
-    flex-direction: column;
-    align-items: stretch;
-    justify-content: center;
-  }
-
-  .statsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .stepsGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .exchangeHeader {
-    text-align: center;
-    margin-inline: auto;
-  }
-
-  .exchangeMicroline {
-    letter-spacing: 0.28em;
-  }
-
+/* =========================
+   RESPONSIVE
+   ========================= */
+@media (max-width: 980px) {
   .exchangeGrid {
     grid-template-columns: 1fr;
   }
 
-  .exchangeCard {
-    padding: 1.8rem;
-  }
-}
-
-@media (max-width: 600px) {
-  .heroSection {
-    padding-top: 110px;
-  }
-
-  .statsGrid {
+  .protocolGrid {
     grid-template-columns: 1fr;
   }
-}
 
-@media (min-width: 900px) {
-  .mainHeadline {
-    white-space: pre;
+  .featureGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .heroCtas {
+    flex-wrap: wrap;
   }
 }
+
+@media (max-width: 640px) {
+  .heroSection {
+    padding: 120px 0 92px;
+    min-height: auto;
+  }
+
+  .heroMeasure {
+    margin-left: 0;
+  }
+
+  .supportingBlock {
+    padding-left: 14px;
+  }
+
+  .exchangeCard {
+    padding: 1.6rem 1.3rem;
+  }
+
+  .browsePanel {
+    padding: 1.35rem 1.2rem;
+  }
+
+  .footerInner {
+    flex-direction: column;
+  }
+}
+
+/* =========================
+   SAFETY: ensure NO hero vertical rule
+   (only sub-hero has border-left)
+   ========================= */
+.heroMeasure {
+  border-left: none !important;
+}
+

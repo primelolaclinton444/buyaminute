@@ -67,13 +67,15 @@
    HERO — CLEAN STATEMENT
    ========================= */
 .heroSection {
-  padding: 140px 0 120px;
-  min-height: 100vh;
+  padding: clamp(72px, 7vh, 96px) 0 clamp(28px, 4vh, 48px);
+  min-height: unset;           /* remove the 100vh takeover */
+  max-height: 50vh;            /* cap at half the viewport */
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: flex-start;
   position: relative;
   background: #f5f3ee;
+  overflow: hidden; 
 }
 
 .heroContainer {
@@ -87,7 +89,7 @@
 }
 
 .heroMeasure {
-  width: min(100%, 1040px);
+  width: min(100%, 1240px);
   margin-left: clamp(0px, 3vw, 44px);
   padding: clamp(18px, 2.6vw, 24px) 0;
   text-align: left;
@@ -104,7 +106,7 @@
   font-family: var(--font-libre-baskerville), "Libre Baskerville", serif;
   color: #0b0b0b;
   margin: 0;
-  text-wrap: pretty;
+  text-wrap: normal;
   white-space: pre-line;
 }
 

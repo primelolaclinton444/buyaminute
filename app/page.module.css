@@ -71,6 +71,8 @@
    ========================= */
 .heroSection {
   /* quarter: top half of viewport */
+  width: 50vw;
+  max-width: 50vw;
   height: 50vh;
   max-height: 50vh;
   min-height: unset;
@@ -239,6 +241,8 @@
   .heroSection {
     height: auto;
     max-height: none;
+    width: 100%;
+    max-width: none;
     padding: 104px 0 52px;
   }
 
@@ -697,6 +701,8 @@
   .heroSection {
     padding: 120px 0 92px;
     min-height: auto;
+    width: 100%;
+    max-width: none;
   }
 
   .heroMeasure {
@@ -727,4 +733,3 @@
 .heroMeasure {
   border-left: none !important;
 }
-

@@ -86,6 +86,45 @@ const pingRules = [
   "If they’re live, the 20-second decision window applies.",
 ];
 
+const prospectsCards = [
+  {
+    title: "THE UNREACHABLE ICON",
+    body: `That person with 10 million followers
+who never replies to comments.
+
+Now you don’t beg.
+You send a paid call request.`,
+    doctrine: "COMMENTS BECOME OFFERS",
+  },
+  {
+    title: "THE IMPOSSIBLE CRUSH",
+    body: `Your TikTok crush.
+Your Instagram crush.
+The person who never opens your messages.
+
+Now you don’t hope.
+You pay for 60 seconds.`,
+    doctrine: "FLIRTING BECOMES A MARKET",
+  },
+  {
+    title: "THE UNKNOWN SELLER",
+    body: `You are not famous.
+You are just attractive, interesting, or curious.
+
+Now you can send paid invitations
+to anyone you find interesting.`,
+    doctrine: "YOU DON’T WAIT TO BE DISCOVERED",
+  },
+];
+
+const usageRows = [
+  { title: "🎯 Comment Section Warfare", text: "“Buy a Minute — $10/min” under every viral post." },
+  { title: "📩 DM Invasions", text: "Cold DMs with money attached." },
+  { title: "💋 Attraction Arbitrage", text: "Attractive users mass-invite strangers to paid calls." },
+  { title: "📞 Celebrity Fishing", text: "Fans coordinate to catch 30 seconds of a famous person." },
+  { title: "🚀 Unknown to Paid", text: "New creators monetize before they are famous." },
+];
+
 export default function HomePage() {
   const [wireframe, setWireframe] = useState(false);
 
@@ -231,6 +270,64 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+      </Section>
+
+      <Section className={styles.prospectsSection} id="prospects">
+        <Container>
+          <header className={styles.prospectsHeader}>
+            <p className={styles.prospectsEyebrow}>Prospects</p>
+            <h2 className={styles.prospectsTitle}>WHO THIS UNLOCKS</h2>
+            <p className={styles.prospectsSubtitle}>People you cannot reach today.</p>
+          </header>
+
+          <div className={styles.prospectsGrid}>
+            {prospectsCards.map((card) => (
+              <article key={card.title} className={styles.prospectCard}>
+                <h3 className={styles.prospectCardTitle}>{card.title}</h3>
+
+                <div className={styles.prospectVisual} aria-hidden="true">
+                  <div className={styles.prospectVisualInset} />
+                  <div className={styles.prospectVisualLabel}>CALL OFFER</div>
+                </div>
+
+                <p className={styles.prospectCardBody}>{card.body}</p>
+                <p className={styles.prospectDoctrine}>{card.doctrine}</p>
+              </article>
+            ))}
+          </div>
+        </Container>
+
+        <div className={styles.prospectsBanner} role="presentation">
+          <div className={styles.prospectsBannerInner}>
+            <p className={styles.prospectsBannerTitle}>THIS TURNS ATTENTION INTO A WEAPON.</p>
+            <p className={styles.prospectsBannerSub}>
+              You don’t ask for replies. You offer money for time.
+            </p>
+          </div>
+        </div>
+
+        <Container>
+          <div className={styles.usageBlock}>
+            <h2 className={styles.usageTitle}>HOW PEOPLE WILL ACTUALLY USE THIS</h2>
+            <ul className={styles.usageList}>
+              {usageRows.map((row) => (
+                <li key={row.title} className={styles.usageItem}>
+                  <p className={styles.usageItemTitle}>{row.title}</p>
+                  <p className={styles.usageItemText}>{row.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className={styles.prospectsHandoff}>
+            <p className={styles.handoffTitle}>EVERY SOCIAL PLATFORM BECOMES A MARKETPLACE.</p>
+            <p className={styles.handoffSub}>
+              Anywhere you can post, comment, or DM — you can attach a price to your attention.
+            </p>
+
+            <p className={styles.optionalMonoLine}>REACHABILITY IS NO LONGER FREE.</p>
+          </div>
+        </Container>
       </Section>
 
       {/* =========================

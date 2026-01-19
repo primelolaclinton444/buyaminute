@@ -215,10 +215,17 @@ export default function HomePage() {
           HERO — STATEMENT COMPOSITION
           ========================= */}
       <Section className={styles.heroSection}>
-        <div className={styles.heroContainer}>
-          <div className={styles.heroInner}>
-            <div className={styles.heroMeasure}>
-              <h1 className={styles.mainHeadline}>
+  <div className={styles.heroContainer}>
+    <div className={styles.heroInner}>
+      <div className={styles.heroMeasure}>
+        <div className={styles.heroGrid}>
+          <div className={styles.heroLeft}>
+            <p className={styles.heroDoctrine}>
+              A NEW MARKET IS FORMING.
+              <span className={styles.heroDoctrineSub}>Reachability • Time • Access</span>
+            </p>
+
+            <h1 className={styles.mainHeadline}>
                 Imagine fans, random strangers, or friends
                 <br />
                 <strong>wanting your attention</strong> badly enough to
@@ -231,7 +238,11 @@ export default function HomePage() {
                 <strong>worth reaching—</strong>
               </h1>
 
-              <div className={styles.supportingBlock}>
+            <p className={styles.heroSystemLine}>
+              This will turn every social platform into a marketplace.
+            </p>
+
+            <div className={styles.supportingBlock}>
                 <div className={styles.supportingCopy} role="list">
                   <span className={styles.supportingLine} role="listitem">
                     BuyAMinute turns reachability into a market.
@@ -248,7 +259,8 @@ export default function HomePage() {
                 </div>
               </div>
 
-              {/* CTA: one clean horizontal row (desktop) */}
+            <div className={styles.heroCtasWrap}>
+              <p className={styles.ctaLead}>Choose your role:</p>
               <div className={styles.heroCtas}>
                 <Button href="/signup" size="lg" className={styles.ctaPrimary}>
                   Enter to Earn
@@ -268,9 +280,78 @@ export default function HomePage() {
                 </Button>
               </div>
             </div>
+
+            <p className={styles.heroVow}>REACHABILITY IS NO LONGER FREE.</p>
           </div>
+
+          <aside className={styles.heroPanel} aria-label="What this enables">
+  <div className={styles.panelHead}>
+    <p className={styles.panelTitle}>WHAT THIS ENABLES</p>
+    <p className={styles.panelSubtitle}>This changes how humans pursue attention</p>
+  </div>
+
+  <ul className={styles.panelList}>
+    <li>You can buy access to people who are unreachable by design.</li>
+    <li>You can inject money into any social interaction.</li>
+    <li>You can monetize yourself without an audience, platform, or fame.</li>
+  </ul>
+
+  <div className={styles.iconSnapshot} aria-label="Icon snapshot">
+    <p className={styles.iconLabel}>ICON SNAPSHOT</p>
+
+    <div className={styles.iconHeader}>
+      <div className={styles.iconAvatar} aria-hidden="true" />
+      <div>
+        <p className={styles.iconHandle}>@alex_r</p>
+        <p className={styles.iconMeta}>Unknown creator</p>
+      </div>
+    </div>
+
+    <div className={styles.iconStats}>
+      <div className={styles.iconStat}>
+        <span className={styles.iconStatValue}>42</span>
+        <span className={styles.iconStatLabel}>call offers received</span>
+      </div>
+      <div className={styles.iconStat}>
+        <span className={styles.iconStatValue}>$1,284</span>
+        <span className={styles.iconStatLabel}>earned</span>
+      </div>
+      <div className={styles.iconStat}>
+        <span className={styles.iconStatValue}>18</span>
+        <span className={styles.iconStatLabel}>minutes sold</span>
+      </div>
+    </div>
+
+    <p className={styles.iconLast}>Last offer: 2 minutes ago</p>
+  </div>
+
+  <div className={styles.liveMarket} aria-label="Live market">
+    <div className={styles.liveTop}>
+      <span className={styles.liveTitle}>LIVE MARKET</span>
+      <span className={styles.liveMeta}>Last call: 11 seconds ago</span>
+    </div>
+
+    <div className={styles.liveGrid}>
+      <div className={styles.liveStat}>
+        <span className={styles.liveVal}>12 icons online</span>
+        <span className={styles.liveLbl}>availability</span>
+      </div>
+      <div className={styles.liveStat}>
+        <span className={styles.liveVal}>$0.10 — $42 / min</span>
+        <span className={styles.liveLbl}>rates</span>
+      </div>
+      <div className={styles.liveStat}>
+        <span className={styles.liveVal}>clearing: per second</span>
+        <span className={styles.liveLbl}>billing</span>
+      </div>
+    </div>
+  </div>
+</aside>
         </div>
-      </Section>
+      </div>
+    </div>
+  </div>
+</Section>
 
       <Section className={styles.prospectsSection} id="prospects">
         <Container>

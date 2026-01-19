@@ -221,7 +221,7 @@ export default function HomePage() {
         <div className={styles.heroGrid}>
           <div className={styles.heroLeft}>
             <p className={styles.heroDoctrine}>
-              A NEW MARKET IS FORMING.
+              A NEW MARKET IS HERE.
               <span className={styles.heroDoctrineSub}>Reachability • Time • Access</span>
             </p>
 
@@ -239,7 +239,7 @@ export default function HomePage() {
               </h1>
 
             <p className={styles.heroSystemLine}>
-              This will turn every social platform into a marketplace.
+              Every social platform is now a marketplace.
             </p>
 
             <div className={styles.supportingBlock}>

@@ -3,6 +3,7 @@ import { AvailabilityResponse } from "@/lib/domain";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
+import { createNotification } from "@/lib/notifications";
 
 type PingPayload = {
   id: string;
@@ -85,6 +86,17 @@ export async function POST(
       status: "replied",
       respondedAt: new Date(),
     },
+  });
+
+  await createNotification({
+    userId: ping.callerId,
+    type: "availability_response",
+    data: {
+      pingId: ping.id,
+      responderId: ping.receiverId,
+      response: payload.response,
+    },
+    idempotencyKey: `ping:${ping.id}:reply:${payload.response}`,
   });
 
   return NextResponse.json({ ping: serializePing(updated) });

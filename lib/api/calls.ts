@@ -4,10 +4,10 @@ import { jsonError } from "@/lib/api/errors";
 import { ensureLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { hasActivePreviewLock } from "@/lib/previewLock";
 import { settleEndedCall } from "@/lib/settlement";
+import { upsertCallReceipt } from "@/lib/receipts";
 import {
   CALL_REQUEST_WINDOW_MS,
   MIN_CALL_BALANCE_SECONDS,
-  PREVIEW_SECONDS,
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
 
@@ -544,7 +544,6 @@ export async function getCallReceipt({
 }) {
   const call = await prisma.call.findUnique({
     where: { id: callId },
-    include: { participants: true },
   });
 
   if (!call) {
@@ -553,6 +552,14 @@ export async function getCallReceipt({
 
   if (call.callerId !== userId && call.receiverId !== userId) {
     return jsonError("Unauthorized", 403, "forbidden");
+  }
+
+  let receipt = await prisma.callReceipt.findUnique({
+    where: { callId: call.id },
+  });
+
+  if (!receipt && call.endedAt) {
+    receipt = await upsertCallReceipt(call.id);
   }
 
   const users = await prisma.user.findMany({
@@ -565,49 +572,11 @@ export async function getCallReceipt({
   const viewerRole: ViewerRole =
     call.callerId === userId ? "caller" : "receiver";
 
-  const ledgerEntries = await prisma.ledgerEntry.findMany({
-    where: {
-      callId: call.id,
-      userId: call.callerId,
-      source: "call_billing",
-    },
-  });
-
-  const debits = ledgerEntries
-    .filter((entry) => entry.type === "debit")
-    .reduce((sum, entry) => sum + entry.amountTokens, 0);
-  const credits = ledgerEntries
-    .filter((entry) => entry.type === "credit")
-    .reduce((sum, entry) => sum + entry.amountTokens, 0);
-
-  const totalChargedTokens = Math.max(0, debits - credits);
-  const refundedTokens = Math.max(0, credits);
-
-  const receiverEntries = await prisma.ledgerEntry.findMany({
-    where: {
-      callId: call.id,
-      userId: call.receiverId,
-      source: "call_billing",
-    },
-  });
-  const receiverEarningsTokens = receiverEntries
-    .filter((entry) => entry.type === "credit")
-    .reduce((sum, entry) => sum + entry.amountTokens, 0);
-
-  const durationSeconds =
-    call.participants?.bothConnectedAt && call.endedAt
-      ? Math.max(
-          0,
-          Math.floor(
-            (call.endedAt.getTime() - call.participants.bothConnectedAt.getTime()) /
-              1000
-          )
-        )
-      : 0;
-
-  const previewSeconds = call.previewApplied
-    ? Math.min(PREVIEW_SECONDS, durationSeconds)
-    : 0;
+  const durationSeconds = receipt?.durationSeconds ?? 0;
+  const previewSeconds = receipt?.previewSeconds ?? 0;
+  const totalChargedTokens = receipt?.totalChargedTokens ?? 0;
+  const refundedTokens = receipt?.refundedTokens ?? 0;
+  const receiverEarningsTokens = receipt?.earnedTokens ?? 0;
 
   return Response.json({
     receipt: {

@@ -28,6 +28,8 @@ model User {
   receiverProfile ReceiverProfile?
   depositAddress DepositAddress?
   invites Invite[]
+  receiptsAsCaller CallReceipt[] @relation("CallReceiptCaller")
+  receiptsAsReceiver CallReceipt[] @relation("CallReceiptReceiver")
 }
 
 model Invite {
@@ -155,8 +157,8 @@ model CallReceipt {
   updatedAt DateTime @updatedAt
 
   call Call @relation(fields: [callId], references: [id])
-  caller User @relation(fields: [callerId], references: [id])
-  receiver User @relation(fields: [receiverId], references: [id])
+  caller User @relation("CallReceiptCaller", fields: [callerId], references: [id])
+  receiver User @relation("CallReceiptReceiver", fields: [receiverId], references: [id])
 
   @@index([callerId])
   @@index([receiverId])

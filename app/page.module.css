@@ -188,10 +188,11 @@
 .ctaPrimary {
   background: #0b0b0b;
   color: #f8f5ee;
-  min-height: 40px;
-  padding-inline: 16px;
+  min-height: 44px;
+  padding-inline: 20px;
   border-radius: 999px;
   box-shadow: 0 10px 22px rgba(11, 11, 11, 0.18);
+  font-weight: 700;
 }
 
 .ctaPrimary:hover {
@@ -199,7 +200,7 @@
 }
 
 .ctaSecondary {
-  min-height: 40px;
+  min-height: 44px;
   padding-inline: 16px;
   border-radius: 999px;
   border: 1px solid rgba(11, 11, 11, 0.18);
@@ -1322,12 +1323,14 @@
    ========================= */
 
 .heroTension {
-  margin: 10px 0 8px;
+  margin: 8px 0 6px;
   font-family: var(--font-ibm-plex-mono), "IBM Plex Mono", monospace;
   font-size: 0.78rem;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.32em;   /* tighter, sharper */
   text-transform: uppercase;
-  color: rgba(11, 11, 11, 0.78);
+  color: rgba(11, 11, 11, 0.88);  /* darker */
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(11, 11, 11, 0.12);
 }
 
 .heroDivider {

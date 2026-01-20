@@ -30,6 +30,7 @@ model User {
   invites Invite[]
   receiptsAsCaller CallReceipt[] @relation("CallReceiptCaller")
   receiptsAsReceiver CallReceipt[] @relation("CallReceiptReceiver")
+  notifications Notification[]
 }
 
 model Invite {

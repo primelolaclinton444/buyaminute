@@ -131,6 +131,24 @@ export type PingsResponse = {
   pings: PingRequest[];
 };
 
+export type NotificationItem = {
+  id: string;
+  type: string;
+  data: Record<string, unknown>;
+  readAt: string | null;
+  createdAt: string;
+};
+
+export type NotificationsResponse = {
+  notifications: NotificationItem[];
+  nextCursor: string | null;
+};
+
+export type MarkNotificationsPayload = {
+  ids?: string[];
+  markAll?: boolean;
+};
+
 export type NewPingPayload = {
   topic: string;
   requestedFor: string;
@@ -254,4 +272,21 @@ export const pingsApi = {
       body: JSON.stringify(payload),
     });
   },
+};
+
+export const notificationsApi = {
+  getNotifications: (params?: { cursor?: string | null; limit?: number }) => {
+    const search = new URLSearchParams();
+    if (params?.cursor) search.set("cursor", params.cursor);
+    if (params?.limit) search.set("limit", params.limit.toString());
+    const query = search.toString();
+    return apiFetch<NotificationsResponse>(
+      `/api/notifications${query ? `?${query}` : ""}`
+    );
+  },
+  markNotificationsRead: (payload: MarkNotificationsPayload) =>
+    apiFetch<{ ok: boolean; updated: number }>("/api/notifications", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };

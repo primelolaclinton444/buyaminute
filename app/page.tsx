@@ -237,16 +237,16 @@ export default function HomePage() {
             <div className={styles.supportingBlock}>
                 <div className={styles.supportingCopy} role="list">
                   <span className={styles.supportingLine} role="listitem">
-                    <strong>BuyAMinute turns reachability into a market.<strong/>
+                    <strong>BuyAMinute turns reachability into a market.</strong>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    <strong>No DMs. No free chat. Only paid access.<strong/>
+                    <strong>No DMs. No free chat. Only paid access.</strong>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    <strong>If they’re live, you can buy a minute (video or call).<strong/>
+                    <strong>If they’re live, you can buy a minute (video or call).</strong>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    <strong>If you’re live, you can sell yours.<strong/>
+                    <strong>If you’re live, you can sell yours.</strong>
                   </span>
                 </div>
               </div>

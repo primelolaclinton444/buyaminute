@@ -222,7 +222,7 @@ export default function HomePage() {
                 <br />
                 <strong>wanting your attention</strong> badly enough to
                 <br />
-                pay you for it.
+                pay you for it.💰💰💰
                 <br />
                 <br />
                 Or you, finally reaching <em>that</em> someone
@@ -237,16 +237,16 @@ export default function HomePage() {
             <div className={styles.supportingBlock}>
                 <div className={styles.supportingCopy} role="list">
                   <span className={styles.supportingLine} role="listitem">
-                    BuyAMinute turns reachability into a market.
+                    <strong>BuyAMinute turns reachability into a market.<strong/>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    No DMs. No free chat. Only paid access.
+                    <strong>No DMs. No free chat. Only paid access.<strong/>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    If they’re live, you can buy a minute (video or call).
+                    <strong>If they’re live, you can buy a minute (video or call).<strong/>
                   </span>
                   <span className={styles.supportingLine} role="listitem">
-                    If you’re live, you can sell yours.
+                    <strong>If you’re live, you can sell yours.<strong/>
                   </span>
                 </div>
               </div>
@@ -273,7 +273,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <p className={styles.heroVow}>REACHABILITY IS NO LONGER FREE.</p>
+            <p className={styles.heroVow}>MONETIZED INTERRACTIONS. BOTH PARTIES SATISFIED.</p>
           </div>
 
           <aside className={styles.heroPanel} aria-label="Market console">

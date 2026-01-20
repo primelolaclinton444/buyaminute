@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { IBM_Plex_Mono, Libre_Baskerville } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { buildAuthRedirect } from "@/components/auth/AuthGuard";
@@ -133,23 +133,17 @@ const tickerEvents = [
   "Icon joined: @leo_x",
 ];
 
+
 export default function HomePage() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [tickerIndex, setTickerIndex] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
   const { status, expired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setTickerIndex((i) => (i + 1) % tickerEvents.length);
-    }, 2800);
-    return () => window.clearInterval(id);
-  }, []);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -236,12 +230,6 @@ export default function HomePage() {
                 <strong>worth reaching—</strong>
               </h1>
 
-            <p className={styles.heroTension}>
-              Most people are reachable.
-              <br />
-              Just not for free.
-            </p>
-
             <p className={styles.heroSystemLine}>
               Every social platform is now a marketplace.
             </p>
@@ -266,11 +254,11 @@ export default function HomePage() {
             <div className={styles.heroCtasWrap}>
               <p className={styles.ctaLead}>Choose your role:</p>
               <div className={styles.heroCtas}>
-                <Button href="/browse" size="lg" className={styles.ctaPrimary}>
-                  Enter Market
+                <Button href="/signup" size="lg" className={styles.ctaPrimary}>
+                  Enter to Earn
                 </Button>
-                <Button href="/signup" variant="ghost" size="lg" className={styles.ctaSecondary}>
-                  Become an Icon
+                <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                  Enter to Call
                 </Button>
                 <Button
                   variant="ghost"
@@ -288,67 +276,95 @@ export default function HomePage() {
             <p className={styles.heroVow}>REACHABILITY IS NO LONGER FREE.</p>
           </div>
 
-          <aside className={styles.marketConsole} aria-label="Market console">
-            <div className={styles.consoleHead}>
-              <p className={styles.consoleLabel}>WHAT THIS ENABLES</p>
-              <p className={styles.consoleSub}>This changes how humans pursue attention</p>
-            </div>
+          <aside className={styles.heroPanel} aria-label="Market console">
+            <div className={styles.marketConsole}>
+              {/* ICON SNAPSHOT (elegant + FOMO) */}
+              <div className={styles.iconSnapshot} aria-label="Icon snapshot">
+                <p className={styles.iconLabel}>ICON SNAPSHOT</p>
 
-            <ul className={styles.consoleBullets}>
-              <li>You can buy access to people who are unreachable by design.</li>
-              <li>You can inject money into any social interaction.</li>
-              <li>You can monetize yourself without an audience, platform, or fame.</li>
-            </ul>
-
-            <div className={styles.consoleDivider} aria-hidden="true" />
-
-            <div className={styles.consoleIconRow} aria-label="Icon snapshot">
-              <div className={styles.consoleAvatar} aria-hidden="true" />
-              <div className={styles.consoleIconText}>
-                <p className={styles.consoleHandle}>@alex_r</p>
-                <p className={styles.consoleMeta}>Charging $12.40 / min — currently available</p>
-              </div>
-            </div>
-
-            <p className={styles.consolePulse}>+1 new call offer just now</p>
-
-            <div className={styles.consoleStats} aria-label="Key stats">
-              <div className={styles.consoleStat}>
-                <span className={styles.consoleStatNum}>42</span>
-                <span className={styles.consoleStatLbl}>call offers</span>
-              </div>
-              <div className={styles.consoleStat}>
-                <span className={styles.consoleStatNum}>$1,284</span>
-                <span className={styles.consoleStatLbl}>earned</span>
-              </div>
-              <div className={styles.consoleStat}>
-                <span className={styles.consoleStatNum}>18</span>
-                <span className={styles.consoleStatLbl}>minutes sold</span>
-              </div>
-            </div>
-
-            <p className={styles.consoleVelocity}>$87 earned in the last 24 minutes</p>
-
-            <div className={styles.consoleTickerWrap} aria-label="Live market">
-              <div className={styles.consoleTickerTop}>
-                <span className={styles.consoleTickerLabel}>LIVE MARKET</span>
-                <span className={styles.consoleTickerMeta}>Last call: 11 seconds ago</span>
-              </div>
-              <div className={styles.consoleTicker} aria-live="polite">
-                {tickerEvents[tickerIndex]}
-              </div>
-              <div className={styles.consoleMiniGrid}>
-                <div className={styles.consoleMiniStat}>
-                  <span className={styles.consoleMiniVal}>12 icons online</span>
-                  <span className={styles.consoleMiniLbl}>availability</span>
+                <div className={styles.iconHeader}>
+                  <div className={styles.iconAvatar} aria-hidden="true" />
+                  <div>
+                    <p className={styles.iconHandle}>@alex_r</p>
+                    <p className={styles.iconMeta}>Charging $12.40 / min — currently available</p>
+                  </div>
                 </div>
-                <div className={styles.consoleMiniStat}>
-                  <span className={styles.consoleMiniVal}>$0.10 — $42 / min</span>
-                  <span className={styles.consoleMiniLbl}>rates</span>
+
+                <p className={styles.iconPulse}>+1 new call offer just now</p>
+
+                {/* B4: Snapshot stat band (centered, equal blocks, pipes have their own space) */}
+                <div className={styles.snapshotBand} role="group" aria-label="Icon stats">
+                  <div className={styles.snapshotCol}>
+                    <div className={styles.snapshotStack}>
+                      <div className={styles.snapshotNum}>42</div>
+                      <div className={styles.snapshotLbl1}>CALL OFFERS</div>
+                      <div className={styles.snapshotLbl2}>RECEIVED</div>
+                    </div>
+                  </div>
+
+                  <div className={styles.snapshotPipe} aria-hidden="true">|</div>
+
+                  <div className={styles.snapshotCol}>
+                    <div className={styles.snapshotStack}>
+                      <div className={styles.snapshotNum}>$1,289.60</div>
+                      <div className={styles.snapshotLbl1}>EARNED</div>
+                      <div className={styles.snapshotLbl2} aria-hidden="true">&nbsp;</div>
+                    </div>
+                  </div>
+
+                  <div className={styles.snapshotPipe} aria-hidden="true">|</div>
+
+                  <div className={styles.snapshotCol}>
+                    <div className={styles.snapshotStack}>
+                      <div className={styles.snapshotNum}>104</div>
+                      <div className={styles.snapshotLbl1}>MINUTES SOLD</div>
+                      <div className={styles.snapshotLbl2} aria-hidden="true">&nbsp;</div>
+                    </div>
+                  </div>
                 </div>
-                <div className={styles.consoleMiniStat}>
-                  <span className={styles.consoleMiniVal}>clearing: per second</span>
-                  <span className={styles.consoleMiniLbl}>billing</span>
+
+                <p className={styles.iconVelocity}>$74.40 earned in the last 6 minutes</p>
+                <p className={styles.iconLast}>Last offer: 2 minutes ago</p>
+              </div>
+
+              <div className={styles.consoleRule} aria-hidden="true" />
+
+              {/* WHAT THIS ENABLES (text only) */}
+              <div className={styles.panelHead}>
+                <p className={styles.panelTitle}>WHAT THIS ENABLES</p>
+                <p className={styles.panelSubtitle}>This changes how humans pursue attention</p>
+              </div>
+
+              <ul className={styles.panelList}>
+                <li>You can buy access to people who are unreachable by design.</li>
+                <li>You can inject money into any social interaction.</li>
+                <li>You can monetize yourself without an audience, platform, or fame.</li>
+              </ul>
+
+              <div className={styles.consoleRule} aria-hidden="true" />
+
+              {/* LIVE MARKET (activity + boxed highlights only here) */}
+              <div className={styles.liveMarket} aria-label="Live market">
+                <div className={styles.liveTop}>
+                  <span className={styles.liveTitle}>LIVE MARKET</span>
+                  <span className={styles.liveMeta}>Last call: 11 seconds ago</span>
+                </div>
+
+                <div className={styles.liveTicker} aria-live="polite">{tickerEvents[tickerIndex]}</div>
+
+                <div className={styles.liveGrid}>
+                  <div className={styles.liveStat}>
+                    <span className={styles.liveVal}>12 icons online</span>
+                    <span className={styles.liveLbl}>availability</span>
+                  </div>
+                  <div className={styles.liveStat}>
+                    <span className={styles.liveVal}>$0.10 — $42 / min</span>
+                    <span className={styles.liveLbl}>rates</span>
+                  </div>
+                  <div className={styles.liveStat}>
+                    <span className={styles.liveVal}>clearing: per second</span>
+                    <span className={styles.liveLbl}>billing</span>
+                  </div>
                 </div>
               </div>
             </div>

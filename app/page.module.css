@@ -1303,14 +1303,3 @@
     letter-spacing: 0.28em;
   }
 }
-
-/* Wireframe mode support for new blocks */
-.page[data-wireframe="on"] .heroPanel,
-.page[data-wireframe="on"] .iconSnapshot,
-.page[data-wireframe="on"] .liveMarket,
-.page[data-wireframe="on"] .iconStat,
-.page[data-wireframe="on"] .liveStat {
-  background: transparent !important;
-  border: 1px dashed rgba(11, 11, 11, 0.45) !important;
-  box-shadow: none !important;
-}

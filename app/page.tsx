@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IBM_Plex_Mono, Libre_Baskerville } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { buildAuthRedirect } from "@/components/auth/AuthGuard";
@@ -126,8 +126,6 @@ const usageRows = [
 ];
 
 export default function HomePage() {
-  const [wireframe, setWireframe] = useState(false);
-
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
@@ -136,15 +134,6 @@ export default function HomePage() {
   const { status, expired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    const saved = localStorage.getItem("buyaminute_wireframe");
-    if (saved === "1") setWireframe(true);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem("buyaminute_wireframe", wireframe ? "1" : "0");
-  }, [wireframe]);
 
   const handleInviteClick = async () => {
     if (status !== "authenticated") {
@@ -195,21 +184,7 @@ export default function HomePage() {
   };
 
   return (
-    <main
-      className={`${styles.page} ${libreBaskerville.variable} ${ibmPlexMono.variable}`}
-      data-wireframe={wireframe ? "on" : "off"}
-    >
-      <div className={styles.previewBar} aria-label="Preview controls">
-        <span className={styles.previewPill}>Wireframe</span>
-        <input
-          id="wireframeToggle"
-          className={styles.toggle}
-          type="checkbox"
-          aria-label="Toggle wireframe mode"
-          checked={wireframe}
-          onChange={(event) => setWireframe(event.target.checked)}
-        />
-      </div>
+    <main className={`${styles.page} ${libreBaskerville.variable} ${ibmPlexMono.variable}`}>
 
       {/* =========================
           HERO — STATEMENT COMPOSITION

@@ -1684,3 +1684,26 @@
 .heroSection .marketConsole .liveLbl {
   color: rgba(240, 241, 245, 0.55);
 }
+/* ===== B2 Surface Model Override (final) ===== */
+
+/* Icon Snapshot wrapper: remove old card surface */
+.marketConsole .iconSnapshot {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Live Market wrapper: remove old card surface */
+.marketConsole .liveMarket {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep lift ONLY on the 4 Live Market elements */
+.marketConsole .marketTicker,
+.marketConsole .liveStat {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: none;
+}

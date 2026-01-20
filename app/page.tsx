@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IBM_Plex_Mono, Libre_Baskerville } from "next/font/google";
 import { usePathname, useRouter } from "next/navigation";
 import { buildAuthRedirect } from "@/components/auth/AuthGuard";
@@ -125,15 +125,31 @@ const usageRows = [
   { title: "🚀 Unknown to Paid", text: "New creators monetize before they are famous." },
 ];
 
+const tickerEvents = [
+  "@mira just sold 3 minutes — $21.00",
+  "Icon joined: @nate_k",
+  "Call cleared: $12.40/min",
+  "@sara_t just earned $9.60",
+  "Icon joined: @leo_x",
+];
+
 export default function HomePage() {
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isCreatingInvite, setIsCreatingInvite] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const [tickerIndex, setTickerIndex] = useState(0);
 
   const { status, expired } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTickerIndex((i) => (i + 1) % tickerEvents.length);
+    }, 2800);
+    return () => clearInterval(id);
+  }, []);
 
   const handleInviteClick = async () => {
     if (status !== "authenticated") {
@@ -213,6 +229,12 @@ export default function HomePage() {
                 <strong>worth reaching—</strong>
               </h1>
 
+            <p className={styles.heroTension}>
+              Most people are reachable.
+              <br />
+              Just not for free.
+            </p>
+
             <p className={styles.heroSystemLine}>
               Every social platform is now a marketplace.
             </p>
@@ -237,11 +259,11 @@ export default function HomePage() {
             <div className={styles.heroCtasWrap}>
               <p className={styles.ctaLead}>Choose your role:</p>
               <div className={styles.heroCtas}>
-                <Button href="/signup" size="lg" className={styles.ctaPrimary}>
-                  Enter to Earn
+                <Button href="/browse" size="lg" className={styles.ctaPrimary}>
+                  Enter Market
                 </Button>
-                <Button href="/browse" variant="ghost" size="lg" className={styles.ctaSecondary}>
-                  Enter to Call
+                <Button href="/signup" variant="ghost" size="lg" className={styles.ctaSecondary}>
+                  Become an Icon
                 </Button>
                 <Button
                   variant="ghost"
@@ -258,6 +280,8 @@ export default function HomePage() {
 
             <p className={styles.heroVow}>REACHABILITY IS NO LONGER FREE.</p>
           </div>
+
+          <div className={styles.heroDivider} aria-hidden="true" />
 
           <aside className={styles.heroPanel} aria-label="What this enables">
   <div className={styles.panelHead}>
@@ -278,9 +302,11 @@ export default function HomePage() {
       <div className={styles.iconAvatar} aria-hidden="true" />
       <div>
         <p className={styles.iconHandle}>@alex_r</p>
-        <p className={styles.iconMeta}>Unknown creator</p>
+        <p className={styles.iconMeta}>Charging $12.40 / min — currently available</p>
       </div>
     </div>
+
+    <p className={styles.iconPulse}>+1 new call offer just now</p>
 
     <div className={styles.iconStats}>
       <div className={styles.iconStat}>
@@ -297,6 +323,8 @@ export default function HomePage() {
       </div>
     </div>
 
+    <p className={styles.iconVelocity}>$87 earned in the last 24 minutes</p>
+
     <p className={styles.iconLast}>Last offer: 2 minutes ago</p>
   </div>
 
@@ -305,6 +333,8 @@ export default function HomePage() {
       <span className={styles.liveTitle}>LIVE MARKET</span>
       <span className={styles.liveMeta}>Last call: 11 seconds ago</span>
     </div>
+
+    <div className={styles.liveTicker} aria-live="polite">{tickerEvents[tickerIndex]}</div>
 
     <div className={styles.liveGrid}>
       <div className={styles.liveStat}>

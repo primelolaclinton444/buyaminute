@@ -995,9 +995,21 @@
 
 .heroGrid {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1.15fr 1px 0.85fr;
   gap: 22px;
   align-items: start;
+}
+
+.heroLeft {
+  grid-column: 1;
+}
+
+.heroDivider {
+  grid-column: 2;
+}
+
+.heroPanel {
+  grid-column: 3;
 }
 
 .heroLeft {

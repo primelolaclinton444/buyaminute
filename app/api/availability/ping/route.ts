@@ -9,6 +9,7 @@ import { appendLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { AVAILABILITY_PING_FEE_TOKENS } from "@/lib/constants";
 import { AvailabilityQuestion } from "@/lib/domain";
 import { jsonError } from "@/lib/api/errors";
+import { createNotification } from "@/lib/notifications";
 import { createHash, randomUUID } from "crypto";
 
 export const runtime = "nodejs";
@@ -99,6 +100,13 @@ export async function POST(req: Request) {
         idempotencyKey: ledgerKey,
       });
     }
+  });
+
+  await createNotification({
+    userId: receiverId,
+    type: "availability_ping",
+    data: { pingId: pingIdWithPrefix, callerId, question },
+    idempotencyKey: `ping:${pingIdWithPrefix}:created:${receiverId}`,
   });
 
   return Response.json({ ok: true, pingId: pingIdWithPrefix });

@@ -120,6 +120,7 @@ model Call {
 
   participants CallParticipant?
   ledgerEntries LedgerEntry[]
+  receipt CallReceipt?
 }
 
 model CallParticipant {
@@ -139,6 +140,26 @@ model CallerReceiverPreviewLock {
 
   @@unique([callerId, receiverId])
   @@index([previewUsedAt])
+}
+
+model CallReceipt {
+  callId String @id
+  callerId String
+  receiverId String
+  durationSeconds Int
+  previewSeconds Int
+  totalChargedTokens Int
+  refundedTokens Int
+  earnedTokens Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  call Call @relation(fields: [callId], references: [id])
+  caller User @relation(fields: [callerId], references: [id])
+  receiver User @relation(fields: [receiverId], references: [id])
+
+  @@index([callerId])
+  @@index([receiverId])
 }
 
 
@@ -190,6 +211,21 @@ model AvailabilityPing {
 
   @@index([callerId])
   @@index([receiverId])
+}
+
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  type String
+  data Json
+  idempotencyKey String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@unique([userId, idempotencyKey])
 }
 
 model LivekitWebhookEvent {

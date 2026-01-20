@@ -4,6 +4,7 @@
 // ================================
 import { prisma } from "@/lib/prisma";
 import { computeBillableSeconds, settleCallBillingWithPreauth } from "./billing";
+import { upsertCallReceipt } from "@/lib/receipts";
 /**
  * Settle a call AFTER it has ended.
  * - Computes connected overlap as (endedAt - bothConnectedAt)
@@ -38,4 +39,6 @@ export async function settleEndedCall(callId: string) {
     billableSeconds,
     ratePerSecondTokens: call.ratePerSecondTokens,
   });
+
+  await upsertCallReceipt(call.id);
 }

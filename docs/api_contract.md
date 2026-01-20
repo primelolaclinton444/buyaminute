@@ -309,6 +309,40 @@ Errors: JSON error shape.
 
 ---
 
+## Notifications (Frontend)
+
+### GET /api/notifications?limit=...&cursor=...
+Auth: session cookie required.
+Success (200):
+```json
+{
+  "notifications": [{
+    "id": "string",
+    "type": "string",
+    "data": "object",
+    "readAt": "ISO-8601 | null",
+    "createdAt": "ISO-8601"
+  }],
+  "nextCursor": "string | null"
+}
+```
+Errors: JSON error shape.
+
+### POST /api/notifications
+Auth: session cookie required.
+Request body:
+```json
+{ "ids": ["string"], "markAll": false }
+```
+Notes: Provide either `ids` or `markAll=true`.
+Success (200):
+```json
+{ "ok": true, "updated": 0 }
+```
+Errors: JSON error shape.
+
+---
+
 ## Calls (Frontend)
 
 ### POST /api/calls/request (Canonical)

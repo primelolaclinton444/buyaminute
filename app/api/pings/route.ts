@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
 import { appendLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { AVAILABILITY_PING_FEE_TOKENS } from "@/lib/constants";
+import { createNotification } from "@/lib/notifications";
 import {
   parseAvailabilityQuestion,
   PING_QUESTION_LABELS,
@@ -145,7 +146,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { ping } = await prisma.$transaction(async (tx) => {
+  const { ping, created } = await prisma.$transaction(async (tx) => {
     const ledgerEntry = await tx.ledgerEntry.findUnique({
       where: { idempotencyKey: ledgerKey },
     });
@@ -156,7 +157,7 @@ export async function POST(request: Request) {
         where: { id: pingId },
       });
       if (existing) {
-        return { ping: existing };
+        return { ping: existing, created: false };
       }
     }
 
@@ -180,8 +181,17 @@ export async function POST(request: Request) {
       });
     }
 
-    return { ping: created };
+    return { ping: created, created: true };
   });
+
+  if (created) {
+    await createNotification({
+      userId: receiver.id,
+      type: "availability_ping",
+      data: { pingId: ping.id, callerId: auth.user.id, question },
+      idempotencyKey: `ping:${ping.id}:created:${receiver.id}`,
+    });
+  }
 
   return NextResponse.json(
     {

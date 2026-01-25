@@ -7,6 +7,7 @@ import {
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { PING_QUESTION_LABELS, PING_RESPONSE_LABELS } from "@/lib/pings";
 
 export default function ReceiverPage() {
@@ -20,7 +21,8 @@ export default function ReceiverPage() {
     respondedAt: string | null;
   };
 
-  const [userId, setUserId] = useState("receiver-test");
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? "";
   const [ratePerSecondTokens, setRatePerSecondTokens] = useState(
     DEFAULT_RATE_PER_SECOND_TOKENS
   );
@@ -38,6 +40,10 @@ export default function ReceiverPage() {
   }, [ratePerSecondTokens]);
 
   async function save() {
+    if (!userId) {
+      setStatus("Missing session user.");
+      return;
+    }
     setStatus("Saving...");
     const res = await fetch("/api/ui/receiver/profile/upsert", {
       method: "POST",
@@ -93,6 +99,10 @@ export default function ReceiverPage() {
   }
 
   async function respondToPing(pingId: string, response: string) {
+    if (!userId) {
+      setPingStatus("Missing session user.");
+      return;
+    }
     setPingStatus("Sending response...");
     const res = await fetch("/api/ui/availability/ping/respond", {
       method: "POST",
@@ -122,14 +132,9 @@ export default function ReceiverPage() {
       <main style={{ padding: 20, maxWidth: 520 }}>
         <h1>Receiver Dashboard (MVP)</h1>
 
-      <label>
-        Receiver User ID
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
-      </label>
+      <p style={{ marginTop: 0, marginBottom: 12 }}>
+        Receiver ID: {userId || "Loading session..."}
+      </p>
 
       <label>
         Rate (tokens per second)

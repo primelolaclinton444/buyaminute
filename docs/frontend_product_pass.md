@@ -5,7 +5,6 @@
 - [x] Incoming request queue with countdown, accept/decline, and status updates.
 - [x] In-call shell with connection states, timer, and accessible controls.
 - [x] Receipt view for completed calls.
-- [x] Temp mock call APIs under `/app/api/calls/mock/*`.
 - [x] Accessibility pass (focus states, keyboard navigation, aria labels, reduced motion).
 - [x] Smoke tests for landing/auth/core/call routes and auth guard redirects.
 - [x] Build passes (`npm run build`).

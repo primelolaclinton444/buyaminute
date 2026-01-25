@@ -85,7 +85,7 @@ model LedgerEntry {
 }
 
 // ================================
-// Withdrawals (Manual — MVP)
+// Withdrawals (Manual)
 // ================================
 
 model WithdrawalRequest {
@@ -167,7 +167,7 @@ model CallReceipt {
 
 
 // ================================
-// Receiver Profile (MVP)
+// Receiver Profile
 // ================================
 
 model ReceiverProfile {
@@ -198,7 +198,7 @@ model CryptoDeposit {
 }
 
 // ================================
-// Availability Ping (MVP)
+// Availability Ping
 // ================================
 
 model AvailabilityPing {

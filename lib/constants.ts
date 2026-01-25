@@ -27,11 +27,11 @@ export const DEFAULT_RATE_PER_SECOND_TOKENS = 1;
 export const AVAILABILITY_PING_FEE_TOKENS = 25;
 export const MIN_WITHDRAWAL_TOKENS = 100;
 
-// Crypto (locked for MVP)
+// Crypto
 export const SUPPORTED_CHAIN = "TRON";
 export const SUPPORTED_ASSET = "USDT-TRC20";
 
-// System invariants (do not change in MVP)
+// System invariants
 export const LEDGER_APPEND_ONLY = true;
 export const BILLING_PER_SECOND = true;
 export const NO_SESSION_STITCHING = true;

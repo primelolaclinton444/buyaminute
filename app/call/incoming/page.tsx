@@ -20,6 +20,7 @@ export default function IncomingRequestsPage() {
     NotificationPermission | "unsupported"
   >("unsupported");
   const previousCountRef = useRef(0);
+  const titleResetRef = useRef<number | null>(null);
 
   const activeCount = useMemo(
     () => requests.filter((request) => request.status === "pending").length,
@@ -79,6 +80,20 @@ export default function IncomingRequestsPage() {
     }
     previousCountRef.current = activeCount;
   }, [activeCount, notificationPermission]);
+
+  useEffect(() => {
+    if (activeCount <= previousCountRef.current) return;
+    if (typeof document === "undefined") return;
+    if (titleResetRef.current) {
+      window.clearTimeout(titleResetRef.current);
+    }
+    const originalTitle = document.title;
+    document.title = `Incoming calls (${activeCount})`;
+    titleResetRef.current = window.setTimeout(() => {
+      document.title = originalTitle;
+      titleResetRef.current = null;
+    }, 10000);
+  }, [activeCount]);
 
   async function handleEnableNotifications() {
     if (typeof window === "undefined" || !("Notification" in window)) {

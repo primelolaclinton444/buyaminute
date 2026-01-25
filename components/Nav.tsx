@@ -10,6 +10,7 @@ const Nav = () => {
   const { status, session, logout } = useAuth();
   const [incomingCount, setIncomingCount] = useState(0);
   const previousCountRef = useRef(0);
+  const titleResetRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (status !== "authenticated") {
@@ -42,6 +43,17 @@ const Nav = () => {
                 ? "You have 1 incoming call request."
                 : `You have ${nextCount} incoming call requests.`,
           });
+        }
+        if (nextCount > previousCountRef.current && typeof document !== "undefined") {
+          if (titleResetRef.current) {
+            window.clearTimeout(titleResetRef.current);
+          }
+          const originalTitle = document.title;
+          document.title = `Incoming calls (${nextCount})`;
+          titleResetRef.current = window.setTimeout(() => {
+            document.title = originalTitle;
+            titleResetRef.current = null;
+          }, 10000);
         }
         previousCountRef.current = nextCount;
       } catch {

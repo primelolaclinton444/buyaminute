@@ -7,7 +7,9 @@ import {
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { PING_QUESTION_LABELS, PING_RESPONSE_LABELS } from "@/lib/pings";
+import styles from "../call/call.module.css";
 
 export default function ReceiverPage() {
   type AvailabilityPing = {
@@ -20,7 +22,8 @@ export default function ReceiverPage() {
     respondedAt: string | null;
   };
 
-  const [userId, setUserId] = useState("receiver-test");
+  const { session } = useAuth();
+  const userId = session?.user?.id ?? "";
   const [ratePerSecondTokens, setRatePerSecondTokens] = useState(
     DEFAULT_RATE_PER_SECOND_TOKENS
   );
@@ -28,6 +31,9 @@ export default function ReceiverPage() {
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">(
+    "idle"
+  );
   const [pingStatus, setPingStatus] = useState<string>("");
   const [pings, setPings] = useState<AvailabilityPing[]>([]);
 
@@ -38,6 +44,10 @@ export default function ReceiverPage() {
   }, [ratePerSecondTokens]);
 
   async function save() {
+    if (!userId) {
+      setStatus("Missing session user.");
+      return;
+    }
     setStatus("Saving...");
     const res = await fetch("/api/ui/receiver/profile/upsert", {
       method: "POST",
@@ -92,7 +102,42 @@ export default function ReceiverPage() {
     setPingStatus("Pings loaded ✅");
   }
 
+  async function loadProfile(nextUserId = userId) {
+    if (!nextUserId) return;
+    setProfileStatus("loading");
+    try {
+      const res = await fetch(
+        `/api/ui/receiver/profile/get?userId=${encodeURIComponent(nextUserId)}`
+      );
+      if (!res.ok) {
+        setProfileStatus("error");
+        return;
+      }
+      const data = (await res.json()) as {
+        profile?: {
+          ratePerSecondTokens?: number;
+          isAvailable?: boolean;
+          isVideoEnabled?: boolean;
+        };
+      };
+      if (data.profile) {
+        setRatePerSecondTokens(
+          data.profile.ratePerSecondTokens ?? DEFAULT_RATE_PER_SECOND_TOKENS
+        );
+        setIsAvailable(Boolean(data.profile.isAvailable));
+        setIsVideoEnabled(data.profile.isVideoEnabled ?? true);
+      }
+      setProfileStatus("idle");
+    } catch {
+      setProfileStatus("error");
+    }
+  }
+
   async function respondToPing(pingId: string, response: string) {
+    if (!userId) {
+      setPingStatus("Missing session user.");
+      return;
+    }
     setPingStatus("Sending response...");
     const res = await fetch("/api/ui/availability/ping/respond", {
       method: "POST",
@@ -112,6 +157,7 @@ export default function ReceiverPage() {
 
   useEffect(() => {
     void loadPings();
+    void loadProfile();
   }, [userId]);
 
   const questionLabels = PING_QUESTION_LABELS;
@@ -119,121 +165,172 @@ export default function ReceiverPage() {
 
   return (
     <AuthGuard>
-      <main style={{ padding: 20, maxWidth: 520 }}>
-        <h1>Receiver Dashboard (MVP)</h1>
+      <main className={styles.page}>
+        <div className={styles.container}>
+          <header className={styles.header}>
+            <p className={styles.pill}>Dashboard</p>
+            <h1>Receiver dashboard</h1>
+            <p className={styles.subtitle}>
+              Manage your availability, rate, and incoming availability pings.
+            </p>
+          </header>
 
-      <label>
-        Receiver User ID
-        <input
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={userId}
-          onChange={(e) => setUserId(e.target.value)}
-        />
-      </label>
-
-      <label>
-        Rate (tokens per second)
-        <input
-          type="number"
-          style={{ display: "block", width: "100%", marginTop: 6, marginBottom: 12 }}
-          value={ratePerSecondTokens}
-          onChange={(e) => setRatePerSecondTokens(Number(e.target.value))}
-          min={1}
-        />
-      </label>
-
-      <label style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
-        <input
-          type="checkbox"
-          checked={isAvailable}
-          onChange={(e) => requestAvailabilityToggle(e.target.checked)}
-        />
-        Available
-      </label>
-
-      <label style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
-        <input
-          type="checkbox"
-          checked={isVideoEnabled}
-          onChange={(e) => setIsVideoEnabled(e.target.checked)}
-        />
-        Allow video calls
-      </label>
-
-      <button onClick={save}>Save</button>
-
-      <p style={{ marginTop: 12 }}>{status}</p>
-
-      <section style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid #ddd" }}>
-        <h2>Availability Pings</h2>
-        <p style={{ marginTop: 6 }}>One-tap responses only.</p>
-
-        <button onClick={() => loadPings()}>Refresh Pings</button>
-        <p style={{ marginTop: 8 }}>{pingStatus}</p>
-
-        <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
-          {pings.length === 0 ? (
-            <p>No recent pings.</p>
-          ) : (
-            pings.map((ping) => (
-              <div
-                key={ping.id}
-                style={{ border: "1px solid #ddd", padding: 12, borderRadius: 6 }}
-              >
-                <div style={{ fontWeight: 600 }}>
-                  {questionLabels[ping.question] ?? ping.question}
-                </div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>
-                  From: {ping.callerId} • {new Date(ping.createdAt).toLocaleString()}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  {ping.response ? (
-                    <span>
-                      Response: {responseLabels[ping.response] ?? ping.response}
-                    </span>
-                  ) : (
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => respondToPing(ping.id, "available_now")}>
-                        Available now
-                      </button>
-                      <button onClick={() => respondToPing(ping.id, "available_later")}>
-                        Available later
-                      </button>
-                      <button onClick={() => respondToPing(ping.id, "not_available")}>
-                        Not available
-                      </button>
-                    </div>
-                  )}
-                </div>
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <h2>Profile</h2>
+                <p className={styles.subtitle}>
+                  Receiver ID: {userId || "Loading session..."}
+                </p>
               </div>
-            ))
-          )}
-        </div>
-      </section>
+              <span className={styles.pill}>
+                {profileStatus === "loading"
+                  ? "Loading profile…"
+                  : profileStatus === "error"
+                    ? "Profile unavailable"
+                    : "Profile ready"}
+              </span>
+            </div>
 
-      {showAvailabilityModal ? (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div style={{ background: "#fff", padding: 20, maxWidth: 420, width: "100%" }}>
-            <h2>Go Live</h2>
-            <p>Your current rate: ${ratePerMinuteUsd}/min</p>
-            <p>You can change this anytime.</p>
-            <p>Most users raise their rate as demand grows.</p>
-            <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
-              <button onClick={confirmGoLive}>Go Live at ${ratePerMinuteUsd}</button>
-              <button onClick={adjustRate}>Adjust Rate</button>
+            <div className={styles.grid}>
+              <label>
+                Rate (tokens per second)
+                <input
+                  className={styles.input}
+                  type="number"
+                  value={ratePerSecondTokens}
+                  onChange={(event) =>
+                    setRatePerSecondTokens(Number(event.target.value))
+                  }
+                  min={1}
+                />
+              </label>
+            </div>
+
+            <div className={styles.row}>
+              <label className={styles.subtitle}>
+                <input
+                  type="checkbox"
+                  checked={isAvailable}
+                  onChange={(event) => requestAvailabilityToggle(event.target.checked)}
+                />{" "}
+                Available for calls
+              </label>
+              <label className={styles.subtitle}>
+                <input
+                  type="checkbox"
+                  checked={isVideoEnabled}
+                  onChange={(event) => setIsVideoEnabled(event.target.checked)}
+                />{" "}
+                Allow video calls
+              </label>
+            </div>
+
+            <div className={styles.row}>
+              <button className={styles.button} type="button" onClick={save}>
+                Save changes
+              </button>
+              {status ? <span className={styles.subtitle}>{status}</span> : null}
+            </div>
+          </section>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <h2>Availability pings</h2>
+                <p className={styles.subtitle}>One-tap responses only.</p>
+              </div>
+              <button className={styles.button} type="button" onClick={() => loadPings()}>
+                Refresh
+              </button>
+            </div>
+
+            {pingStatus ? (
+              <div className={styles.status}>
+                <strong>Status</strong>
+                <span>{pingStatus}</span>
+              </div>
+            ) : null}
+
+            <div className={styles.list}>
+              {pings.length === 0 ? (
+                <div className={styles.status}>
+                  <strong>No recent pings</strong>
+                  <span>Stay available to receive pings from callers.</span>
+                </div>
+              ) : (
+                pings.map((ping) => (
+                  <div key={ping.id} className={styles.listItem}>
+                    <div className={styles.listItemHeader}>
+                      <div>
+                        <h3>{questionLabels[ping.question] ?? ping.question}</h3>
+                        <p className={styles.subtitle}>
+                          From: {ping.callerId} ·{" "}
+                          {new Date(ping.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                      <span className={styles.pill}>
+                        {ping.response
+                          ? responseLabels[ping.response] ?? ping.response
+                          : "Pending"}
+                      </span>
+                    </div>
+
+                    {!ping.response ? (
+                      <div className={styles.row}>
+                        <button
+                          className={styles.button}
+                          type="button"
+                          onClick={() => respondToPing(ping.id, "available_now")}
+                        >
+                          Available now
+                        </button>
+                        <button
+                          className={styles.button}
+                          type="button"
+                          onClick={() => respondToPing(ping.id, "available_later")}
+                        >
+                          Available later
+                        </button>
+                        <button
+                          className={`${styles.button} ${styles.buttonSecondary}`}
+                          type="button"
+                          onClick={() => respondToPing(ping.id, "not_available")}
+                        >
+                          Not available
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+
+        {showAvailabilityModal ? (
+          <div className={styles.modalBackdrop} role="presentation">
+            <div className={styles.modal} role="dialog" aria-modal="true">
+              <h2>Go Live</h2>
+              <p className={styles.subtitle}>Your current rate: ${ratePerMinuteUsd}/min</p>
+              <p className={styles.subtitle}>You can change this anytime.</p>
+              <p className={styles.subtitle}>
+                Most users raise their rate as demand grows.
+              </p>
+              <div className={styles.row}>
+                <button className={styles.button} type="button" onClick={confirmGoLive}>
+                  Go Live at ${ratePerMinuteUsd}
+                </button>
+                <button
+                  className={`${styles.button} ${styles.buttonSecondary}`}
+                  type="button"
+                  onClick={adjustRate}
+                >
+                  Adjust Rate
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         ) : null}
       </main>
     </AuthGuard>

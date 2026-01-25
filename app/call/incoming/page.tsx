@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AuthGuard from "@/components/auth/AuthGuard";
 import styles from "../call.module.css";
 
@@ -16,6 +16,15 @@ type IncomingRequest = {
 
 export default function IncomingRequestsPage() {
   const [requests, setRequests] = useState<IncomingRequest[]>([]);
+  const [notificationPermission, setNotificationPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("unsupported");
+  const previousCountRef = useRef(0);
+
+  const activeCount = useMemo(
+    () => requests.filter((request) => request.status === "pending").length,
+    [requests]
+  );
 
   useEffect(() => {
     async function loadRequests() {
@@ -24,6 +33,8 @@ export default function IncomingRequestsPage() {
       setRequests(data.requests ?? []);
     }
     loadRequests();
+    const interval = window.setInterval(loadRequests, 5000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -40,6 +51,43 @@ export default function IncomingRequestsPage() {
     }, 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    setNotificationPermission(Notification.permission);
+  }, []);
+
+  useEffect(() => {
+    if (
+      notificationPermission !== "granted" ||
+      typeof window === "undefined" ||
+      !("Notification" in window)
+    ) {
+      previousCountRef.current = activeCount;
+      return;
+    }
+    if (activeCount > previousCountRef.current) {
+      new Notification("Incoming call request", {
+        body:
+          activeCount === 1
+            ? "You have 1 incoming call request."
+            : `You have ${activeCount} incoming call requests.`,
+      });
+    }
+    previousCountRef.current = activeCount;
+  }, [activeCount, notificationPermission]);
+
+  async function handleEnableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationPermission("unsupported");
+      return;
+    }
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  }
 
   async function handleRespond(id: string, action: "accept" | "decline") {
     setRequests((prev) =>
@@ -76,12 +124,21 @@ export default function IncomingRequestsPage() {
               Accept within the countdown to connect. Declined requests disappear
               from the caller immediately.
             </p>
+            {notificationPermission === "default" ? (
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                type="button"
+                onClick={handleEnableNotifications}
+              >
+                Enable desktop alerts
+              </button>
+            ) : null}
           </header>
 
           <section className={styles.card}>
             <div className={styles.cardHeader}>
               <h2>Live queue</h2>
-              <span className={styles.pill}>{requests.length} active</span>
+              <span className={styles.pill}>{activeCount} active</span>
             </div>
 
             <div className={styles.list} aria-live="polite">

@@ -1,10 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import styles from "./call.module.css";
 
 export default function CallHubPage() {
+  const router = useRouter();
+  const [targetUsername, setTargetUsername] = useState("");
+
+  function handleManualRequest(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = targetUsername.trim();
+    if (!trimmed) return;
+    router.push(`/call/request/${encodeURIComponent(trimmed)}`);
+  }
+
   return (
     <AuthGuard>
       <main className={styles.page}>
@@ -26,10 +38,26 @@ export default function CallHubPage() {
                   Choose a receiver, select voice or video, and send a paid request.
                 </p>
               </div>
-              <Link className={styles.button} href="/call/request/creator-demo">
-                Request a call
+              <Link className={styles.button} href="/browse">
+                Find a receiver
               </Link>
             </div>
+            <form className={styles.row} onSubmit={handleManualRequest}>
+              <label>
+                Target username
+                <input
+                  className={styles.input}
+                  type="text"
+                  value={targetUsername}
+                  onChange={(event) => setTargetUsername(event.target.value)}
+                  placeholder="Enter username or handle"
+                  aria-label="Target username"
+                />
+              </label>
+              <button className={styles.button} type="submit" disabled={!targetUsername.trim()}>
+                Request this user
+              </button>
+            </form>
             <div className={styles.grid}>
               <div>
                 <h3>Request states</h3>

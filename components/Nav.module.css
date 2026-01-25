@@ -32,6 +32,26 @@
   gap: 20px;
 }
 
+.navLinkWrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.navBadge {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 18px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #ff4d8a;
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .nav a {
   color: rgba(245, 247, 255, 0.75);
   text-decoration: none;

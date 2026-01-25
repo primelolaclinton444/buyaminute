@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import styles from "../../call.module.css";
 
@@ -15,6 +15,7 @@ type Mode = (typeof modeOptions)[number]["id"];
 type RequestState =
   | "idle"
   | "pending"
+  | "declined"
   | "timeout"
   | "insufficient"
   | "offline"
@@ -23,6 +24,7 @@ type RequestState =
 
 export default function CallRequestPage() {
   const { username } = useParams<{ username: string }>();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("voice");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -59,6 +61,11 @@ export default function CallRequestPage() {
         return {
           title: "Request expired",
           body: "No response in time. Try again or send an availability ping.",
+        };
+      case "declined":
+        return {
+          title: "Request declined",
+          body: "The receiver declined this call. Try again later.",
         };
       case "insufficient":
         return {
@@ -99,6 +106,40 @@ export default function CallRequestPage() {
     }, 1000);
     return () => window.clearTimeout(timer);
   }, [requestState, secondsLeft]);
+
+  useEffect(() => {
+    if (!requestId || requestState !== "pending") return;
+    let isMounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/calls/active?id=${requestId}`);
+        if (!res.ok) return;
+        const payload = await res.json();
+        const status = payload?.call?.status as
+          | "ringing"
+          | "connected"
+          | "ended"
+          | undefined;
+        if (!isMounted || !status) return;
+        if (status === "connected") {
+          setRequestState("accepted");
+          router.push(`/call/${requestId}`);
+          return;
+        }
+        if (status === "ended") {
+          setRequestState("declined");
+        }
+      } catch {
+        // ignore transient polling failures
+      }
+    };
+    poll();
+    const interval = window.setInterval(poll, 2500);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [requestId, requestState, router]);
 
   useEffect(() => {
     async function loadProfile() {

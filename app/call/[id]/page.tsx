@@ -25,6 +25,7 @@ type CallSummary = {
   caller: string;
   receiver: string;
   mode: "voice" | "video";
+  status: "ringing" | "connected" | "ended";
   viewerRole: "caller" | "receiver";
 };
 

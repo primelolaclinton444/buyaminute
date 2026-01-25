@@ -10,6 +10,7 @@ export const LedgerSource = {
   crypto_deposit: "crypto_deposit",
   withdrawal: "withdrawal",
   availability_ping: "availability_ping",
+  admin_mint: "admin_mint",
 } as const;
 
 export type LedgerSource = (typeof LedgerSource)[keyof typeof LedgerSource];

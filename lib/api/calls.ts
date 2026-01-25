@@ -497,6 +497,7 @@ export async function getCallState({
       caller: userMap.get(call.callerId) ?? call.callerId,
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
       mode: call.mode === "video" ? "video" : "voice",
+      status: call.status,
       viewerRole,
     },
   });

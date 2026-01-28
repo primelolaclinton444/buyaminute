@@ -151,7 +151,7 @@ export async function requestCall({
         { name: { equals: trimmedUsername, mode: "insensitive" } },
       ],
     },
-    select: { id: true, name: true, email: true, isFrozen: true },
+    select: { id: true, name: true, email: true, isFrozen: true, lastSeenAt: true },
   });
 
   dlog("[handle] lookup", {
@@ -159,14 +159,19 @@ export async function requestCall({
     matchedUserId: receiver?.id ?? null,
   });
 
-  if (!receiver) {
-    return Response.json({
+  const offlineResponse = (reason: string) =>
+    Response.json({
       requestId: null,
       status: "offline",
+      state: "offline",
+      reason,
       username: trimmedUsername,
       mode: resolvedMode,
       expiresAt: null,
     });
+
+  if (!receiver) {
+    return offlineResponse("receiver_not_found");
   }
 
   if (receiver.isFrozen) {
@@ -177,14 +182,17 @@ export async function requestCall({
     where: { userId: receiver.id },
   });
 
-  if (!receiverProfile?.isAvailable) {
-    return Response.json({
-      requestId: null,
-      status: "offline",
-      username: trimmedUsername,
-      mode: resolvedMode,
-      expiresAt: null,
-    });
+  if (!receiverProfile) {
+    return offlineResponse("receiver_missing_availability");
+  }
+
+  if (!receiverProfile.isAvailable) {
+    return offlineResponse("receiver_not_accepting_calls");
+  }
+
+  const presenceCutoffMs = Date.now() - 60_000;
+  if (!receiver.lastSeenAt || receiver.lastSeenAt.getTime() < presenceCutoffMs) {
+    return offlineResponse("receiver_presence_stale");
   }
 
   if (resolvedMode === "video" && !receiverProfile.isVideoEnabled) {

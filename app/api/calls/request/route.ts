@@ -25,11 +25,16 @@ export async function POST(req: Request) {
     return jsonError("Invalid JSON payload", 400, "invalid_json");
   }
 
-  return requestCall({
-    userId: auth.user.id,
-    username: body.username,
-    mode: body.mode,
-    minIntendedSeconds: body.minIntendedSeconds,
-    idempotencyKey: req.headers.get("idempotency-key"),
-  });
+  try {
+    return await requestCall({
+      userId: auth.user.id,
+      username: body.username,
+      mode: body.mode,
+      minIntendedSeconds: body.minIntendedSeconds,
+      idempotencyKey: req.headers.get("idempotency-key"),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Request failed";
+    return jsonError(message, 500, "request_failed");
+  }
 }

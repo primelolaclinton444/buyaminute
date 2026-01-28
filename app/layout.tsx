@@ -1,6 +1,7 @@
 import "./globals.css";
 import Nav from "@/components/Nav";
 import { AuthProvider } from "@/components/auth/AuthProvider";
+import AblyRealtimeProvider from "@/components/realtime/AblyRealtimeProvider";
 
 export const metadata = {
   title: "BuyAMinute",
@@ -16,8 +17,10 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <AuthProvider>
-          <Nav />
-          {children}
+          <AblyRealtimeProvider>
+            <Nav />
+            {children}
+          </AblyRealtimeProvider>
         </AuthProvider>
       </body>
     </html>

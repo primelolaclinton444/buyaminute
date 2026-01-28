@@ -5,6 +5,7 @@ import { ensureLedgerEntryWithClient, getWalletBalance } from "@/lib/ledger";
 import { hasActivePreviewLock } from "@/lib/previewLock";
 import { settleEndedCall } from "@/lib/settlement";
 import { upsertCallReceipt } from "@/lib/receipts";
+import { ablyRest } from "@/lib/ably/server";
 import {
   CALL_REQUEST_WINDOW_MS,
   MIN_CALL_BALANCE_SECONDS,
@@ -39,6 +40,19 @@ function formatDuration(totalSeconds: number) {
 function formatUsd(tokens: number) {
   const usd = tokens * TOKEN_UNIT_USD;
   return `$${usd.toFixed(2)}`;
+}
+
+async function publishCallEvent(
+  channelName: string,
+  eventName: string,
+  data: { callId: string }
+) {
+  try {
+    const channel = ablyRest.channels.get(channelName);
+    await channel.publish(eventName, data);
+  } catch (error) {
+    console.error(`Failed to publish Ably event ${eventName}`, error);
+  }
 }
 
 export async function requestCall({
@@ -190,6 +204,10 @@ export async function requestCall({
   const expiresAt = new Date(
     call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS
   ).toISOString();
+
+  void publishCallEvent(`user:${receiver.id}`, "incoming_call", {
+    callId: call.id,
+  });
 
   return Response.json({
     requestId: call.id,
@@ -440,6 +458,11 @@ export async function respondToCall({
       });
     }
 
+    void publishCallEvent(`call:${call.id}`, "call_accepted", { callId: call.id });
+    void publishCallEvent(`user:${call.callerId}`, "call_accepted", {
+      callId: call.id,
+    });
+
     return Response.json({
       requestId: call.id,
       status: "accepted",
@@ -453,6 +476,11 @@ export async function respondToCall({
   });
 
   await settleEndedCall(updated.id);
+
+  void publishCallEvent(`call:${call.id}`, "call_declined", { callId: call.id });
+  void publishCallEvent(`user:${call.callerId}`, "call_declined", {
+    callId: call.id,
+  });
 
   return Response.json({
     requestId: call.id,

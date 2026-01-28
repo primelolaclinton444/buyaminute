@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
@@ -24,6 +25,7 @@ export default function IncomingRequestsPage() {
   >("unsupported");
   const previousCountRef = useRef(0);
   const titleResetRef = useRef<number | null>(null);
+  const router = useRouter();
   const { session } = useAuth();
   const userId = session?.user?.id;
   const { client } = useAbly();
@@ -142,11 +144,23 @@ export default function IncomingRequestsPage() {
           : request
       )
     );
-    await fetch("/api/calls/respond", {
+    const response = await fetch("/api/calls/respond", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ requestId: id, action }),
     });
+    const payload = (await response.json().catch(() => null)) as
+      | { redirectTo?: string | null }
+      | null;
+    if (!response.ok) {
+      if (payload?.redirectTo) {
+        router.push(payload.redirectTo);
+      }
+      return;
+    }
+    if (payload.redirectTo) {
+      router.push(payload.redirectTo);
+    }
   }
 
   function formatSeconds(expiresAt: string) {

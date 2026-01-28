@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   DEFAULT_RATE_PER_SECOND_TOKENS,
+  RING_TIMEOUT_SECONDS,
   SECONDS_IN_MINUTE,
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
@@ -36,12 +37,27 @@ export default function ReceiverPage() {
   );
   const [pingStatus, setPingStatus] = useState<string>("");
   const [pings, setPings] = useState<AvailabilityPing[]>([]);
+  const [copyStatus, setCopyStatus] = useState<string>("");
 
   const ratePerMinuteUsd = useMemo(() => {
     const tokensPerMinute = ratePerSecondTokens * SECONDS_IN_MINUTE;
     const usd = tokensPerMinute * TOKEN_UNIT_USD;
     return usd.toFixed(2);
   }, [ratePerSecondTokens]);
+
+  const shareHandle = useMemo(() => {
+    return (
+      session?.user?.name?.trim() ||
+      session?.user?.email ||
+      session?.user?.id ||
+      ""
+    );
+  }, [session?.user?.email, session?.user?.id, session?.user?.name]);
+
+  const shareUrl = useMemo(() => {
+    if (!shareHandle || typeof window === "undefined") return "";
+    return `${window.location.origin}/call/request/${encodeURIComponent(shareHandle)}`;
+  }, [shareHandle]);
 
   async function save() {
     if (!userId) {
@@ -160,6 +176,22 @@ export default function ReceiverPage() {
     void loadProfile();
   }, [userId]);
 
+  async function handleCopyLink() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopyStatus("Link copied ✅");
+    } catch {
+      setCopyStatus("Copy failed");
+    }
+    window.setTimeout(() => setCopyStatus(""), 2000);
+  }
+
+  function handleTestLink() {
+    if (!shareUrl) return;
+    window.open(shareUrl, "_blank", "noopener,noreferrer");
+  }
+
   const questionLabels = PING_QUESTION_LABELS;
   const responseLabels = PING_RESPONSE_LABELS;
 
@@ -174,6 +206,69 @@ export default function ReceiverPage() {
               Manage your availability, rate, and incoming availability pings.
             </p>
           </header>
+
+          <section className={styles.card}>
+            <div className={styles.cardHeader}>
+              <div>
+                <h2>Start earning in 3 steps</h2>
+                <p className={styles.subtitle}>
+                  Share your link after setting your rate and availability.
+                </p>
+              </div>
+              <span className={styles.pill}>Launch ready</span>
+            </div>
+
+            <ol className={styles.stepsList}>
+              <li>Set your per-minute rate</li>
+              <li>Turn ON availability when ready</li>
+              <li>Share your link — you get paid only when connected</li>
+            </ol>
+
+            <div className={styles.linkBox}>
+              <div className={styles.linkHeader}>
+                <strong>Your link</strong>
+                <span className={styles.subtitle}>
+                  {shareHandle ? `@${shareHandle}` : "Loading handle…"}
+                </span>
+              </div>
+              <div className={styles.linkRow}>
+                <input
+                  className={styles.input}
+                  type="text"
+                  value={shareUrl || "Generating link…"}
+                  readOnly
+                />
+                <button className={styles.button} type="button" onClick={handleCopyLink}>
+                  Copy
+                </button>
+                <button
+                  className={`${styles.button} ${styles.buttonSecondary}`}
+                  type="button"
+                  onClick={handleTestLink}
+                >
+                  Test it
+                </button>
+              </div>
+              {copyStatus ? <span className={styles.subtitle}>{copyStatus}</span> : null}
+            </div>
+
+            <div className={styles.rulesGrid}>
+              <div>
+                <strong>Preview</strong>
+                <p className={styles.subtitle}>First 30s is free.</p>
+              </div>
+              <div>
+                <strong>Billing</strong>
+                <p className={styles.subtitle}>Per second after preview.</p>
+              </div>
+              <div>
+                <strong>Auto-refund</strong>
+                <p className={styles.subtitle}>
+                  If call doesn’t connect within {RING_TIMEOUT_SECONDS}s, caller is refunded automatically.
+                </p>
+              </div>
+            </div>
+          </section>
 
           <section className={styles.card}>
             <div className={styles.cardHeader}>

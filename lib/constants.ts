@@ -12,6 +12,9 @@ export const USDT_ATOMIC_MULTIPLIER = 10 ** USDT_DECIMALS;
 export const PREVIEW_SECONDS = 30;
 export const PREVIEW_LOCK_HOURS = 24;
 export const CALL_REQUEST_WINDOW_MS = 20_000;
+const ringTimeoutRaw = Number(process.env.RING_TIMEOUT_SECONDS ?? "45");
+export const RING_TIMEOUT_SECONDS =
+  Number.isFinite(ringTimeoutRaw) && ringTimeoutRaw > 0 ? ringTimeoutRaw : 45;
 
 // Call eligibility
 export const MIN_CALL_BALANCE_SECONDS = 60; // caller must afford at least 1 minute

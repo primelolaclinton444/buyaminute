@@ -4,15 +4,17 @@
 // ================================
 
 import { prisma } from "@/lib/prisma";
-import { requireInternalKey } from "@/lib/internalAuth";
+import { requireAdminKey } from "@/lib/adminAuth";
 import { jsonError } from "@/lib/api/errors";
 import { appendLedgerEntryWithClient } from "@/lib/ledger";
+import { isPayoutsDisabled } from "@/lib/platformSettings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
  * POST /admin/withdrawals/process
+ * Headers: x-admin-key: <ADMIN_API_KEY>
  * Body:
  * {
  *   withdrawalId: string,
@@ -20,8 +22,12 @@ export const dynamic = "force-dynamic";
  * }
  */
 export async function POST(req: Request) {
-  const gate = requireInternalKey(req as any);
+  const gate = requireAdminKey(req as any);
   if (!gate.ok) return jsonError(gate.msg, gate.status, "unauthorized");
+
+  if (await isPayoutsDisabled()) {
+    return jsonError("Payouts are disabled", 403, "payouts_disabled");
+  }
 
   const body = await req.json();
   const { withdrawalId, txHash } = body;
@@ -36,6 +42,14 @@ export async function POST(req: Request) {
 
   if (!withdrawal) {
     return jsonError("Withdrawal not found", 404, "not_found");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: withdrawal.userId },
+    select: { isFrozen: true },
+  });
+  if (user?.isFrozen) {
+    return jsonError("User is frozen", 403, "user_frozen");
   }
 
   if (withdrawal.status !== "pending") {

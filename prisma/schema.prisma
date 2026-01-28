@@ -23,6 +23,9 @@ model User {
   marketingOptIn Boolean @default(false)
   earningsVisible Boolean @default(true)
   earningsVisibilityLockedUntil DateTime?
+  isFrozen Boolean @default(false)
+  frozenReason String?
+  frozenAt DateTime?
 
   wallet Wallet?
   receiverProfile ReceiverProfile?
@@ -117,6 +120,7 @@ model Call {
   status     String
   createdAt  DateTime @default(now())
   endedAt    DateTime?
+  endReason  String?
 
   ratePerSecondTokens Int
   previewApplied      Boolean @default(false)
@@ -229,6 +233,12 @@ model Notification {
 
   @@index([userId])
   @@unique([userId, idempotencyKey])
+}
+
+model PlatformSetting {
+  key String @id
+  value String
+  updatedAt DateTime @updatedAt
 }
 
 model LivekitWebhookEvent {

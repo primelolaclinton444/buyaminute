@@ -23,6 +23,13 @@ type RequestState =
   | "video_not_allowed"
   | "accepted";
 
+type CallStateResponse = {
+  call?: {
+    status?: "ringing" | "connected" | "ended";
+  };
+  redirectTo?: string | null;
+};
+
 export default function CallRequestPage() {
   const { username } = useParams<{ username: string }>();
   const router = useRouter();
@@ -118,6 +125,7 @@ export default function CallRequestPage() {
     };
     const handleDeclined = () => {
       setRequestState("declined");
+      router.push(`/call/${requestId}/receipt`);
     };
     channel.subscribe("call_accepted", handleAccepted);
     channel.subscribe("call_declined", handleDeclined);
@@ -134,12 +142,12 @@ export default function CallRequestPage() {
       try {
         const res = await fetch(`/api/calls/active?id=${requestId}`);
         if (!res.ok) return;
-        const payload = await res.json();
-        const status = payload?.call?.status as
-          | "ringing"
-          | "connected"
-          | "ended"
-          | undefined;
+        const payload = (await res.json()) as CallStateResponse;
+        if (payload.redirectTo) {
+          router.push(payload.redirectTo);
+          return;
+        }
+        const status = payload?.call?.status;
         if (!isMounted || !status) return;
         if (status === "connected") {
           setRequestState("accepted");
@@ -148,6 +156,7 @@ export default function CallRequestPage() {
         }
         if (status === "ended") {
           setRequestState("declined");
+          router.push(`/call/${requestId}/receipt`);
         }
       } catch {
         // ignore transient load failures
@@ -158,6 +167,28 @@ export default function CallRequestPage() {
       isMounted = false;
     };
   }, [requestId, router]);
+
+  useEffect(() => {
+    if (!requestId || (requestState !== "pending" && requestState !== "timeout")) {
+      return;
+    }
+    let isMounted = true;
+    const poll = async () => {
+      const res = await fetch(`/api/calls/active?id=${requestId}`);
+      if (!res.ok || !isMounted) return;
+      const payload = (await res.json()) as CallStateResponse;
+      if (payload.redirectTo) {
+        router.push(payload.redirectTo);
+      }
+    };
+    const interval = window.setInterval(() => {
+      void poll();
+    }, 3000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [requestId, requestState, router]);
 
   useEffect(() => {
     async function loadProfile() {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
+import Toast from "@/components/ui/Toast";
 import styles from "../../call.module.css";
 
 type Receipt = {
@@ -17,6 +18,8 @@ type Receipt = {
   refunded: string;
   earned: string;
   viewerRole: "caller" | "receiver";
+  outcomeCode?: string | null;
+  outcomeMessage?: string | null;
 };
 
 export default function CallReceiptPage() {
@@ -24,6 +27,7 @@ export default function CallReceiptPage() {
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [shareGateOpen, setShareGateOpen] = useState(true);
   const [shareGateReady, setShareGateReady] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReceipt() {
@@ -33,6 +37,20 @@ export default function CallReceiptPage() {
     }
     loadReceipt();
   }, [id]);
+
+  useEffect(() => {
+    if (!receipt) return;
+    if (!receipt.outcomeCode) return;
+    const message =
+      receipt.viewerRole === "receiver"
+        ? `Settlement posted: ${receipt.earned}`
+        : receipt.outcomeCode.includes("refunded")
+          ? `Refund posted: ${receipt.refunded}`
+          : `Settlement posted: ${receipt.totalCharged}`;
+    setToastMessage(message);
+    const timer = window.setTimeout(() => setToastMessage(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [receipt]);
 
   useEffect(() => {
     setShareGateOpen(true);
@@ -65,9 +83,22 @@ export default function CallReceiptPage() {
     window.open("https://www.instagram.com", "_blank");
   }
 
+  const outcomeBanner = useMemo(() => {
+    if (!receipt?.outcomeCode) return null;
+    return receipt.outcomeMessage ?? "Call complete.";
+  }, [receipt?.outcomeCode, receipt?.outcomeMessage]);
+
   return (
     <AuthGuard>
       <main className={styles.page}>
+        {toastMessage ? (
+          <Toast
+            message={toastMessage}
+            variant="success"
+            onClose={() => setToastMessage(null)}
+            className={styles.toast}
+          />
+        ) : null}
         <div className={styles.container}>
           <header className={styles.header}>
             <p className={styles.pill}>Receipt</p>
@@ -144,6 +175,12 @@ export default function CallReceiptPage() {
 
         {shareGateOpen ? (
           <div className={styles.shareGate}>
+            {outcomeBanner ? (
+              <div className={styles.outcomeBanner} role="status">
+                <strong>Outcome</strong>
+                <span>{outcomeBanner}</span>
+              </div>
+            ) : null}
             <div className={styles.shareGateCard}>
               <p className={styles.pill}>Share</p>
               <h2>Time has value.</h2>

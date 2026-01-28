@@ -29,6 +29,11 @@ type CallSummary = {
   viewerRole: "caller" | "receiver";
 };
 
+type CallStateResponse = {
+  call?: CallSummary;
+  redirectTo?: string | null;
+};
+
 type LiveKitTokenResponse = {
   token: string;
   url: string;
@@ -182,11 +187,15 @@ export default function ActiveCallPage() {
         setError(payload?.error?.message ?? "Unable to load call state.");
         return;
       }
-      const data = await res.json();
+      const data = (await res.json()) as CallStateResponse;
+      if (data.redirectTo) {
+        router.push(data.redirectTo);
+        return;
+      }
       setSummary(data.call ?? null);
     }
     loadCall();
-  }, [id]);
+  }, [id, router]);
 
   const isReceiverVideo =
     summary?.mode === "video" && summary?.viewerRole === "receiver";
@@ -285,6 +294,25 @@ export default function ActiveCallPage() {
       setRoom(null);
     };
   }, [id, summary]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const poll = async () => {
+      const res = await fetch(`/api/calls/active?id=${id}`);
+      if (!res.ok || !isMounted) return;
+      const data = (await res.json()) as CallStateResponse;
+      if (data.redirectTo) {
+        router.push(data.redirectTo);
+      }
+    };
+    const interval = window.setInterval(() => {
+      void poll();
+    }, 5000);
+    return () => {
+      isMounted = false;
+      window.clearInterval(interval);
+    };
+  }, [id, router]);
 
   const formattedTime = useMemo(() => {
     const minutes = Math.floor(secondsElapsed / 60)

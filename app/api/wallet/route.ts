@@ -4,6 +4,7 @@ import { jsonError } from "@/lib/api/errors";
 import { hasErrors, parseBody } from "@/lib/api/validation";
 import { getWalletBalanceFromLedger, getWalletBalanceFromLedgerWithClient } from "@/lib/ledger";
 import { MIN_WITHDRAWAL_TOKENS, TOKEN_UNIT_USD } from "@/lib/constants";
+import { isPayoutsDisabled } from "@/lib/platformSettings";
 import { Prisma } from "@prisma/client";
 
 type WithdrawPayload = {
@@ -101,6 +102,18 @@ export async function GET() {
 export async function POST(request: Request) {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
+
+  if (await isPayoutsDisabled()) {
+    return jsonError("Payouts are disabled", 403, "payouts_disabled");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: auth.user.id },
+    select: { isFrozen: true },
+  });
+  if (user?.isFrozen) {
+    return jsonError("User is frozen", 403, "user_frozen");
+  }
 
   const parsed = await parseBody<WithdrawPayload>(request, validateWithdrawPayload);
   if (parsed.ok === false) {

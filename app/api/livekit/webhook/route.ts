@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/api/errors";
 import { consumePreview, hasActivePreviewLock } from "@/lib/previewLock";
 import { settleEndedCall } from "@/lib/settlement";
+import { ablyRest } from "@/lib/ably/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,6 +31,19 @@ function normalizePayload(payload: any) {
       : "unknown");
 
   return { eventName, callId, participantRole };
+}
+
+async function publishCallEvent(
+  channelName: string,
+  eventName: string,
+  data: { callId: string }
+) {
+  try {
+    const channel = ablyRest.channels.get(channelName);
+    await channel.publish(eventName, data);
+  } catch (error) {
+    console.error(`Failed to publish Ably event ${eventName}`, error);
+  }
 }
 
 async function hasSettledLedgerEntries(callId: string, callerId: string, receiverId: string) {
@@ -135,11 +149,21 @@ async function handleParticipantConnected(callId: string, participantRole: strin
         receiverId: call.receiverId,
       });
     }
+
+    if (call.status !== "connected") {
+      void publishCallEvent(`call:${callId}`, "call_connected", { callId });
+      void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
+      void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
+    }
   } else if (call.status !== "connected") {
     await prisma.call.update({
       where: { id: callId },
       data: { status: "connected" },
     });
+
+    void publishCallEvent(`call:${callId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
   }
 }
 
@@ -161,9 +185,18 @@ async function handleParticipantDisconnected(callId: string) {
     data: { status: "ended", endedAt: new Date() },
   });
 
-  if (alreadySettled) return;
+  if (alreadySettled) {
+    void publishCallEvent(`call:${callId}`, "call_ended", { callId });
+    void publishCallEvent(`user:${call.callerId}`, "call_ended", { callId });
+    void publishCallEvent(`user:${call.receiverId}`, "call_ended", { callId });
+    return;
+  }
 
   await settleEndedCall(updated.id);
+
+  void publishCallEvent(`call:${callId}`, "call_ended", { callId });
+  void publishCallEvent(`user:${call.callerId}`, "call_ended", { callId });
+  void publishCallEvent(`user:${call.receiverId}`, "call_ended", { callId });
 }
 
 export async function POST(req: Request) {

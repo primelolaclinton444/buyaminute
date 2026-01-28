@@ -28,6 +28,9 @@ export default function ReceiverPage() {
   const [ratePerSecondTokens, setRatePerSecondTokens] = useState(
     DEFAULT_RATE_PER_SECOND_TOKENS
   );
+  const [ratePerMinuteInput, setRatePerMinuteInput] = useState(
+    (DEFAULT_RATE_PER_SECOND_TOKENS * SECONDS_IN_MINUTE * TOKEN_UNIT_USD).toFixed(2)
+  );
   const [isAvailable, setIsAvailable] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
@@ -59,9 +62,18 @@ export default function ReceiverPage() {
     return `${window.location.origin}/call/request/${encodeURIComponent(shareHandle)}`;
   }, [shareHandle]);
 
+  function tokensPerSecondFromUsdPerMinute(ratePerMinuteUsd: number) {
+    const tokensPerMinute = ratePerMinuteUsd / TOKEN_UNIT_USD;
+    return Math.max(1, Math.ceil(tokensPerMinute / SECONDS_IN_MINUTE));
+  }
+
   async function save() {
     if (!userId) {
       setStatus("Missing session user.");
+      return;
+    }
+    if (!Number.isFinite(ratePerSecondTokens) || ratePerSecondTokens <= 0) {
+      setStatus("Enter a valid per-minute rate.");
       return;
     }
     setStatus("Saving...");
@@ -77,7 +89,19 @@ export default function ReceiverPage() {
     });
 
     if (!res.ok) {
-      setStatus("Failed to save");
+      let message = "Failed to save.";
+      try {
+        const data = (await res.json()) as { error?: { message?: string } };
+        if (data?.error?.message) {
+          message = data.error.message;
+        }
+      } catch {
+        const text = await res.text();
+        if (text) {
+          message = text;
+        }
+      }
+      setStatus(message);
       return;
     }
     setStatus("Saved ✅");
@@ -137,8 +161,11 @@ export default function ReceiverPage() {
         };
       };
       if (data.profile) {
-        setRatePerSecondTokens(
-          data.profile.ratePerSecondTokens ?? DEFAULT_RATE_PER_SECOND_TOKENS
+        const nextRate =
+          data.profile.ratePerSecondTokens ?? DEFAULT_RATE_PER_SECOND_TOKENS;
+        setRatePerSecondTokens(nextRate);
+        setRatePerMinuteInput(
+          (nextRate * SECONDS_IN_MINUTE * TOKEN_UNIT_USD).toFixed(2)
         );
         setIsAvailable(Boolean(data.profile.isAvailable));
         setIsVideoEnabled(data.profile.isVideoEnabled ?? true);
@@ -289,15 +316,21 @@ export default function ReceiverPage() {
 
             <div className={styles.grid}>
               <label>
-                Rate (tokens per second)
+                Rate ($/min)
                 <input
                   className={styles.input}
                   type="number"
-                  value={ratePerSecondTokens}
-                  onChange={(event) =>
-                    setRatePerSecondTokens(Number(event.target.value))
-                  }
-                  min={1}
+                  value={ratePerMinuteInput}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setRatePerMinuteInput(nextValue);
+                    const parsed = Number(nextValue);
+                    if (Number.isFinite(parsed) && parsed > 0) {
+                      setRatePerSecondTokens(tokensPerSecondFromUsdPerMinute(parsed));
+                    }
+                  }}
+                  min={TOKEN_UNIT_USD}
+                  step={0.01}
                 />
               </label>
             </div>

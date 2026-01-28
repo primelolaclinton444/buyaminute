@@ -561,6 +561,12 @@ export async function endCall({
 
   await settleEndedCall(callId);
 
+  if (call.status === "ringing") {
+    void publishCallEvent(`call:${callId}`, "call_cancelled", { callId });
+    void publishCallEvent(`user:${call.callerId}`, "call_cancelled", { callId });
+    void publishCallEvent(`user:${call.receiverId}`, "call_cancelled", { callId });
+  }
+
   return Response.json({ ok: true });
 }
 

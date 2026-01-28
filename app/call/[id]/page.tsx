@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
   ConnectionState,
   Participant,
@@ -159,6 +159,7 @@ function ParticipantMedia({
 export default function ActiveCallPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const pathname = usePathname();
   const [summary, setSummary] = useState<CallSummary | null>(null);
   const [roomName, setRoomName] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionStateLabel>(
@@ -178,6 +179,7 @@ export default function ActiveCallPage() {
   const confirmRef = useRef<HTMLButtonElement | null>(null);
   const roomRef = useRef<Room | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
+  const didRedirectRef = useRef(false);
 
   useEffect(() => {
     async function loadCall() {
@@ -188,14 +190,17 @@ export default function ActiveCallPage() {
         return;
       }
       const data = (await res.json()) as CallStateResponse;
-      if (data.redirectTo) {
-        router.push(data.redirectTo);
+      if (data.redirectTo && !didRedirectRef.current) {
+        if (pathname !== data.redirectTo) {
+          didRedirectRef.current = true;
+          router.replace(data.redirectTo);
+        }
         return;
       }
       setSummary(data.call ?? null);
     }
     loadCall();
-  }, [id, router]);
+  }, [id, pathname, router]);
 
   const isReceiverVideo =
     summary?.mode === "video" && summary?.viewerRole === "receiver";
@@ -301,8 +306,11 @@ export default function ActiveCallPage() {
       const res = await fetch(`/api/calls/active?id=${id}`);
       if (!res.ok || !isMounted) return;
       const data = (await res.json()) as CallStateResponse;
-      if (data.redirectTo) {
-        router.push(data.redirectTo);
+      if (data.redirectTo && !didRedirectRef.current) {
+        if (pathname !== data.redirectTo) {
+          didRedirectRef.current = true;
+          router.replace(data.redirectTo);
+        }
       }
     };
     const interval = window.setInterval(() => {
@@ -312,7 +320,7 @@ export default function ActiveCallPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [id, router]);
+  }, [id, pathname, router]);
 
   const formattedTime = useMemo(() => {
     const minutes = Math.floor(secondsElapsed / 60)

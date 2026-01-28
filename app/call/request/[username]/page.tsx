@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../../call.module.css";
@@ -33,6 +33,8 @@ type CallStateResponse = {
 export default function CallRequestPage() {
   const { username } = useParams<{ username: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const didRedirectRef = useRef(false);
   const [mode, setMode] = useState<Mode>("voice");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -125,7 +127,7 @@ export default function CallRequestPage() {
     };
     const handleDeclined = () => {
       setRequestState("declined");
-      router.push(`/call/${requestId}/receipt`);
+      router.replace(`/call/${requestId}/receipt`);
     };
     channel.subscribe("call_accepted", handleAccepted);
     channel.subscribe("call_declined", handleDeclined);
@@ -143,8 +145,11 @@ export default function CallRequestPage() {
         const res = await fetch(`/api/calls/active?id=${requestId}`);
         if (!res.ok) return;
         const payload = (await res.json()) as CallStateResponse;
-        if (payload.redirectTo) {
-          router.push(payload.redirectTo);
+        if (payload.redirectTo && !didRedirectRef.current) {
+          if (pathname !== payload.redirectTo) {
+            didRedirectRef.current = true;
+            router.replace(payload.redirectTo);
+          }
           return;
         }
         const status = payload?.call?.status;
@@ -156,7 +161,7 @@ export default function CallRequestPage() {
         }
         if (status === "ended") {
           setRequestState("declined");
-          router.push(`/call/${requestId}/receipt`);
+          router.replace(`/call/${requestId}/receipt`);
         }
       } catch {
         // ignore transient load failures
@@ -166,7 +171,7 @@ export default function CallRequestPage() {
     return () => {
       isMounted = false;
     };
-  }, [requestId, router]);
+  }, [pathname, requestId, router]);
 
   useEffect(() => {
     if (!requestId || (requestState !== "pending" && requestState !== "timeout")) {
@@ -177,8 +182,11 @@ export default function CallRequestPage() {
       const res = await fetch(`/api/calls/active?id=${requestId}`);
       if (!res.ok || !isMounted) return;
       const payload = (await res.json()) as CallStateResponse;
-      if (payload.redirectTo) {
-        router.push(payload.redirectTo);
+      if (payload.redirectTo && !didRedirectRef.current) {
+        if (pathname !== payload.redirectTo) {
+          didRedirectRef.current = true;
+          router.replace(payload.redirectTo);
+        }
       }
     };
     const interval = window.setInterval(() => {
@@ -188,7 +196,7 @@ export default function CallRequestPage() {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [requestId, requestState, router]);
+  }, [pathname, requestId, requestState, router]);
 
   useEffect(() => {
     async function loadProfile() {

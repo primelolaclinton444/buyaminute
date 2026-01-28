@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
@@ -25,7 +25,9 @@ export default function IncomingRequestsPage() {
   >("unsupported");
   const previousCountRef = useRef(0);
   const titleResetRef = useRef<number | null>(null);
+  const didRedirectRef = useRef(false);
   const router = useRouter();
+  const pathname = usePathname();
   const { session } = useAuth();
   const userId = session?.user?.id;
   const { client } = useAbly();
@@ -153,13 +155,19 @@ export default function IncomingRequestsPage() {
       | { redirectTo?: string | null }
       | null;
     if (!response.ok) {
-      if (payload?.redirectTo) {
-        router.push(payload.redirectTo);
+      if (payload?.redirectTo && !didRedirectRef.current) {
+        if (pathname !== payload.redirectTo) {
+          didRedirectRef.current = true;
+          router.replace(payload.redirectTo);
+        }
       }
       return;
     }
-    if (payload.redirectTo) {
-      router.push(payload.redirectTo);
+    if (payload?.redirectTo && !didRedirectRef.current) {
+      if (pathname !== payload.redirectTo) {
+        didRedirectRef.current = true;
+        router.replace(payload.redirectTo);
+      }
     }
   }
 

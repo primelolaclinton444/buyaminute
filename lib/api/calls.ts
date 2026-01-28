@@ -665,6 +665,7 @@ export async function getCallState({
           endedAt: new Date(),
           endReason: "request_expired",
         },
+        include: { participants: true },
       });
       await settleEndedCall(call.id);
       outcomeCode = "expired_refunded";
@@ -676,6 +677,7 @@ export async function getCallState({
           endedAt: new Date(),
           endReason: "connect_timeout",
         },
+        include: { participants: true },
       });
       await settleEndedCall(call.id);
       outcomeCode = "connect_timeout_refunded";

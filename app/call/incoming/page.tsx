@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../call.module.css";
 
 type IncomingRequest = {
@@ -21,22 +23,36 @@ export default function IncomingRequestsPage() {
   >("unsupported");
   const previousCountRef = useRef(0);
   const titleResetRef = useRef<number | null>(null);
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+  const { client } = useAbly();
 
   const activeCount = useMemo(
     () => requests.filter((request) => request.status === "pending").length,
     [requests]
   );
 
-  useEffect(() => {
-    async function loadRequests() {
-      const res = await fetch("/api/calls/incoming");
-      const data = await res.json();
-      setRequests(data.requests ?? []);
-    }
-    loadRequests();
-    const interval = window.setInterval(loadRequests, 5000);
-    return () => window.clearInterval(interval);
+  const loadRequests = useCallback(async () => {
+    const res = await fetch("/api/calls/incoming");
+    const data = await res.json();
+    setRequests(data.requests ?? []);
   }, []);
+
+  useEffect(() => {
+    void loadRequests();
+  }, [loadRequests]);
+
+  useEffect(() => {
+    if (!userId || !client) return;
+    const channel = client.channels.get(`user:${userId}`);
+    const handleIncoming = () => {
+      void loadRequests();
+    };
+    channel.subscribe("incoming_call", handleIncoming);
+    return () => {
+      channel.unsubscribe("incoming_call", handleIncoming);
+    };
+  }, [client, loadRequests, userId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

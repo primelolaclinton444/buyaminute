@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../../call.module.css";
 
 const modeOptions = [
@@ -36,6 +37,7 @@ export default function CallRequestPage() {
   const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">(
     "idle"
   );
+  const { client } = useAbly();
 
   const statusTone = useMemo(() => {
     if (requestState === "accepted") return "success";
@@ -108,9 +110,27 @@ export default function CallRequestPage() {
   }, [requestState, secondsLeft]);
 
   useEffect(() => {
-    if (!requestId || requestState !== "pending") return;
+    if (!requestId || !client) return;
+    const channel = client.channels.get(`call:${requestId}`);
+    const handleAccepted = () => {
+      setRequestState("accepted");
+      router.push(`/call/${requestId}`);
+    };
+    const handleDeclined = () => {
+      setRequestState("declined");
+    };
+    channel.subscribe("call_accepted", handleAccepted);
+    channel.subscribe("call_declined", handleDeclined);
+    return () => {
+      channel.unsubscribe("call_accepted", handleAccepted);
+      channel.unsubscribe("call_declined", handleDeclined);
+    };
+  }, [client, requestId, router]);
+
+  useEffect(() => {
+    if (!requestId) return;
     let isMounted = true;
-    const poll = async () => {
+    const loadState = async () => {
       try {
         const res = await fetch(`/api/calls/active?id=${requestId}`);
         if (!res.ok) return;
@@ -130,16 +150,14 @@ export default function CallRequestPage() {
           setRequestState("declined");
         }
       } catch {
-        // ignore transient polling failures
+        // ignore transient load failures
       }
     };
-    poll();
-    const interval = window.setInterval(poll, 2500);
+    void loadState();
     return () => {
       isMounted = false;
-      window.clearInterval(interval);
     };
-  }, [requestId, requestState, router]);
+  }, [requestId, router]);
 
   useEffect(() => {
     async function loadProfile() {

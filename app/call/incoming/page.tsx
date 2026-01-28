@@ -17,6 +17,7 @@ type IncomingRequest = {
 };
 
 export default function IncomingRequestsPage() {
+  const DEBUG_ABLY = true;
   const [requests, setRequests] = useState<IncomingRequest[]>([]);
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
@@ -48,9 +49,26 @@ export default function IncomingRequestsPage() {
     const handleIncoming = () => {
       void loadRequests();
     };
+    const handleConnected = () => console.log("[ably] connected");
+    const handleFailed = (stateChange: unknown) =>
+      console.log("[ably] failed", stateChange);
+    const handleAnyMessage = (msg: { name: string; data: unknown }) =>
+      console.log("[ably] msg", msg.name, msg.data);
+    if (DEBUG_ABLY) {
+      console.log("[ably] incoming subscribe userId", userId);
+      console.log("[ably] subscribed", `user:${userId}`);
+      client.connection.on("connected", handleConnected);
+      client.connection.on("failed", handleFailed);
+      channel.subscribe(handleAnyMessage);
+    }
     channel.subscribe("incoming_call", handleIncoming);
     return () => {
       channel.unsubscribe("incoming_call", handleIncoming);
+      if (DEBUG_ABLY) {
+        client.connection.off("connected", handleConnected);
+        client.connection.off("failed", handleFailed);
+        channel.unsubscribe(handleAnyMessage);
+      }
     };
   }, [client, loadRequests, userId]);
 

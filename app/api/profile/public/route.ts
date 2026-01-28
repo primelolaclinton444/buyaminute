@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { jsonError } from "@/lib/api/errors";
+import { dlog } from "@/lib/debug";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,8 +33,19 @@ export async function GET(req: Request) {
   if (!user && username) {
     user = await prisma.user.findFirst({
       where: {
-        OR: [{ id: username }, { email: username }, { name: username }],
+        OR: [
+          { id: { equals: username, mode: "insensitive" } },
+          { email: { equals: username, mode: "insensitive" } },
+          { name: { equals: username, mode: "insensitive" } },
+        ],
       },
+    });
+  }
+
+  if (username) {
+    dlog("[handle] lookup public", {
+      handle: username,
+      matchedUserId: user?.id ?? null,
     });
   }
 

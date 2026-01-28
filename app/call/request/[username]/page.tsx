@@ -35,6 +35,10 @@ export default function CallRequestPage() {
   const router = useRouter();
   const pathname = usePathname();
   const didRedirectRef = useRef(false);
+  const normalizedUsername = useMemo(
+    () => (username ? username.replace(/^@/, "") : ""),
+    [username]
+  );
   const [mode, setMode] = useState<Mode>("voice");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -66,7 +70,7 @@ export default function CallRequestPage() {
       case "pending":
         return {
           title: "Request sent",
-          body: `Waiting for @${username} to accept. ${secondsLeft}s left in the window.`,
+          body: `Waiting for @${normalizedUsername} to accept. ${secondsLeft}s left in the window.`,
         };
       case "timeout":
         return {
@@ -104,7 +108,7 @@ export default function CallRequestPage() {
           body: "Select voice or video, confirm the rate, and send a request.",
         };
     }
-  }, [requestState, secondsLeft, username]);
+  }, [normalizedUsername, requestState, secondsLeft]);
 
   useEffect(() => {
     if (requestState !== "pending") return;
@@ -203,7 +207,7 @@ export default function CallRequestPage() {
       setProfileStatus("loading");
       try {
         const res = await fetch(
-          `/api/profile?username=${encodeURIComponent(username)}`
+          `/api/profile?username=${encodeURIComponent(normalizedUsername)}`
         );
         if (!res.ok) {
           setProfileStatus("error");
@@ -220,7 +224,7 @@ export default function CallRequestPage() {
       }
     }
     loadProfile();
-  }, [username]);
+  }, [normalizedUsername]);
 
   useEffect(() => {
     if (!videoAllowed && mode === "video") {
@@ -243,7 +247,7 @@ export default function CallRequestPage() {
       const res = await fetch("/api/calls/request", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, mode, minIntendedSeconds }),
+        body: JSON.stringify({ username: normalizedUsername, mode, minIntendedSeconds }),
       });
       const payload = await res.json();
       if (!res.ok) {
@@ -282,7 +286,7 @@ export default function CallRequestPage() {
         <div className={styles.container}>
           <header className={styles.header}>
             <p className={styles.pill}>Request</p>
-            <h1>Request a call with @{username}</h1>
+            <h1>Request a call with @{normalizedUsername}</h1>
             <p className={styles.subtitle}>
               Send a paid request with a 20-second response window. Preview time is
               applied automatically.

@@ -9,13 +9,13 @@ export async function GET() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const capability = {
+  const capability = JSON.stringify({
     [`user:${auth.user.id}`]: ["subscribe"],
     "call:*": ["subscribe"],
-  } as const;
+  });
 
   dlog("[ably-auth] user", { userId: auth.user.id });
-  dlog("[ably-auth] capability", JSON.stringify(capability));
+  dlog("[ably-auth] capability", capability);
 
   const tokenRequest = await ablyRest.auth.createTokenRequest({
     clientId: auth.user.id,

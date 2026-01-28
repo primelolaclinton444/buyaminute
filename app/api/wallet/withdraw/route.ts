@@ -9,6 +9,7 @@ import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
 import { getWalletBalanceFromLedgerWithClient } from "@/lib/ledger";
 import { MIN_WITHDRAWAL_TOKENS } from "@/lib/constants";
+import { isPayoutsDisabled } from "@/lib/platformSettings";
 import { Prisma } from "@prisma/client";
 
 export const runtime = "nodejs";
@@ -35,6 +36,18 @@ export async function POST(req: Request) {
 
   if (!resolvedUserId || resolvedAmount === undefined) {
     return jsonError("Invalid payload", 400, "invalid_payload");
+  }
+
+  if (await isPayoutsDisabled()) {
+    return jsonError("Payouts are disabled", 403, "payouts_disabled");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: resolvedUserId },
+    select: { isFrozen: true },
+  });
+  if (user?.isFrozen) {
+    return jsonError("User is frozen", 403, "user_frozen");
   }
 
   if (

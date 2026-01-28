@@ -10,11 +10,64 @@ import { dlog } from "@/lib/debug";
 import {
   CALL_REQUEST_WINDOW_MS,
   MIN_CALL_BALANCE_SECONDS,
+  RING_TIMEOUT_SECONDS,
   TOKEN_UNIT_USD,
 } from "@/lib/constants";
 
 type CallAction = "accept" | "decline";
 type ViewerRole = "caller" | "receiver";
+type OutcomeCode =
+  | "billed"
+  | "expired_refunded"
+  | "connect_timeout_refunded"
+  | "declined_refunded"
+  | "not_connected_refunded";
+
+function getOutcomeCode({
+  status,
+  endReason,
+  bothConnectedAt,
+  durationSeconds,
+}: {
+  status: string;
+  endReason: string | null;
+  bothConnectedAt: Date | null;
+  durationSeconds?: number;
+}): OutcomeCode | null {
+  if (status !== "ended") return null;
+  if (bothConnectedAt || (durationSeconds ?? 0) > 0) return "billed";
+  if (endReason === "request_expired") return "expired_refunded";
+  if (endReason === "connect_timeout") return "connect_timeout_refunded";
+  if (endReason === "declined") return "declined_refunded";
+  return "not_connected_refunded";
+}
+
+function getOutcomeMessage(code: OutcomeCode | null) {
+  if (!code) return null;
+  switch (code) {
+    case "expired_refunded":
+      return "Refunded — request expired before acceptance.";
+    case "connect_timeout_refunded":
+      return `Refunded — call didn’t connect within ${RING_TIMEOUT_SECONDS} seconds.`;
+    case "declined_refunded":
+      return "Refunded — the call was declined.";
+    case "billed":
+      return "Billed — connected time only. Unused returned automatically.";
+    default:
+      return "Refunded — the call didn’t connect.";
+  }
+}
+
+async function ensureUserActive(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isFrozen: true },
+  });
+  if (user?.isFrozen) {
+    return jsonError("User is frozen", 403, "user_frozen");
+  }
+  return null;
+}
 
 function getCallId(idempotencyKey: string, callerId: string) {
   const digest = createHash("sha256")
@@ -87,6 +140,9 @@ export async function requestCall({
     return jsonError("Invalid minIntendedSeconds", 400, "invalid_payload");
   }
 
+  const callerFrozen = await ensureUserActive(userId);
+  if (callerFrozen) return callerFrozen;
+
   const receiver = await prisma.user.findFirst({
     where: {
       OR: [
@@ -95,7 +151,7 @@ export async function requestCall({
         { name: { equals: trimmedUsername, mode: "insensitive" } },
       ],
     },
-    select: { id: true, name: true, email: true },
+    select: { id: true, name: true, email: true, isFrozen: true },
   });
 
   dlog("[handle] lookup", {
@@ -111,6 +167,10 @@ export async function requestCall({
       mode: resolvedMode,
       expiresAt: null,
     });
+  }
+
+  if (receiver.isFrozen) {
+    return jsonError("User is frozen", 403, "user_frozen");
   }
 
   const receiverProfile = await prisma.receiverProfile.findUnique({
@@ -253,6 +313,11 @@ export async function createCall({
     return jsonError("Invalid payload", 400, "invalid_payload");
   }
 
+  const callerFrozen = await ensureUserActive(callerId);
+  if (callerFrozen) return callerFrozen;
+  const receiverFrozen = await ensureUserActive(receiverId);
+  if (receiverFrozen) return receiverFrozen;
+
   if (minIntendedSeconds !== undefined && minIntendedSeconds <= 0) {
     return jsonError("Invalid minIntendedSeconds", 400, "invalid_payload");
   }
@@ -347,6 +412,9 @@ export async function acceptCall({
   if (!call) {
     return jsonError("Call not found", 404, "not_found");
   }
+
+  const receiverFrozen = await ensureUserActive(call.receiverId);
+  if (receiverFrozen) return receiverFrozen;
 
   if (call.status === "ended") {
     return jsonError("Call already ended", 400, "call_ended");
@@ -456,9 +524,30 @@ export async function respondToCall({
     return jsonError("Unauthorized", 403, "forbidden");
   }
 
+  const receiverFrozen = await ensureUserActive(userId);
+  if (receiverFrozen) return receiverFrozen;
+
   const expiresAtMs = call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS;
   if (Date.now() > expiresAtMs) {
-    return jsonError("Request expired", 410, "request_expired");
+    if (call.status !== "ended") {
+      await prisma.call.update({
+        where: { id: call.id },
+        data: {
+          status: "ended",
+          endedAt: new Date(),
+          endReason: "request_expired",
+        },
+      });
+      await settleEndedCall(call.id);
+    }
+    return Response.json(
+      {
+        ok: false,
+        code: "request_expired_refunded",
+        redirectTo: `/call/${call.id}/receipt`,
+      },
+      { status: 410 }
+    );
   }
 
   if (action === "accept") {
@@ -475,12 +564,14 @@ export async function respondToCall({
         );
       }
     }
-    if (call.status !== "ended") {
-      await prisma.call.update({
-        where: { id: call.id },
-        data: { status: "connected" },
-      });
+    if (call.status === "ended") {
+      return jsonError("Call already ended", 400, "call_ended");
     }
+
+    await prisma.call.update({
+      where: { id: call.id },
+      data: { status: "connected" },
+    });
 
     dlog("[ably] publish call_accepted", {
       callId: call.id,
@@ -506,7 +597,7 @@ export async function respondToCall({
 
   const updated = await prisma.call.update({
     where: { id: call.id },
-    data: { status: "ended", endedAt: new Date() },
+    data: { status: "ended", endedAt: new Date(), endReason: "declined" },
   });
 
   await settleEndedCall(updated.id);
@@ -542,6 +633,7 @@ export async function getCallState({
 }) {
   const call = await prisma.call.findUnique({
     where: { id: callId },
+    include: { participants: true },
   });
 
   if (!call) {
@@ -550,6 +642,46 @@ export async function getCallState({
 
   if (call.callerId !== userId && call.receiverId !== userId) {
     return jsonError("Unauthorized", 403, "forbidden");
+  }
+
+  const callerFrozen = await ensureUserActive(call.callerId);
+  if (callerFrozen && call.callerId === userId) return callerFrozen;
+  const receiverFrozen = await ensureUserActive(call.receiverId);
+  if (receiverFrozen && call.receiverId === userId) return receiverFrozen;
+
+  const now = Date.now();
+  const expiresAtMs = call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS;
+  const ringTimeoutMs = call.createdAt.getTime() + RING_TIMEOUT_SECONDS * 1000;
+  let updatedCall = call;
+  let outcomeCode: OutcomeCode | null = null;
+  const bothConnectedAt = call.participants?.bothConnectedAt ?? null;
+
+  if (call.status !== "ended") {
+    if (call.status === "ringing" && now > expiresAtMs) {
+      updatedCall = await prisma.call.update({
+        where: { id: call.id },
+        data: {
+          status: "ended",
+          endedAt: new Date(),
+          endReason: "request_expired",
+        },
+        include: { participants: true },
+      });
+      await settleEndedCall(call.id);
+      outcomeCode = "expired_refunded";
+    } else if (!call.participants?.bothConnectedAt && now > ringTimeoutMs) {
+      updatedCall = await prisma.call.update({
+        where: { id: call.id },
+        data: {
+          status: "ended",
+          endedAt: new Date(),
+          endReason: "connect_timeout",
+        },
+        include: { participants: true },
+      });
+      await settleEndedCall(call.id);
+      outcomeCode = "connect_timeout_refunded";
+    }
   }
 
   const users = await prisma.user.findMany({
@@ -563,15 +695,26 @@ export async function getCallState({
   const viewerRole: ViewerRole =
     call.callerId === userId ? "caller" : "receiver";
 
+  if (updatedCall.status === "ended" && !outcomeCode) {
+    outcomeCode = getOutcomeCode({
+      status: updatedCall.status,
+      endReason: updatedCall.endReason ?? null,
+      bothConnectedAt,
+    });
+  }
+
   return Response.json({
     call: {
-      id: call.id,
+      id: updatedCall.id,
       caller: userMap.get(call.callerId) ?? call.callerId,
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
-      mode: call.mode === "video" ? "video" : "voice",
-      status: call.status,
+      mode: updatedCall.mode === "video" ? "video" : "voice",
+      status: updatedCall.status,
       viewerRole,
     },
+    outcomeCode,
+    redirectTo:
+      updatedCall.status === "ended" ? `/call/${updatedCall.id}/receipt` : null,
   });
 }
 
@@ -623,6 +766,7 @@ export async function getCallReceipt({
 }) {
   const call = await prisma.call.findUnique({
     where: { id: callId },
+    include: { participants: true },
   });
 
   if (!call) {
@@ -656,6 +800,13 @@ export async function getCallReceipt({
   const totalChargedTokens = receipt?.totalChargedTokens ?? 0;
   const refundedTokens = receipt?.refundedTokens ?? 0;
   const receiverEarningsTokens = receipt?.earnedTokens ?? 0;
+  const outcomeCode = getOutcomeCode({
+    status: call.status,
+    endReason: call.endReason ?? null,
+    bothConnectedAt: call.participants?.bothConnectedAt ?? null,
+    durationSeconds,
+  });
+  const outcomeMessage = getOutcomeMessage(outcomeCode);
 
   return Response.json({
     receipt: {
@@ -669,6 +820,8 @@ export async function getCallReceipt({
       refunded: formatUsd(refundedTokens),
       earned: formatUsd(receiverEarningsTokens),
       viewerRole,
+      outcomeCode,
+      outcomeMessage,
     },
   });
 }

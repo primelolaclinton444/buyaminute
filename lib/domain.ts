@@ -11,6 +11,7 @@ export const LedgerSource = {
   withdrawal: "withdrawal",
   availability_ping: "availability_ping",
   admin_mint: "admin_mint",
+  admin_adjustment: "admin_adjustment",
 } as const;
 
 export type LedgerSource = (typeof LedgerSource)[keyof typeof LedgerSource];

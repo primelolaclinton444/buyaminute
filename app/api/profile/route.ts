@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { SECONDS_IN_MINUTE, TOKEN_UNIT_USD } from "@/lib/constants";
 import { CallStatus } from "@/lib/domain";
 import { jsonError } from "@/lib/api/errors";
+import { dlog } from "@/lib/debug";
 
 const BUSY_STATUSES: CallStatus[] = ["ringing", "connected"];
 
@@ -15,10 +16,16 @@ export async function GET(request: Request) {
 
   const user = await prisma.user.findFirst({
     where: {
-      OR: [{ id: username }, { email: username }, { name: username }],
+      OR: [
+        { id: { equals: username, mode: "insensitive" } },
+        { email: { equals: username, mode: "insensitive" } },
+        { name: { equals: username, mode: "insensitive" } },
+      ],
     },
     include: { receiverProfile: true },
   });
+
+  dlog("[handle] lookup", { handle: username, matchedUserId: user?.id ?? null });
 
   if (!user || !user.receiverProfile) {
     return jsonError("Profile not found", 404, "not_found");

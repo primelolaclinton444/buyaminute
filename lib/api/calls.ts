@@ -6,6 +6,7 @@ import { hasActivePreviewLock } from "@/lib/previewLock";
 import { settleEndedCall } from "@/lib/settlement";
 import { upsertCallReceipt } from "@/lib/receipts";
 import { ablyRest } from "@/lib/ably/server";
+import { dlog } from "@/lib/debug";
 import {
   CALL_REQUEST_WINDOW_MS,
   MIN_CALL_BALANCE_SECONDS,
@@ -50,7 +51,14 @@ async function publishCallEvent(
   try {
     const channel = ablyRest.channels.get(channelName);
     await channel.publish(eventName, data);
+    dlog("[ably] publish ok", { channelName, eventName, callId: data.callId });
   } catch (error) {
+    dlog("[ably] publish failed", {
+      channelName,
+      eventName,
+      callId: data.callId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     console.error(`Failed to publish Ably event ${eventName}`, error);
   }
 }
@@ -82,12 +90,17 @@ export async function requestCall({
   const receiver = await prisma.user.findFirst({
     where: {
       OR: [
-        { id: trimmedUsername },
-        { email: trimmedUsername },
-        { name: trimmedUsername },
+        { id: { equals: trimmedUsername, mode: "insensitive" } },
+        { email: { equals: trimmedUsername, mode: "insensitive" } },
+        { name: { equals: trimmedUsername, mode: "insensitive" } },
       ],
     },
     select: { id: true, name: true, email: true },
+  });
+
+  dlog("[handle] lookup", {
+    handle: trimmedUsername,
+    matchedUserId: receiver?.id ?? null,
   });
 
   if (!receiver) {
@@ -205,6 +218,11 @@ export async function requestCall({
     call.createdAt.getTime() + CALL_REQUEST_WINDOW_MS
   ).toISOString();
 
+  dlog("[ably] publish incoming_call", {
+    callId: call.id,
+    receiverId: receiver.id,
+    channel: `user:${receiver.id}`,
+  });
   void publishCallEvent(`user:${receiver.id}`, "incoming_call", {
     callId: call.id,
   });
@@ -357,6 +375,7 @@ export async function acceptCall({
 }
 
 export async function getIncomingCalls({ userId }: { userId: string }) {
+  dlog("[incoming] user", { userId });
   const now = Date.now();
   const earliest = new Date(now - CALL_REQUEST_WINDOW_MS);
 
@@ -368,6 +387,11 @@ export async function getIncomingCalls({ userId }: { userId: string }) {
     },
     orderBy: { createdAt: "desc" },
     take: 10,
+  });
+
+  dlog("[incoming] found", {
+    count: calls.length,
+    ids: calls.slice(0, 5).map((call) => call.id),
   });
 
   if (calls.length === 0) {
@@ -458,7 +482,17 @@ export async function respondToCall({
       });
     }
 
+    dlog("[ably] publish call_accepted", {
+      callId: call.id,
+      callerId: call.callerId,
+      channel: `call:${call.id}`,
+    });
     void publishCallEvent(`call:${call.id}`, "call_accepted", { callId: call.id });
+    dlog("[ably] publish call_accepted (caller)", {
+      callId: call.id,
+      callerId: call.callerId,
+      channel: `user:${call.callerId}`,
+    });
     void publishCallEvent(`user:${call.callerId}`, "call_accepted", {
       callId: call.id,
     });
@@ -477,7 +511,17 @@ export async function respondToCall({
 
   await settleEndedCall(updated.id);
 
+  dlog("[ably] publish call_declined", {
+    callId: call.id,
+    callerId: call.callerId,
+    channel: `call:${call.id}`,
+  });
   void publishCallEvent(`call:${call.id}`, "call_declined", { callId: call.id });
+  dlog("[ably] publish call_declined (caller)", {
+    callId: call.id,
+    callerId: call.callerId,
+    channel: `user:${call.callerId}`,
+  });
   void publishCallEvent(`user:${call.callerId}`, "call_declined", {
     callId: call.id,
   });

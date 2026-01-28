@@ -1,27 +1,34 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import Ably from "ably";
-import { AblyProvider } from "react-ably";
 
-export default function AblyRealtimeProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const client = useMemo(
-    () =>
-      new Ably.Realtime({
-        authUrl: "/api/ably/auth",
-      }),
-    []
-  );
+type AblyCtx = { client: Ably.Realtime | null };
+const AblyContext = createContext<AblyCtx>({ client: null });
+
+export function useAbly() {
+  return useContext(AblyContext);
+}
+
+export default function AblyRealtimeProvider({ children }: { children: React.ReactNode }) {
+  const [client, setClient] = useState<Ably.Realtime | null>(null);
 
   useEffect(() => {
-    return () => {
-      client.close();
-    };
-  }, [client]);
+    const ablyClient = new Ably.Realtime({
+      authUrl: "/api/ably/auth",
+      autoConnect: true,
+    });
 
-  return <AblyProvider client={client}>{children}</AblyProvider>;
+    setClient(ablyClient);
+
+    return () => {
+      try {
+        ablyClient.close();
+      } catch {}
+    };
+  }, []);
+
+  const value = useMemo(() => ({ client }), [client]);
+
+  return <AblyContext.Provider value={value}>{children}</AblyContext.Provider>;
 }

@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useAbly } from "react-ably";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../call.module.css";
 
 type IncomingRequest = {
@@ -25,7 +25,7 @@ export default function IncomingRequestsPage() {
   const titleResetRef = useRef<number | null>(null);
   const { session } = useAuth();
   const userId = session?.user?.id;
-  const ably = useAbly();
+  const { client } = useAbly();
 
   const activeCount = useMemo(
     () => requests.filter((request) => request.status === "pending").length,
@@ -43,8 +43,8 @@ export default function IncomingRequestsPage() {
   }, [loadRequests]);
 
   useEffect(() => {
-    if (!userId) return;
-    const channel = ably.channels.get(`user:${userId}`);
+    if (!userId || !client) return;
+    const channel = client.channels.get(`user:${userId}`);
     const handleIncoming = () => {
       void loadRequests();
     };
@@ -52,7 +52,7 @@ export default function IncomingRequestsPage() {
     return () => {
       channel.unsubscribe("incoming_call", handleIncoming);
     };
-  }, [ably, loadRequests, userId]);
+  }, [client, loadRequests, userId]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

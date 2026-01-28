@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAbly } from "react-ably";
 import AuthGuard from "@/components/auth/AuthGuard";
+import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../../call.module.css";
 
 const modeOptions = [
@@ -37,7 +37,7 @@ export default function CallRequestPage() {
   const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">(
     "idle"
   );
-  const ably = useAbly();
+  const { client } = useAbly();
 
   const statusTone = useMemo(() => {
     if (requestState === "accepted") return "success";
@@ -110,8 +110,8 @@ export default function CallRequestPage() {
   }, [requestState, secondsLeft]);
 
   useEffect(() => {
-    if (!requestId) return;
-    const channel = ably.channels.get(`call:${requestId}`);
+    if (!requestId || !client) return;
+    const channel = client.channels.get(`call:${requestId}`);
     const handleAccepted = () => {
       setRequestState("accepted");
       router.push(`/call/${requestId}`);
@@ -125,7 +125,7 @@ export default function CallRequestPage() {
       channel.unsubscribe("call_accepted", handleAccepted);
       channel.unsubscribe("call_declined", handleDeclined);
     };
-  }, [ably, requestId, router]);
+  }, [client, requestId, router]);
 
   useEffect(() => {
     if (!requestId) return;

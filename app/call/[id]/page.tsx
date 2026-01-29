@@ -235,6 +235,17 @@ export default function ActiveCallPage() {
   useEffect(() => {
     if (!summary) return;
 
+    const isJoinable =
+      summary.viewerRole === "caller"
+        ? summary.status === "connected"
+        : summary.status === "ringing" || summary.status === "connected";
+
+    if (!isJoinable) {
+      setConnectionState("connecting");
+      setError(null);
+      return;
+    }
+
     const room = new Room({ adaptiveStream: true, dynacast: true });
     roomRef.current = room;
     setRoom(room);
@@ -322,6 +333,9 @@ export default function ActiveCallPage() {
           didRedirectRef.current = true;
           router.replace(data.redirectTo);
         }
+      }
+      if (data.call) {
+        setSummary(data.call);
       }
     };
     const interval = window.setInterval(() => {

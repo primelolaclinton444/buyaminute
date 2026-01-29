@@ -13,7 +13,7 @@ const path = require("path");
 
 function run(cmd) {
   console.log(`\n> ${cmd}`);
-  execSync(cmd, { stdio: "inherit" });
+  execSync(cmd, { stdio: "inherit", env: process.env });
 }
 
 function hasMigrations() {
@@ -26,11 +26,21 @@ function hasMigrations() {
   }
 }
 
+function withTempDatabaseUrl(tempUrl, fn) {
+  const original = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = tempUrl;
+  try {
+    return fn();
+  } finally {
+    process.env.DATABASE_URL = original;
+  }
+}
+
 try {
   if (!process.env.DATABASE_URL) {
     console.error(
       "\n[fatal] DATABASE_URL is not set.\n" +
-        "Set DATABASE_URL (and DIRECT_URL) to a Postgres connection string.\n"
+        "Set DATABASE_URL (pooler) and DIRECT_DATABASE_URL (direct) to Postgres connection strings.\n"
     );
     process.exit(1);
   }
@@ -41,7 +51,23 @@ try {
   const migrationsPresent = hasMigrations();
 
   if (migrationsPresent) {
-    run("npx prisma migrate deploy");
+    // IMPORTANT: Use DIRECT_DATABASE_URL for migrations to avoid Neon pooler advisory-lock timeouts.
+    const direct = process.env.DIRECT_DATABASE_URL;
+
+    if (!direct) {
+      console.error(
+        "\n[fatal] DIRECT_DATABASE_URL is not set.\n" +
+          "Neon pooled connections often time out acquiring Prisma migrate advisory locks.\n" +
+          "Fix:\n" +
+          "  1) In Neon, copy the DIRECT (non-pooler) connection string\n" +
+          "  2) Set it in Vercel as DIRECT_DATABASE_URL\n"
+      );
+      process.exit(1);
+    }
+
+    withTempDatabaseUrl(direct, () => {
+      run("npx prisma migrate deploy");
+    });
   } else {
     const msg =
       "\n[fatal] prisma/migrations not found.\n" +

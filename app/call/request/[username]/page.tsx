@@ -47,6 +47,7 @@ export default function CallRequestPage() {
   const [intendedMinutes, setIntendedMinutes] = useState<number>(5);
   const [profileRate, setProfileRate] = useState<number | null>(null);
   const [videoAllowed, setVideoAllowed] = useState(true);
+  const [offlineReason, setOfflineReason] = useState<string | null>(null);
   const [profileStatus, setProfileStatus] = useState<"idle" | "loading" | "error">(
     "idle"
   );
@@ -239,6 +240,7 @@ export default function CallRequestPage() {
 
   async function handleRequest() {
     setLoading(true);
+    setOfflineReason(null);
     try {
       const minIntendedSeconds =
         Number.isFinite(intendedMinutes) && intendedMinutes > 0
@@ -250,6 +252,9 @@ export default function CallRequestPage() {
         body: JSON.stringify({ username: normalizedUsername, mode, minIntendedSeconds }),
       });
       const payload = await res.json();
+      const reason =
+        payload?.reason ?? payload?.error?.reason ?? payload?.error?.code ?? null;
+      setOfflineReason(reason);
       if (!res.ok) {
         if (payload?.error?.code === "VIDEO_NOT_ALLOWED") {
           setRequestState("video_not_allowed");
@@ -263,6 +268,7 @@ export default function CallRequestPage() {
       setRequestState(payload.status ?? "pending");
       setSecondsLeft(20);
     } catch {
+      setOfflineReason(null);
       setRequestState("timeout");
     } finally {
       setLoading(false);
@@ -368,6 +374,10 @@ export default function CallRequestPage() {
             <div className={styles.status} data-tone={statusTone}>
               <strong>{statusCopy.title}</strong>
               <span>{statusCopy.body}</span>
+              {(requestState === "offline" || (!!offlineReason && requestState !== "accepted")) &&
+                offlineReason && (
+                  <span className={styles.subtitle}>Reason: {offlineReason}</span>
+                )}
             </div>
             <div className={styles.grid}>
               <div>

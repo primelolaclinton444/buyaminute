@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { prisma } from "@/lib/prisma";
 import { SECONDS_IN_MINUTE, TOKEN_UNIT_USD } from "@/lib/constants";
 import { CallStatus } from "@/lib/domain";
@@ -8,7 +10,7 @@ export async function GET() {
   const receiverProfiles = await prisma.receiverProfile.findMany({
     include: {
       user: {
-        select: { id: true, name: true, email: true },
+        select: { id: true, name: true, email: true, lastSeenAt: true },
       },
     },
     orderBy: { updatedAt: "desc" },
@@ -28,10 +30,15 @@ export async function GET() {
   });
   const busyReceivers = new Set(activeCalls.map((call) => call.receiverId));
 
+  const PRESENCE_WINDOW_MS = 5 * 60_000;
+  const cutoff = Date.now() - PRESENCE_WINDOW_MS;
   const profiles = receiverProfiles.map((profile) => {
     const name = profile.user.name ?? profile.user.email ?? profile.user.id;
     const rate = profile.ratePerSecondTokens * SECONDS_IN_MINUTE * TOKEN_UNIT_USD;
-    const status = profile.isAvailable
+    const isPresent =
+      profile.user.lastSeenAt && profile.user.lastSeenAt.getTime() >= cutoff;
+    const isEligible = profile.isAvailable && isPresent;
+    const status = isEligible
       ? busyReceivers.has(profile.userId)
         ? "busy"
         : "available"
@@ -42,7 +49,7 @@ export async function GET() {
       name,
       username: name,
       rate,
-      tagline: profile.isAvailable ? "Available for new calls." : "Currently unavailable.",
+      tagline: isEligible ? "Available for new calls." : "Currently unavailable.",
       categories: [] as string[],
       status,
     };

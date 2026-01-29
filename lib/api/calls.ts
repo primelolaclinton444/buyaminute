@@ -190,7 +190,8 @@ export async function requestCall({
     return offlineResponse("receiver_not_accepting_calls");
   }
 
-  const presenceCutoffMs = Date.now() - 60_000;
+  const PRESENCE_WINDOW_MS = 5 * 60_000;
+  const presenceCutoffMs = Date.now() - PRESENCE_WINDOW_MS;
   if (!receiver.lastSeenAt || receiver.lastSeenAt.getTime() < presenceCutoffMs) {
     return offlineResponse("receiver_presence_stale");
   }

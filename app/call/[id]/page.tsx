@@ -266,11 +266,18 @@ export default function ActiveCallPage() {
       }
 
       const livekitUrl = String(payload.url);
-      const livekitToken = String(payload.token);
+      const livekitToken =
+        typeof payload.token === "string"
+          ? payload.token
+          : typeof payload.token?.token === "string"
+          ? payload.token.token
+          : String(payload.token ?? "");
 
       // Guard against object coercion and wrong shapes
       if (!livekitToken || livekitToken === "[object Object]" || !livekitToken.startsWith("eyJ")) {
-        throw new Error(`Invalid LiveKit token shape: ${livekitToken}`);
+        throw new Error(
+          `Invalid LiveKit token shape: ${JSON.stringify(payload.token ?? null)}`
+        );
       }
 
       setRoomName(payload.roomName);

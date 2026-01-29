@@ -34,12 +34,6 @@ type CallStateResponse = {
   redirectTo?: string | null;
 };
 
-type LiveKitTokenResponse = {
-  token: string;
-  url: string;
-  roomName: string;
-};
-
 function mapConnectionState(state: ConnectionState): ConnectionStateLabel {
   if (state === ConnectionState.Connected) return "connected";
   if (state === ConnectionState.Reconnecting) return "reconnecting";
@@ -260,17 +254,34 @@ export default function ActiveCallPage() {
     room.on(RoomEvent.ParticipantDisconnected, updateParticipants);
 
     const connectToRoom = async () => {
-      const tokenRes = await fetch(`/api/livekit/token?callId=${id}`);
-      if (!tokenRes.ok) {
-        const payload = await tokenRes.json().catch(() => null);
-        setError(payload?.error?.message ?? "Unable to join LiveKit room.");
-        setConnectionState("disconnected");
-        return;
+      const res = await fetch(`/api/livekit/token?callId=${id}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const payload = await res.json();
+
+      if (!res.ok) {
+        throw new Error(payload?.error?.message || "Failed to fetch LiveKit token");
       }
 
-      const data = (await tokenRes.json()) as LiveKitTokenResponse;
-      setRoomName(data.roomName);
-      await room.connect(data.url, data.token);
+      const livekitUrl = String(payload.url);
+      const livekitToken =
+        typeof payload.token === "string"
+          ? payload.token
+          : typeof payload.token?.token === "string"
+          ? payload.token.token
+          : String(payload.token ?? "");
+
+      // Guard against object coercion and wrong shapes
+      if (!livekitToken || livekitToken === "[object Object]" || !livekitToken.startsWith("eyJ")) {
+        throw new Error(
+          `Invalid LiveKit token shape: ${JSON.stringify(payload.token ?? null)}`
+        );
+      }
+
+      setRoomName(payload.roomName);
+      await room.connect(livekitUrl, livekitToken);
       updateParticipants();
 
       const enableCamera = summary.mode === "video";

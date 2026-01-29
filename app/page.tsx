@@ -222,7 +222,7 @@ export default function HomePage() {
                 <br />
                 <strong>wanting your attention</strong> badly enough to
                 <br />
-                pay you for it.💰💰💰
+                pay you for it.
                 <br />
                 <br />
                 Or you, finally reaching <em>that</em> someone

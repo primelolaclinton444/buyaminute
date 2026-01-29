@@ -47,8 +47,9 @@ export async function GET(req: Request) {
     return jsonError("Unauthorized", 403, "forbidden");
   }
 
-  if (call.status !== "connected") {
-    return jsonError("Call is not active", 403, "call_not_active");
+  const joinableStatuses = new Set(["ringing", "connected"]);
+  if (!joinableStatuses.has(call.status)) {
+    return jsonError("Call is not joinable", 403, "call_not_joinable");
   }
 
   const roomName = `call_${callId}`;
@@ -59,6 +60,7 @@ export async function GET(req: Request) {
   token.addGrant({
     roomJoin: true,
     room: roomName,
+    roomCreate: true,
     canPublish: true,
     canSubscribe: true,
   });
@@ -66,6 +68,7 @@ export async function GET(req: Request) {
   return Response.json({
     token: token.toJwt(),
     url: livekit.url,
+    room: roomName,
     roomName,
   });
 }

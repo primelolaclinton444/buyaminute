@@ -43,20 +43,43 @@ export async function GET(req: Request) {
     return jsonError("Call not found", 404, "not_found");
   }
 
-  if (call.callerId !== auth.user.id && call.receiverId !== auth.user.id) {
+  const isCaller = call.callerId === auth.user.id;
+  const isReceiver = call.receiverId === auth.user.id;
+
+  if (!isCaller && !isReceiver) {
     return jsonError("Unauthorized", 403, "forbidden");
   }
 
-  const joinableStatuses = new Set(["ringing", "connected"]);
-  if (!joinableStatuses.has(call.status)) {
-    return jsonError("Call is not joinable", 403, "call_not_joinable");
+  // Join policy:
+  // - Receiver may join during "ringing" (to pick up / connect).
+  // - Caller may join only after receiver accepts (status becomes "connected").
+  if (isCaller) {
+    if (call.status !== "connected") {
+      return jsonError(
+        `Call is not joinable for caller (status=${call.status})`,
+        403,
+        "call_not_joinable"
+      );
+    }
+  } else {
+    // receiver
+    const joinableStatuses = new Set(["ringing", "connected"]);
+    if (!joinableStatuses.has(call.status)) {
+      return jsonError(
+        `Call is not joinable for receiver (status=${call.status})`,
+        403,
+        "call_not_joinable"
+      );
+    }
   }
 
   const roomName = `call_${callId}`;
+
   const token = new AccessToken(livekit.apiKey, livekit.apiSecret, {
     identity: auth.user.id,
     name: auth.user.name ?? auth.user.email ?? auth.user.id,
   });
+
   token.addGrant({
     roomJoin: true,
     room: roomName,
@@ -70,5 +93,7 @@ export async function GET(req: Request) {
     url: livekit.url,
     room: roomName,
     roomName,
+    role: isCaller ? "caller" : "receiver",
+    callStatus: call.status,
   });
 }

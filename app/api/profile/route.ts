@@ -22,7 +22,13 @@ export async function GET(request: Request) {
         { name: { equals: username, mode: "insensitive" } },
       ],
     },
-    include: { receiverProfile: true },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      lastSeenAt: true,
+      receiverProfile: true,
+    },
   });
 
   dlog("[handle] lookup", { handle: username, matchedUserId: user?.id ?? null });
@@ -42,7 +48,10 @@ export async function GET(request: Request) {
   const name = user.name ?? user.email ?? user.id;
   const rate =
     user.receiverProfile.ratePerSecondTokens * SECONDS_IN_MINUTE * TOKEN_UNIT_USD;
-  const status = user.receiverProfile.isAvailable
+  const PRESENCE_WINDOW_MS = 5 * 60_000;
+  const cutoff = Date.now() - PRESENCE_WINDOW_MS;
+  const isPresent = user.lastSeenAt && user.lastSeenAt.getTime() >= cutoff;
+  const status = user.receiverProfile.isAvailable && isPresent
     ? activeCall
       ? "busy"
       : "available"
@@ -55,9 +64,10 @@ export async function GET(request: Request) {
       username: name,
       rate,
       videoAllowed: user.receiverProfile.isVideoEnabled,
-      tagline: user.receiverProfile.isAvailable
-        ? "Available for new calls."
-        : "Currently unavailable.",
+      tagline:
+        user.receiverProfile.isAvailable && isPresent
+          ? "Available for new calls."
+          : "Currently unavailable.",
       categories: [] as string[],
       status,
       bio: "",

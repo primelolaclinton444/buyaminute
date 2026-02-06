@@ -52,25 +52,15 @@ export async function GET(req: Request) {
 
   // Join policy:
   // - Receiver may join during "ringing" (to pick up / connect).
-  // - Caller may join only after receiver accepts (status becomes "connected").
-  if (isCaller) {
-    if (call.status !== "connected") {
-      return jsonError(
-        `Call is not joinable for caller (status=${call.status})`,
-        403,
-        "call_not_joinable"
-      );
-    }
-  } else {
-    // receiver
-    const joinableStatuses = new Set(["ringing", "connected"]);
-    if (!joinableStatuses.has(call.status)) {
-      return jsonError(
-        `Call is not joinable for receiver (status=${call.status})`,
-        403,
-        "call_not_joinable"
-      );
-    }
+  // - Caller may join during "ringing" so they can connect immediately after acceptance,
+  //   and stay connected through "connected".
+  const joinableStatuses = new Set(["ringing", "connected"]);
+  if (!joinableStatuses.has(call.status)) {
+    return jsonError(
+      `Call is not joinable (status=${call.status})`,
+      403,
+      "call_not_joinable"
+    );
   }
 
   const roomName = `call_${callId}`;

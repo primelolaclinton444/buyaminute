@@ -601,6 +601,7 @@ export async function respondToCall({
       requestId: call.id,
       status: "accepted",
       updatedAt: new Date().toISOString(),
+      redirectTo: `/call/${call.id}`,
     });
   }
 

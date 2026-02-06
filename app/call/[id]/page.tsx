@@ -235,10 +235,8 @@ export default function ActiveCallPage() {
   useEffect(() => {
     if (!summary) return;
 
-    const isJoinable =
-      summary.viewerRole === "caller"
-        ? summary.status === "connected"
-        : summary.status === "ringing" || summary.status === "connected";
+    const joinableStatuses = new Set(["ringing", "connected"]);
+    const isJoinable = joinableStatuses.has(summary.status);
 
     if (!isJoinable) {
       setConnectionState("connecting");

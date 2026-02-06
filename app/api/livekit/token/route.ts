@@ -52,31 +52,22 @@ export async function GET(req: Request) {
 
   // Join policy:
   // - Receiver may join during "ringing" (to pick up / connect).
-  // - Caller may join only after receiver accepts (status becomes "connected").
-  if (isCaller) {
-    if (call.status !== "connected") {
-      return jsonError(
-        `Call is not joinable for caller (status=${call.status})`,
-        403,
-        "call_not_joinable"
-      );
-    }
-  } else {
-    // receiver
-    const joinableStatuses = new Set(["ringing", "connected"]);
-    if (!joinableStatuses.has(call.status)) {
-      return jsonError(
-        `Call is not joinable for receiver (status=${call.status})`,
-        403,
-        "call_not_joinable"
-      );
-    }
+  // - Caller may join during "ringing" so they can connect immediately after acceptance,
+  //   and stay connected through "connected".
+  const joinableStatuses = new Set(["ringing", "connected"]);
+  if (!joinableStatuses.has(call.status)) {
+    return jsonError(
+      `Call is not joinable (status=${call.status})`,
+      403,
+      "call_not_joinable"
+    );
   }
 
   const roomName = `call_${callId}`;
 
+  const role = isCaller ? "caller" : "receiver";
   const token = new AccessToken(livekit.apiKey, livekit.apiSecret, {
-    identity: auth.user.id,
+    identity: `${role}:${auth.user.id}`,
     name: auth.user.name ?? auth.user.email ?? auth.user.id,
   });
 
@@ -93,7 +84,7 @@ export async function GET(req: Request) {
     url: livekit.url,
     room: roomName,
     roomName,
-    role: isCaller ? "caller" : "receiver",
+    role,
     callStatus: call.status,
   });
 }

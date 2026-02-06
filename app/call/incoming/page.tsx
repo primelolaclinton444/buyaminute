@@ -166,7 +166,11 @@ export default function IncomingRequestsPage() {
     if (payload?.redirectTo && !didRedirectRef.current) {
       if (pathname !== payload.redirectTo) {
         didRedirectRef.current = true;
-        router.replace(payload.redirectTo);
+        if (action === "accept") {
+          router.push(payload.redirectTo);
+        } else {
+          router.replace(payload.redirectTo);
+        }
       }
     }
   }

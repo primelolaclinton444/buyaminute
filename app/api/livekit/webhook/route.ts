@@ -25,7 +25,6 @@ function normalizePayload(payload: any) {
   const callId = normalizeCallId(
     payload?.callId ??
       payload?.room?.name ??
-      payload?.room?.sid ??
       null
   );
 

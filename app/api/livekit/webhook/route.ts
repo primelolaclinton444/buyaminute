@@ -10,17 +10,24 @@ import { ablyRest } from "@/lib/ably/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+function normalizeCallId(value: unknown) {
+  if (typeof value !== "string") return null;
+  if (value.startsWith("call_")) return value.slice("call_".length);
+  return value;
+}
+
 function normalizePayload(payload: any) {
   const eventName =
     payload?.event ??
     payload?.name ??
     "unknown";
 
-  const callId =
+  const callId = normalizeCallId(
     payload?.callId ??
-    payload?.room?.name ??
-    payload?.room?.sid ??
-    null;
+      payload?.room?.name ??
+      payload?.room?.sid ??
+      null
+  );
 
   const participantRole =
     payload?.participantRole ??

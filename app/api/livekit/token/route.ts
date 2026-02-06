@@ -65,8 +65,9 @@ export async function GET(req: Request) {
 
   const roomName = `call_${callId}`;
 
+  const role = isCaller ? "caller" : "receiver";
   const token = new AccessToken(livekit.apiKey, livekit.apiSecret, {
-    identity: auth.user.id,
+    identity: `${role}:${auth.user.id}`,
     name: auth.user.name ?? auth.user.email ?? auth.user.id,
   });
 
@@ -83,7 +84,7 @@ export async function GET(req: Request) {
     url: livekit.url,
     room: roomName,
     roomName,
-    role: isCaller ? "caller" : "receiver",
+    role,
     callStatus: call.status,
   });
 }

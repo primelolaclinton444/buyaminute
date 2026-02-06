@@ -26,6 +26,7 @@ type CallSummary = {
   receiver: string;
   mode: "voice" | "video";
   status: "ringing" | "connected" | "ended";
+  joinable: boolean;
   viewerRole: "caller" | "receiver";
 };
 
@@ -155,6 +156,7 @@ export default function ActiveCallPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [summary, setSummary] = useState<CallSummary | null>(null);
+  const [summaryRevision, setSummaryRevision] = useState(0);
   const [roomName, setRoomName] = useState<string | null>(null);
   const [connectionState, setConnectionState] = useState<ConnectionStateLabel>(
     "connecting"
@@ -174,6 +176,25 @@ export default function ActiveCallPage() {
   const roomRef = useRef<Room | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const didRedirectRef = useRef(false);
+  const didStartConnectRef = useRef(false);
+  const didConnectRef = useRef(false);
+  const connectingRef = useRef(false);
+  const allowConnectRef = useRef(true);
+  const lastConnectAttemptRevisionRef = useRef<number | null>(null);
+
+  const updateSummary = (nextSummary: CallSummary | null) => {
+    setSummary(nextSummary);
+    setSummaryRevision((prev) => prev + 1);
+  };
+
+  useEffect(() => {
+    didStartConnectRef.current = false;
+    didConnectRef.current = false;
+    connectingRef.current = false;
+    allowConnectRef.current = true;
+    lastConnectAttemptRevisionRef.current = null;
+    setRoom(null);
+  }, [id]);
 
   useEffect(() => {
     async function loadCall() {
@@ -191,7 +212,7 @@ export default function ActiveCallPage() {
         }
         return;
       }
-      setSummary(data.call ?? null);
+      updateSummary(data.call ?? null);
     }
     loadCall();
   }, [id, pathname, router]);
@@ -233,22 +254,7 @@ export default function ActiveCallPage() {
   }, [cameraOn, isReceiverVideo]);
 
   useEffect(() => {
-    if (!summary) return;
-
-    const joinableStatuses = new Set(["ringing", "connected"]);
-    const isJoinable = joinableStatuses.has(summary.status);
-
-    if (!isJoinable) {
-      setConnectionState("connecting");
-      setError(null);
-      return;
-    }
-
-    const room = new Room({ adaptiveStream: true, dynacast: true });
-    roomRef.current = room;
-    setRoom(room);
-    setConnectionState("connecting");
-    setError(null);
+    if (!room) return;
 
     const updateParticipants = () => {
       setRemoteParticipants(Array.from(room.remoteParticipants.values()));
@@ -262,15 +268,59 @@ export default function ActiveCallPage() {
     room.on(RoomEvent.ParticipantConnected, updateParticipants);
     room.on(RoomEvent.ParticipantDisconnected, updateParticipants);
 
+    updateParticipants();
+
+    return () => {
+      room.off(RoomEvent.ConnectionStateChanged, handleConnectionState);
+      room.off(RoomEvent.ParticipantConnected, updateParticipants);
+      room.off(RoomEvent.ParticipantDisconnected, updateParticipants);
+      room.localParticipant.trackPublications.forEach((publication) => {
+        publication.track?.stop();
+      });
+      room.disconnect();
+      room.removeAllListeners();
+      roomRef.current = null;
+    };
+  }, [room]);
+
+  useEffect(() => {
+    if (!summary) return;
+    if (!summary.joinable) {
+      setConnectionState("connecting");
+      setError(null);
+      return;
+    }
+    if (!allowConnectRef.current) return;
+    if (didConnectRef.current || connectingRef.current) return;
+    if (lastConnectAttemptRevisionRef.current === summaryRevision) return;
+
+    lastConnectAttemptRevisionRef.current = summaryRevision;
+    setConnectionState("connecting");
+    setError(null);
+
+    let activeRoom = roomRef.current;
+    if (!activeRoom) {
+      activeRoom = new Room({ adaptiveStream: true, dynacast: true });
+      roomRef.current = activeRoom;
+      didStartConnectRef.current = true;
+      setRoom(activeRoom);
+    }
+
     const connectToRoom = async () => {
       const res = await fetch(`/api/livekit/token?callId=${id}`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
 
-      const payload = await res.json();
+      const payload = await res.json().catch(() => null);
 
       if (!res.ok) {
+        const errorCode = payload?.error?.code;
+        if (res.status === 403 && errorCode === "call_not_joinable") {
+          const joinableError = new Error("Call not joinable yet");
+          (joinableError as Error & { code?: string }).code = "call_not_joinable";
+          throw joinableError;
+        }
         throw new Error(payload?.error?.message || "Failed to fetch LiveKit token");
       }
 
@@ -283,42 +333,56 @@ export default function ActiveCallPage() {
           : String(payload.token ?? "");
 
       // Guard against object coercion and wrong shapes
-      if (!livekitToken || livekitToken === "[object Object]" || !livekitToken.startsWith("eyJ")) {
+      if (
+        !livekitToken ||
+        livekitToken === "[object Object]" ||
+        !livekitToken.startsWith("eyJ")
+      ) {
         throw new Error(
           `Invalid LiveKit token shape: ${JSON.stringify(payload.token ?? null)}`
         );
       }
 
       setRoomName(payload.roomName);
-      await room.connect(livekitUrl, livekitToken);
-      updateParticipants();
+      await activeRoom.connect(livekitUrl, livekitToken);
 
       const enableCamera = summary.mode === "video";
-      await room.localParticipant.setMicrophoneEnabled(true);
-      await room.localParticipant.setCameraEnabled(enableCamera);
+      await activeRoom.localParticipant.setMicrophoneEnabled(true);
+      await activeRoom.localParticipant.setCameraEnabled(enableCamera);
       setMuted(false);
       setCameraOn(enableCamera);
     };
 
-    connectToRoom().catch((connectError) => {
-      console.error(connectError);
-      setError("Unable to connect to LiveKit.");
-      setConnectionState("disconnected");
-    });
-
-    return () => {
-      room.off(RoomEvent.ConnectionStateChanged, handleConnectionState);
-      room.off(RoomEvent.ParticipantConnected, updateParticipants);
-      room.off(RoomEvent.ParticipantDisconnected, updateParticipants);
-      room.localParticipant.trackPublications.forEach((publication) => {
-        publication.track?.stop();
+    connectingRef.current = true;
+    connectToRoom()
+      .then(() => {
+        didConnectRef.current = true;
+      })
+      .catch((connectError: unknown) => {
+        const errorCode =
+          typeof connectError === "object" &&
+          connectError &&
+          "code" in connectError
+            ? (connectError as { code?: string }).code
+            : undefined;
+        if (errorCode === "call_not_joinable") {
+          connectingRef.current = false;
+          return;
+        }
+        console.error(connectError);
+        const message =
+          connectError instanceof Error
+            ? connectError.message
+            : "Unable to connect to LiveKit.";
+        setError(message);
+        setConnectionState("disconnected");
+        allowConnectRef.current = false;
+        setRoom(null);
+      })
+      .finally(() => {
+        connectingRef.current = false;
       });
-      room.disconnect();
-      room.removeAllListeners();
-      roomRef.current = null;
-      setRoom(null);
-    };
-  }, [id, summary]);
+  }, [id, summary, summaryRevision]);
 
   useEffect(() => {
     let isMounted = true;
@@ -333,17 +397,22 @@ export default function ActiveCallPage() {
         }
       }
       if (data.call) {
-        setSummary(data.call);
+        updateSummary(data.call);
       }
     };
+    const intervalMs = summary?.joinable
+      ? connectionState === "connected"
+        ? 5000
+        : 3000
+      : 1000;
     const interval = window.setInterval(() => {
       void poll();
-    }, 5000);
+    }, intervalMs);
     return () => {
       isMounted = false;
       window.clearInterval(interval);
     };
-  }, [id, pathname, router]);
+  }, [connectionState, id, pathname, router, summary?.joinable]);
 
   const formattedTime = useMemo(() => {
     const minutes = Math.floor(secondsElapsed / 60)

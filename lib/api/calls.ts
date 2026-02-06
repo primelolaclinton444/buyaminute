@@ -720,6 +720,7 @@ export async function getCallState({
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
       mode: updatedCall.mode === "video" ? "video" : "voice",
       status: updatedCall.status,
+      joinable: ["ringing", "connected"].includes(updatedCall.status),
       viewerRole,
     },
     outcomeCode,

@@ -90,8 +90,10 @@ export async function GET(req: Request) {
     canSubscribe: true,
   });
 
+  const tokenJwt = await token.toJwt();
+
   return Response.json({
-    token: token.toJwt(),
+    token: tokenJwt,
     url: livekit.url,
     room: roomName,
     roomName,

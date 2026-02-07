@@ -45,9 +45,19 @@ export async function GET(req: Request) {
 
   const isCaller = call.callerId === auth.user.id;
   const isReceiver = call.receiverId === auth.user.id;
+  const debugDetails =
+    process.env.NODE_ENV !== "production"
+      ? {
+          sessionUserId: auth.user.id,
+          callerId: call.callerId,
+          receiverId: call.receiverId,
+          status: call.status,
+          callId: call.id,
+        }
+      : undefined;
 
   if (!isCaller && !isReceiver) {
-    return jsonError("Unauthorized", 403, "forbidden");
+    return jsonError("Unauthorized", 403, "forbidden", debugDetails);
   }
 
   // Join policy:
@@ -59,7 +69,8 @@ export async function GET(req: Request) {
     return jsonError(
       `Call is not joinable (status=${call.status})`,
       403,
-      "call_not_joinable"
+      "call_not_joinable",
+      debugDetails
     );
   }
 

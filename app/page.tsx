@@ -649,7 +649,7 @@ export default function HomePage() {
   const rateRef = useRef<HTMLSpanElement>(null);
   const callsRef = useRef<HTMLSpanElement>(null);
   const minsRef = useRef<HTMLSpanElement>(null);
-  const monthlyRef = useRef<HTMLSpanElement>(null);
+  const monthlyRef = useRef<HTMLDivElement>(null);
   const ecRateRef = useRef<HTMLSpanElement>(null);
   const ecCallsRef = useRef<HTMLSpanElement>(null);
   const ecMinsRef = useRef<HTMLSpanElement>(null);
@@ -879,7 +879,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          <div className="bam-cstrip">
+          <div className="bam-cstrip" id="bam-cta">
             <div className="bam-cpane">
               <div className="bam-cey">Primary Actions</div>
               <a href="/browse" className="bam-cbtn"><span className="bam-clbl hi">Enter to Call</span><span className="bam-carr">→</span></a>

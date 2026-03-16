@@ -1,13 +1,11 @@
+"use client";
+
 import "./globals.css";
 import Nav from "@/components/Nav";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import AblyRealtimeProvider from "@/components/realtime/AblyRealtimeProvider";
 import PresencePing from "@/components/presence/PresencePing";
-
-export const metadata = {
-  title: "BuyAMinute",
-  description: "Token-based calls MVP",
-};
+import { usePathname } from "next/navigation";
 
 export default function RootLayout({
   children,
@@ -20,11 +18,17 @@ export default function RootLayout({
         <AuthProvider>
           <AblyRealtimeProvider>
             <PresencePing />
-            <Nav />
+            <NavConditional />
             {children}
           </AblyRealtimeProvider>
         </AuthProvider>
       </body>
     </html>
   );
+}
+
+function NavConditional() {
+  const pathname = usePathname();
+  if (pathname === "/") return null;
+  return <Nav />;
 }

@@ -639,7 +639,7 @@ export default function HomePage() {
   const rateRef = useRef<HTMLSpanElement>(null);
   const callsRef = useRef<HTMLSpanElement>(null);
   const minsRef = useRef<HTMLSpanElement>(null);
-  const monthlyRef = useRef<HTMLSpanElement>(null);
+  const monthlyRef = useRef<HTMLDivElement>(null);
   const ecRateRef = useRef<HTMLSpanElement>(null);
   const ecCallsRef = useRef<HTMLSpanElement>(null);
   const ecMinsRef = useRef<HTMLSpanElement>(null);

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 const css = `
 :root {
@@ -105,6 +106,15 @@ const css = `
   transition:box-shadow .2s, background .2s;
 }
 .bam-nav-enter:hover { background:var(--cream); box-shadow:0 0 32px rgba(236,231,216,0.2); }
+.bam-nav-links { display:flex; align-items:center; gap:24px; }
+.bam-nav-link { font-size:0.52rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:rgba(236,231,216,0.7); text-decoration:none; cursor:none; transition:color .2s; position:relative; }
+.bam-nav-link:hover { color:var(--cream); }
+.bam-nav-badge { position:absolute; top:-7px; right:-14px; min-width:16px; padding:2px 5px; border-radius:999px; background:var(--mag); color:#fff; font-size:0.55rem; font-weight:700; text-align:center; box-shadow:0 0 8px var(--mag-glow); }
+.bam-nav-user { font-size:0.48rem; font-weight:300; letter-spacing:0.18em; text-transform:uppercase; color:var(--mist); }
+.bam-nav-ghost { font-size:0.6rem; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--cream); background:transparent; border:1px solid rgba(236,231,216,0.25); padding:8px 20px; text-decoration:none; cursor:none; transition:border-color .2s, color .2s; }
+.bam-nav-ghost:hover { border-color:rgba(236,231,216,0.6); }
+.bam-nav-logout { font-size:0.52rem; font-weight:600; letter-spacing:0.18em; text-transform:uppercase; color:var(--mist); background:none; border:none; cursor:none; padding:0; transition:color .2s; font-family:inherit; }
+.bam-nav-logout:hover { color:var(--mag); }
 
 .bam-page { display:flex; flex-direction:column; height:calc(100dvh - 56px); margin-top:56px; position:relative; z-index:2; overflow:hidden; }
 
@@ -639,10 +649,59 @@ export default function HomePage() {
   const rateRef = useRef<HTMLSpanElement>(null);
   const callsRef = useRef<HTMLSpanElement>(null);
   const minsRef = useRef<HTMLSpanElement>(null);
-  const monthlyRef = useRef<HTMLDivElement>(null);
+  const monthlyRef = useRef<HTMLSpanElement>(null);
   const ecRateRef = useRef<HTMLSpanElement>(null);
   const ecCallsRef = useRef<HTMLSpanElement>(null);
   const ecMinsRef = useRef<HTMLSpanElement>(null);
+
+  const { status, session, logout } = useAuth();
+  const isAuthenticated = status === "authenticated";
+  const [incomingCount, setIncomingCount] = useState(0);
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+
+  useEffect(() => {
+    if (!isAuthenticated) { setIncomingCount(0); return; }
+    let mounted = true;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/calls/incoming");
+        if (!res.ok || !mounted) return;
+        const data = await res.json();
+        setIncomingCount((data.requests ?? []).filter((r: any) => r.status === "pending").length);
+      } catch {}
+    };
+    poll();
+    const id = window.setInterval(poll, 15000);
+    return () => { mounted = false; window.clearInterval(id); };
+  }, [isAuthenticated]);
+
+  const handleInviteClick = async () => {
+    if (!isAuthenticated) { window.location.href = "/login"; return; }
+    setIsCreatingInvite(true);
+    setInviteError(null);
+    setInviteUrl(null);
+    setCopyStatus("idle");
+    try {
+      const res = await fetch("/api/invites/create", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setInviteError(data?.error?.message ?? "Unable to create invite link."); return; }
+      if ("inviteUrl" in data) setInviteUrl(data.inviteUrl);
+      else setInviteError("Unable to create invite link.");
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : "Unable to create invite link.");
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteUrl) return;
+    try { await navigator.clipboard.writeText(inviteUrl); setCopyStatus("copied"); }
+    catch { setCopyStatus("error"); }
+  };
 
   useEffect(() => {
     // Cursor
@@ -760,10 +819,30 @@ export default function HomePage() {
 
         {/* NAV */}
         <nav className="bam-nav">
-          <div className="bam-nav-logo">BUY<span className="na">A</span>MINUTE</div>
+          <a href="/" className="bam-nav-logo" style={{textDecoration:"none"}}>BUY<span className="na">A</span>MINUTE</a>
           <div className="bam-nav-right">
-            <span className="bam-nav-tag">Voice &amp; Video · Per Minute</span>
-            <a href="#bam-cta" className="bam-nav-enter">Enter</a>
+            {status === "loading" ? (
+              <span className="bam-nav-user">···</span>
+            ) : isAuthenticated ? (
+              <>
+                <div className="bam-nav-links">
+                  <a href="/wallet" className="bam-nav-link">Wallet</a>
+                  <a href="/call" className="bam-nav-link" style={{position:"relative"}}>
+                    Call
+                    {incomingCount > 0 && <span className="bam-nav-badge">{incomingCount}</span>}
+                  </a>
+                  <a href="/receiver" className="bam-nav-link">Dashboard</a>
+                </div>
+                <span className="bam-nav-user">Hi {session?.user?.name ?? session?.user?.email}</span>
+                <button className="bam-nav-logout" onClick={() => void logout()}>Log out</button>
+              </>
+            ) : (
+              <>
+                <span className="bam-nav-tag">Voice &amp; Video · Per Minute</span>
+                <a href="/login" className="bam-nav-ghost">Log in</a>
+                <a href="/signup" className="bam-nav-enter">Start Earning</a>
+              </>
+            )}
           </div>
         </nav>
 
@@ -803,13 +882,13 @@ export default function HomePage() {
           <div className="bam-cstrip">
             <div className="bam-cpane">
               <div className="bam-cey">Primary Actions</div>
-              <a href="#bam-sellers" className="bam-cbtn"><span className="bam-clbl hi">Enter to Call</span><span className="bam-carr">→</span></a>
-              <a href="#bam-sellers" className="bam-cbtn"><span className="bam-clbl hi">Enter to Earn</span><span className="bam-carr">→</span></a>
+              <a href="/browse" className="bam-cbtn"><span className="bam-clbl hi">Enter to Call</span><span className="bam-carr">→</span></a>
+              <a href="/signup" className="bam-cbtn"><span className="bam-clbl hi">Enter to Earn</span><span className="bam-carr">→</span></a>
             </div>
             <div className="bam-cpane">
               <div className="bam-cey">Initiate an Exchange</div>
-              <a href="#bam-exchange" className="bam-cbtn"><span className="bam-clbl">Send a Paid Call Offer</span><span className="bam-carr">↗</span></a>
-              <a href="#bam-exchange" className="bam-cbtn"><span className="bam-clbl">Invite Someone to Call You</span><span className="bam-carr">↗</span></a>
+              <a href="/browse" className="bam-cbtn"><span className="bam-clbl">Send a Paid Call Offer</span><span className="bam-carr">↗</span></a>
+              <a href="/signup" className="bam-cbtn"><span className="bam-clbl">Invite Someone to Call You</span><span className="bam-carr">↗</span></a>
             </div>
           </div>
         </div>
@@ -956,7 +1035,7 @@ export default function HomePage() {
                   <div className="bam-ec-out-label">Your monthly income</div>
                   <div className="bam-ec-out-val" ref={monthlyRef}>$1,600</div>
                   <div className="bam-ec-out-sub">at <span ref={ecRateRef}>$5</span>/min · <span ref={ecCallsRef}>8</span> calls · <span ref={ecMinsRef}>10</span> min avg</div>
-                  <a href="#bam-cta" className="bam-ec-cta">Start Earning →</a>
+                  <a href="/signup" className="bam-ec-cta">Start Earning →</a>
                 </div>
               </div>
             </div>

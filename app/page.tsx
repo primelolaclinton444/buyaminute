@@ -238,7 +238,9 @@ export default function HomePage() {
           display:flex; flex-direction:column;
           border-bottom:1px solid var(--line);
         }
-        @media(max-width:600px){.bam-hero-zone{min-height:0; padding:16px var(--ph) 0;}}
+        /* On anything below full desktop, don't force full-vh height —
+           content determines height, CTAs follow immediately after */
+        @media(max-width:900px){.bam-hero-zone{min-height:0; padding:16px var(--ph) 0;}}
 
         .bam-headline {
           font-family:var(--font-syne),'Syne',sans-serif;
@@ -283,6 +285,7 @@ export default function HomePage() {
 
         /* hero CTAs */
         .bam-hero-ctas { margin-top:auto; border-top:1px solid var(--line); }
+        @media(max-width:900px){.bam-hero-ctas{margin-top:0;}}
         .bam-cta-primary {
           display:flex; align-items:center; justify-content:space-between;
           padding:12px 0; border-bottom:1px solid var(--line); cursor:pointer;

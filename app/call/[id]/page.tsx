@@ -317,6 +317,13 @@ export default function ActiveCallPage() {
       if (!res.ok) {
         const errorCode = payload?.error?.code;
         if (res.status === 403 && errorCode === "call_not_joinable") {
+          // FIX (Bug 3): The call is not yet joinable (e.g. receiver has
+          // accepted but LiveKit hasn't confirmed the room is ready yet).
+          // Previously this threw an error that propagated to the catch block
+          // and set allowConnectRef.current = false, permanently preventing
+          // any retry. Instead, we just clear connectingRef so the next
+          // summaryRevision (from the polling loop) will trigger a fresh
+          // attempt. We do NOT set allowConnectRef = false here.
           const joinableError = new Error("Call not joinable yet");
           (joinableError as Error & { code?: string }).code = "call_not_joinable";
           throw joinableError;
@@ -332,7 +339,6 @@ export default function ActiveCallPage() {
           ? payload.token.token
           : String(payload.token ?? "");
 
-      // Guard against object coercion and wrong shapes
       if (
         !livekitToken ||
         livekitToken === "[object Object]" ||
@@ -366,6 +372,11 @@ export default function ActiveCallPage() {
             ? (connectError as { code?: string }).code
             : undefined;
         if (errorCode === "call_not_joinable") {
+          // FIX (Bug 3): Clear connectingRef so the next poll cycle can retry.
+          // Do NOT set allowConnectRef = false — that would permanently block
+          // all future connection attempts for this call page mount.
+          // Do NOT set the room to null or show an error — this is a transient
+          // state while the receiver is in the process of joining LiveKit.
           connectingRef.current = false;
           return;
         }
@@ -376,10 +387,14 @@ export default function ActiveCallPage() {
             : "Unable to connect to LiveKit.";
         setError(message);
         setConnectionState("disconnected");
+        // Only permanently block retries for genuine hard failures (bad token,
+        // network error, etc.) — not for transient "not joinable yet" states.
         allowConnectRef.current = false;
         setRoom(null);
       })
       .finally(() => {
+        // Only clear connectingRef if it wasn't already cleared in the
+        // call_not_joinable path above (both set it false, so this is safe).
         connectingRef.current = false;
       });
   }, [id, summary, summaryRevision]);

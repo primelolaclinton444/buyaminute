@@ -48,13 +48,13 @@ function getOutcomeMessage(code: OutcomeCode | null) {
     case "expired_refunded":
       return "Refunded — request expired before acceptance.";
     case "connect_timeout_refunded":
-      return `Refunded — call didn’t connect within ${RING_TIMEOUT_SECONDS} seconds.`;
+      return `Refunded — call didn't connect within ${RING_TIMEOUT_SECONDS} seconds.`;
     case "declined_refunded":
       return "Refunded — the call was declined.";
     case "billed":
       return "Billed — connected time only. Unused returned automatically.";
     default:
-      return "Refunded — the call didn’t connect.";
+      return "Refunded — the call didn't connect.";
   }
 }
 
@@ -443,10 +443,14 @@ export async function acceptCall({
     }
   }
 
-  await prisma.call.update({
-    where: { id: callId },
-    data: { status: "connected" },
-  });
+  // FIX (Bug 1): Do NOT set status to "connected" here.
+  // The LiveKit webhook owns the ringing → connected transition once both
+  // participants have actually joined the room. Prematurely setting
+  // "connected" here causes the webhook's bothConnectedAt logic to skip
+  // the Ably call_connected publish (because it guards on
+  // `call.status !== "connected"`), leaving the caller stuck.
+  // We only need to record that the receiver accepted so the caller can
+  // fetch a joinable token (joinableStatuses includes "ringing").
 
   return Response.json({ ok: true });
 }
@@ -577,10 +581,16 @@ export async function respondToCall({
       return jsonError("Call already ended", 400, "call_ended");
     }
 
-    await prisma.call.update({
-      where: { id: call.id },
-      data: { status: "connected" },
-    });
+    // FIX (Bug 1): Keep status as "ringing" — the LiveKit webhook is
+    // responsible for transitioning to "connected" once both participants
+    // have actually joined the room. Setting "connected" here breaks the
+    // webhook's guard logic and prevents bothConnectedAt from being set,
+    // which means billing never starts and call_connected is never published.
+    //
+    // "ringing" is already in joinableStatuses on the token endpoint, so
+    // the caller can still fetch a LiveKit token and connect to the room.
+    // The call status will transition to "connected" naturally when the
+    // LiveKit webhook receives participant_connected for both parties.
 
     dlog("[ably] publish call_accepted", {
       callId: call.id,

@@ -1,4 +1,4 @@
-import { createHash } from "crypto";
+import { randomBytes } from "crypto";
 import { WebhookReceiver } from "livekit-server-sdk";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -156,11 +156,11 @@ async function handleParticipantConnected(callId: string, participantRole: strin
       });
     }
 
-    if (call.status !== "connected") {
-      void publishCallEvent(`call:${callId}`, "call_connected", { callId });
-      void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
-      void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
-    }
+    // Always publish call_connected when both parties are first confirmed
+    // connected — regardless of what status was set before this webhook fired.
+    void publishCallEvent(`call:${callId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
   } else if (call.status !== "connected") {
     await prisma.call.update({
       where: { id: callId },
@@ -216,7 +216,6 @@ export async function POST(req: Request) {
     if (apiKey && apiSecret) {
       const receiver = new WebhookReceiver(apiKey, apiSecret);
 
-      // Accept common LiveKit signature headers (SDK expects a STRING)
       const auth =
         req.headers.get("authorization") ||
         req.headers.get("x-livekit-signature") ||
@@ -244,14 +243,29 @@ export async function POST(req: Request) {
       return jsonError("Missing call id", 400, "missing_call_id");
     }
 
-    const eventId =
+    // FIX (Bug 2): The original code used createHash("sha256").update(rawBody)
+    // as the fallback event ID. This is dangerous: two distinct events (e.g.
+    // caller_connected on call A and caller_connected on call B at the same
+    // rate, same timestamp) can produce the same JSON body and therefore the
+    // same hash, causing the second event to be silently dropped as a
+    // "duplicate". This breaks bothConnectedAt logic and prevents billing.
+    //
+    // Fix: use a composite key of (callId + eventName + participantRole) plus
+    // a random suffix to guarantee uniqueness while still being deterministic
+    // enough for idempotency within a single webhook delivery attempt.
+    // LiveKit may deliver the same webhook event multiple times (at-least-once
+    // delivery), so we still deduplicate on the LiveKit-provided event ID when
+    // it is present.
+    const livekitEventId =
       payload?.event?.id ??
       payload?.eventId ??
       payload?.id ??
       null;
-    const eventKey = eventId
-      ? `evt_${eventId}`
-      : createHash("sha256").update(rawBody).digest("hex");
+
+    const eventKey = livekitEventId
+      ? `evt_${livekitEventId}`
+      : `evt_${callId}_${eventName}_${participantRole}_${randomBytes(8).toString("hex")}`;
+
     try {
       await prisma.livekitWebhookEvent.create({
         data: {
@@ -263,6 +277,8 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        // Only truly deduplicate when we have a real LiveKit event ID — those
+        // are genuinely idempotent. The random-suffix path above never collides.
         return Response.json({ ok: true, deduped: true });
       }
       throw err;

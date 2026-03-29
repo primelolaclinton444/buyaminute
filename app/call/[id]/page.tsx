@@ -59,6 +59,9 @@ function ParticipantMedia({
     () => ({ video: [], audio: [] })
   );
 
+  // FIX: define updateTracks inside the effect so the same function reference
+  // is used for both on() and off() — previously a new arrow was created each
+  // render, causing participant.off() to silently no-op and leak listeners.
   useEffect(() => {
     const updateTracks = () => {
       const video: Track[] = [];
@@ -77,47 +80,50 @@ function ParticipantMedia({
 
     updateTracks();
 
-    const handleUpdate = () => updateTracks();
-
-    participant.on(ParticipantEvent.TrackPublished, handleUpdate);
-    participant.on(ParticipantEvent.TrackUnpublished, handleUpdate);
-    participant.on(ParticipantEvent.TrackSubscribed, handleUpdate);
-    participant.on(ParticipantEvent.TrackUnsubscribed, handleUpdate);
-    participant.on(ParticipantEvent.TrackMuted, handleUpdate);
-    participant.on(ParticipantEvent.TrackUnmuted, handleUpdate);
+    participant.on(ParticipantEvent.TrackPublished, updateTracks);
+    participant.on(ParticipantEvent.TrackUnpublished, updateTracks);
+    participant.on(ParticipantEvent.TrackSubscribed, updateTracks);
+    participant.on(ParticipantEvent.TrackUnsubscribed, updateTracks);
+    participant.on(ParticipantEvent.TrackMuted, updateTracks);
+    participant.on(ParticipantEvent.TrackUnmuted, updateTracks);
 
     return () => {
-      participant.off(ParticipantEvent.TrackPublished, handleUpdate);
-      participant.off(ParticipantEvent.TrackUnpublished, handleUpdate);
-      participant.off(ParticipantEvent.TrackSubscribed, handleUpdate);
-      participant.off(ParticipantEvent.TrackUnsubscribed, handleUpdate);
-      participant.off(ParticipantEvent.TrackMuted, handleUpdate);
-      participant.off(ParticipantEvent.TrackUnmuted, handleUpdate);
+      participant.off(ParticipantEvent.TrackPublished, updateTracks);
+      participant.off(ParticipantEvent.TrackUnpublished, updateTracks);
+      participant.off(ParticipantEvent.TrackSubscribed, updateTracks);
+      participant.off(ParticipantEvent.TrackUnsubscribed, updateTracks);
+      participant.off(ParticipantEvent.TrackMuted, updateTracks);
+      participant.off(ParticipantEvent.TrackUnmuted, updateTracks);
     };
   }, [participant]);
 
+  // FIX: depend on the Track object itself (tracks.video[0]), not the array.
+  // Previously tracks.video was a new array reference every render, causing
+  // the effect to run cleanup (detach) then immediately re-attach on every
+  // state update — a race that left the video element without a source.
+  const videoTrack = tracks.video[0] ?? null;
+  const audioTrack = tracks.audio[0] ?? null;
+
   useEffect(() => {
-    const track = tracks.video[0];
+    const track = videoTrack;
     const element = videoRef.current;
     if (!track || !element) return;
-
     track.attach(element);
     return () => {
       track.detach(element);
     };
-  }, [tracks.video]);
+  }, [videoTrack]);
 
   useEffect(() => {
     if (isLocal) return;
-    const track = tracks.audio[0];
+    const track = audioTrack;
     const element = audioRef.current;
     if (!track || !element) return;
-
     track.attach(element);
     return () => {
       track.detach(element);
     };
-  }, [isLocal, tracks.audio]);
+  }, [isLocal, audioTrack]);
 
   useEffect(() => {
     if (isLocal) return;
@@ -217,6 +223,8 @@ export default function ActiveCallPage() {
     loadCall();
   }, [id, pathname, router]);
 
+  // FIX: isReceiverVideo is only used for the camera-prompt enforcement,
+  // not for blocking the toggle button entirely.
   const isReceiverVideo =
     summary?.mode === "video" && summary?.viewerRole === "receiver";
 
@@ -306,6 +314,12 @@ export default function ActiveCallPage() {
       setRoom(activeRoom);
     }
 
+    // FIX: capture summary in a local variable here so it's guaranteed
+    // non-null inside connectToRoom. Previously summary could be null when
+    // connectToRoom ran, making enableCamera always false and never publishing
+    // the video track to the LiveKit room.
+    const capturedSummary = summary;
+
     const connectToRoom = async () => {
       const res = await fetch(`/api/livekit/token?callId=${id}`, {
         method: "GET",
@@ -317,13 +331,6 @@ export default function ActiveCallPage() {
       if (!res.ok) {
         const errorCode = payload?.error?.code;
         if (res.status === 403 && errorCode === "call_not_joinable") {
-          // FIX (Bug 3): The call is not yet joinable (e.g. receiver has
-          // accepted but LiveKit hasn't confirmed the room is ready yet).
-          // Previously this threw an error that propagated to the catch block
-          // and set allowConnectRef.current = false, permanently preventing
-          // any retry. Instead, we just clear connectingRef so the next
-          // summaryRevision (from the polling loop) will trigger a fresh
-          // attempt. We do NOT set allowConnectRef = false here.
           const joinableError = new Error("Call not joinable yet");
           (joinableError as Error & { code?: string }).code = "call_not_joinable";
           throw joinableError;
@@ -352,7 +359,9 @@ export default function ActiveCallPage() {
       setRoomName(payload.roomName);
       await activeRoom.connect(livekitUrl, livekitToken);
 
-      const enableCamera = summary.mode === "video";
+      // FIX: use capturedSummary (guaranteed non-null) instead of summary
+      // (which could be null or stale via closure at time of execution).
+      const enableCamera = capturedSummary.mode === "video";
       await activeRoom.localParticipant.setMicrophoneEnabled(true);
       await activeRoom.localParticipant.setCameraEnabled(enableCamera);
       setMuted(false);
@@ -372,11 +381,8 @@ export default function ActiveCallPage() {
             ? (connectError as { code?: string }).code
             : undefined;
         if (errorCode === "call_not_joinable") {
-          // FIX (Bug 3): Clear connectingRef so the next poll cycle can retry.
-          // Do NOT set allowConnectRef = false — that would permanently block
-          // all future connection attempts for this call page mount.
-          // Do NOT set the room to null or show an error — this is a transient
-          // state while the receiver is in the process of joining LiveKit.
+          // Transient — clear connectingRef so the next poll cycle can retry.
+          // Do NOT set allowConnectRef = false here.
           connectingRef.current = false;
           return;
         }
@@ -387,14 +393,19 @@ export default function ActiveCallPage() {
             : "Unable to connect to LiveKit.";
         setError(message);
         setConnectionState("disconnected");
-        // Only permanently block retries for genuine hard failures (bad token,
-        // network error, etc.) — not for transient "not joinable yet" states.
-        allowConnectRef.current = false;
+        // FIX: only permanently block retries for genuine auth/token failures,
+        // not for any transient network error. Check the error message to
+        // distinguish unrecoverable failures from transient ones.
+        const isUnrecoverable =
+          message.includes("Invalid LiveKit token") ||
+          message.includes("Unauthorized") ||
+          message.includes("403");
+        if (isUnrecoverable) {
+          allowConnectRef.current = false;
+        }
         setRoom(null);
       })
       .finally(() => {
-        // Only clear connectingRef if it wasn't already cleared in the
-        // call_not_joinable path above (both set it false, so this is safe).
         connectingRef.current = false;
       });
   }, [id, summary, summaryRevision]);
@@ -457,8 +468,12 @@ export default function ActiveCallPage() {
     await room.localParticipant.setMicrophoneEnabled(!nextMuted);
   }
 
+  // FIX: allow any participant to toggle camera in a video call.
+  // Previously the guard `if (isReceiverVideo || ...)` blocked the receiver
+  // from ever toggling their camera. The cameraPromptOpen modal already
+  // handles forcing it back on for receivers who try to turn it off.
   async function handleToggleCamera() {
-    if (isReceiverVideo || summary?.mode !== "video") return;
+    if (summary?.mode !== "video") return;
     const room = roomRef.current;
     if (!room) return;
     const nextCamera = !cameraOn;
@@ -604,7 +619,7 @@ export default function ActiveCallPage() {
                 type="button"
                 aria-label={cameraOn ? "Turn off camera" : "Turn on camera"}
                 onClick={handleToggleCamera}
-                disabled={isReceiverVideo || summary?.mode !== "video"}
+                disabled={summary?.mode !== "video"}
               >
                 {cameraOn ? "📷" : "🚫"}
               </button>

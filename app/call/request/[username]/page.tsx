@@ -126,6 +126,7 @@ export default function CallRequestPage() {
   useEffect(() => {
     if (!requestId || !client) return;
     const channel = client.channels.get(`call:${requestId}`);
+
     const handleAccepted = () => {
       setRequestState("accepted");
       router.push(`/call/${requestId}`);
@@ -134,11 +135,24 @@ export default function CallRequestPage() {
       setRequestState("declined");
       router.replace(`/call/${requestId}/receipt`);
     };
+    // FIX: also subscribe to call_connected as a fallback. If the
+    // call_accepted Ably message was missed (brief disconnect, network blip),
+    // call_connected (published by the LiveKit webhook when both participants
+    // actually join) ensures the caller still gets redirected.
+    const handleConnected = () => {
+      if (didRedirectRef.current) return;
+      setRequestState("accepted");
+      router.push(`/call/${requestId}`);
+    };
+
     channel.subscribe("call_accepted", handleAccepted);
     channel.subscribe("call_declined", handleDeclined);
+    channel.subscribe("call_connected", handleConnected);
+
     return () => {
       channel.unsubscribe("call_accepted", handleAccepted);
       channel.unsubscribe("call_declined", handleDeclined);
+      channel.unsubscribe("call_connected", handleConnected);
     };
   }, [client, requestId, router]);
 

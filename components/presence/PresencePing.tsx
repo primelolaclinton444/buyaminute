@@ -24,9 +24,21 @@ export default function PresencePing() {
       void ping();
     }, PRESENCE_PING_INTERVAL_MS);
 
+    // FIX: browsers throttle setInterval on background/hidden tabs to 1+ minute
+    // intervals. During a long call where the receiver's tab is backgrounded,
+    // lastSeenAt can drift past the 5-minute presence window, making them appear
+    // offline. Re-ping immediately whenever the tab becomes visible again.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible" && isMounted) {
+        void ping();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       isMounted = false;
       window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [status, session?.user?.id]);
 

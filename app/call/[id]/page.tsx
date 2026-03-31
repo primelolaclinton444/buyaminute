@@ -59,9 +59,6 @@ function ParticipantMedia({
     () => ({ video: [], audio: [] })
   );
 
-  // FIX: define updateTracks inside the effect so the same function reference
-  // is used for both on() and off() — previously a new arrow was created each
-  // render, causing participant.off() to silently no-op and leak listeners.
   useEffect(() => {
     const updateTracks = () => {
       const video: Track[] = [];
@@ -80,12 +77,17 @@ function ParticipantMedia({
 
     updateTracks();
 
+    // Remote participant track events
     participant.on(ParticipantEvent.TrackPublished, updateTracks);
     participant.on(ParticipantEvent.TrackUnpublished, updateTracks);
     participant.on(ParticipantEvent.TrackSubscribed, updateTracks);
     participant.on(ParticipantEvent.TrackUnsubscribed, updateTracks);
     participant.on(ParticipantEvent.TrackMuted, updateTracks);
     participant.on(ParticipantEvent.TrackUnmuted, updateTracks);
+    // Local participant track events — these fire after
+    // localParticipant.setCameraEnabled(true) resolves
+    participant.on(ParticipantEvent.LocalTrackPublished, updateTracks);
+    participant.on(ParticipantEvent.LocalTrackUnpublished, updateTracks);
 
     return () => {
       participant.off(ParticipantEvent.TrackPublished, updateTracks);
@@ -94,13 +96,11 @@ function ParticipantMedia({
       participant.off(ParticipantEvent.TrackUnsubscribed, updateTracks);
       participant.off(ParticipantEvent.TrackMuted, updateTracks);
       participant.off(ParticipantEvent.TrackUnmuted, updateTracks);
+      participant.off(ParticipantEvent.LocalTrackPublished, updateTracks);
+      participant.off(ParticipantEvent.LocalTrackUnpublished, updateTracks);
     };
   }, [participant]);
 
-  // FIX: depend on the Track object itself (tracks.video[0]), not the array.
-  // Previously tracks.video was a new array reference every render, causing
-  // the effect to run cleanup (detach) then immediately re-attach on every
-  // state update — a race that left the video element without a source.
   const videoTrack = tracks.video[0] ?? null;
   const audioTrack = tracks.audio[0] ?? null;
 
@@ -110,7 +110,9 @@ function ParticipantMedia({
     if (!track || !element) return;
     track.attach(element);
     return () => {
-      track.detach(element);
+      try {
+        track.detach(element);
+      } catch {}
     };
   }, [videoTrack]);
 
@@ -121,7 +123,9 @@ function ParticipantMedia({
     if (!track || !element) return;
     track.attach(element);
     return () => {
-      track.detach(element);
+      try {
+        track.detach(element);
+      } catch {}
     };
   }, [isLocal, audioTrack]);
 
@@ -223,8 +227,6 @@ export default function ActiveCallPage() {
     loadCall();
   }, [id, pathname, router]);
 
-  // FIX: isReceiverVideo is only used for the camera-prompt enforcement,
-  // not for blocking the toggle button entirely.
   const isReceiverVideo =
     summary?.mode === "video" && summary?.viewerRole === "receiver";
 
@@ -314,10 +316,6 @@ export default function ActiveCallPage() {
       setRoom(activeRoom);
     }
 
-    // FIX: capture summary in a local variable here so it's guaranteed
-    // non-null inside connectToRoom. Previously summary could be null when
-    // connectToRoom ran, making enableCamera always false and never publishing
-    // the video track to the LiveKit room.
     const capturedSummary = summary;
 
     const connectToRoom = async () => {
@@ -359,8 +357,6 @@ export default function ActiveCallPage() {
       setRoomName(payload.roomName);
       await activeRoom.connect(livekitUrl, livekitToken);
 
-      // FIX: use capturedSummary (guaranteed non-null) instead of summary
-      // (which could be null or stale via closure at time of execution).
       const enableCamera = capturedSummary.mode === "video";
       await activeRoom.localParticipant.setMicrophoneEnabled(true);
       await activeRoom.localParticipant.setCameraEnabled(enableCamera);
@@ -381,8 +377,6 @@ export default function ActiveCallPage() {
             ? (connectError as { code?: string }).code
             : undefined;
         if (errorCode === "call_not_joinable") {
-          // Transient — clear connectingRef so the next poll cycle can retry.
-          // Do NOT set allowConnectRef = false here.
           connectingRef.current = false;
           return;
         }
@@ -393,9 +387,6 @@ export default function ActiveCallPage() {
             : "Unable to connect to LiveKit.";
         setError(message);
         setConnectionState("disconnected");
-        // FIX: only permanently block retries for genuine auth/token failures,
-        // not for any transient network error. Check the error message to
-        // distinguish unrecoverable failures from transient ones.
         const isUnrecoverable =
           message.includes("Invalid LiveKit token") ||
           message.includes("Unauthorized") ||
@@ -468,10 +459,6 @@ export default function ActiveCallPage() {
     await room.localParticipant.setMicrophoneEnabled(!nextMuted);
   }
 
-  // FIX: allow any participant to toggle camera in a video call.
-  // Previously the guard `if (isReceiverVideo || ...)` blocked the receiver
-  // from ever toggling their camera. The cameraPromptOpen modal already
-  // handles forcing it back on for receivers who try to turn it off.
   async function handleToggleCamera() {
     if (summary?.mode !== "video") return;
     const room = roomRef.current;

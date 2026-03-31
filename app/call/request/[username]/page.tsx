@@ -5,6 +5,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import styles from "../../call.module.css";
+import { CALL_REQUEST_WINDOW_MS } from "@/lib/constants";
 
 const modeOptions = [
   { id: "voice", label: "Voice" },
@@ -42,7 +43,7 @@ export default function CallRequestPage() {
   const [mode, setMode] = useState<Mode>("voice");
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestId, setRequestId] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState<number>(20);
+  const [secondsLeft, setSecondsLeft] = useState<number>(Math.floor(CALL_REQUEST_WINDOW_MS / 1000));
   const [loading, setLoading] = useState(false);
   const [intendedMinutes, setIntendedMinutes] = useState<number>(5);
   const [profileRate, setProfileRate] = useState<number | null>(null);
@@ -280,7 +281,7 @@ export default function CallRequestPage() {
       }
       setRequestId(payload.requestId ?? null);
       setRequestState(payload.status ?? "pending");
-      setSecondsLeft(20);
+      setSecondsLeft(Math.floor(CALL_REQUEST_WINDOW_MS / 1000));
     } catch {
       setOfflineReason(null);
       setRequestState("timeout");

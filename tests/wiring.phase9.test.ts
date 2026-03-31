@@ -1,13 +1,15 @@
 // ================================
 // BuyAMinute — Phase 9 Wiring Verification
 // ================================
+// NOTE: Updated to use correct LiveKit v2 event names:
+//   "participant_joined"  (was "participant_connected")
+//   "participant_left"    (was "participant_disconnected")
 
 import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
 import { appendLedgerEntry, getWalletBalance } from "../lib/ledger";
 import { randomUUID } from "crypto";
 
-// Import the LiveKit webhook handler directly
 import { POST as livekitWebhookPOST } from "../app/api/livekit/webhook/route";
 
 const prisma = new PrismaClient();
@@ -104,35 +106,31 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
 
     const call = await createCallFixture(callerId, receiverId);
 
-    // Simulate caller connected
+    // participant_joined (correct LiveKit v2 event name)
     let res = await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: call.id,
-        participantRole: "caller",
+        event: "participant_joined",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "caller:test" },
       })
     );
     expect(res.status).toBe(200);
 
-    // Simulate receiver connected → should set bothConnectedAt + previewApplied + consume preview
     res = await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: call.id,
-        participantRole: "receiver",
+        event: "participant_joined",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "receiver:test" },
       })
     );
     expect(res.status).toBe(200);
 
-    // Verify bothConnectedAt set
     const afterConnect = await prisma.call.findUnique({
       where: { id: call.id },
       include: { participants: true },
     });
 
     expect(afterConnect?.participants?.bothConnectedAt).toBeTruthy();
-
-    // For first-time pair, previewApplied must be true
     expect(afterConnect?.previewApplied).toBe(true);
 
     const previewLock = await prisma.callerReceiverPreviewLock.findUnique({
@@ -140,31 +138,29 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
     });
     expect(previewLock).toBeTruthy();
 
-    // To make settlement deterministic, force bothConnectedAt to 31s ago
+    // Backdate bothConnectedAt to 31s ago for deterministic billing
     await prisma.callParticipant.update({
       where: { callId: call.id },
       data: { bothConnectedAt: new Date(Date.now() - 31_000) },
     });
 
-    // Disconnect event ends call and triggers settlement
+    // participant_left triggers settlement
     res = await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_disconnected",
-        callId: call.id,
-        participantRole: "caller",
+        event: "participant_left",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "caller:test" },
       })
     );
     expect(res.status).toBe(200);
 
-    // Call should be ended
     const ended = await prisma.call.findUnique({
       where: { id: call.id },
     });
     expect(ended?.status).toBe("ended");
     expect(ended?.endedAt).toBeTruthy();
 
-    // With 31s overlap and previewApplied=true, billable=1s
-    // rate=10 tokens/sec → receiver earns 10 tokens
+    // 31s overlap, preview=30s → billable=1s, rate=10 → receiver earns 10 tokens
     const receiverBalance = await getWalletBalance(receiverId);
     expect(receiverBalance).toBe(10);
 
@@ -174,35 +170,28 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
         source: "call_billing",
       },
     });
-    expect(callLedger.filter((entry) => entry.type === "debit")).toHaveLength(
-      1
-    );
-    expect(callLedger.filter((entry) => entry.type === "credit")).toHaveLength(
-      1
-    );
+    expect(callLedger.filter((entry) => entry.type === "debit")).toHaveLength(1);
+    expect(callLedger.filter((entry) => entry.type === "credit")).toHaveLength(1);
   });
 
   it("skips preview on repeat pair and ignores duplicate connect/disconnect events", async () => {
     await seedBalancesForCall(duplicateCallerId, duplicateReceiverId);
 
-    const call = await createCallFixture(
-      duplicateCallerId,
-      duplicateReceiverId
-    );
+    const call = await createCallFixture(duplicateCallerId, duplicateReceiverId);
 
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: call.id,
-        participantRole: "caller",
+        event: "participant_joined",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "caller:test" },
       })
     );
 
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: call.id,
-        participantRole: "receiver",
+        event: "participant_joined",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "receiver:test" },
       })
     );
 
@@ -218,11 +207,12 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
       data: { bothConnectedAt: new Date(Date.now() - 31_000) },
     });
 
+    // Duplicate join events — should be harmless
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: call.id,
-        participantRole: "receiver",
+        event: "participant_joined",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "receiver:test" },
       })
     );
 
@@ -233,17 +223,18 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
 
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_disconnected",
-        callId: call.id,
-        participantRole: "caller",
+        event: "participant_left",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "caller:test" },
       })
     );
 
+    // Duplicate left — should be idempotent
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_disconnected",
-        callId: call.id,
-        participantRole: "caller",
+        event: "participant_left",
+        room: { name: `call_${call.id}` },
+        participant: { identity: "caller:test" },
       })
     );
 
@@ -278,16 +269,16 @@ describe("Phase 9 — Wiring verification (LiveKit → Preview → End → Settl
 
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: followUpCall.id,
-        participantRole: "caller",
+        event: "participant_joined",
+        room: { name: `call_${followUpCall.id}` },
+        participant: { identity: "caller:test" },
       })
     );
     await livekitWebhookPOST(
       makeWebhookReq({
-        event: "participant_connected",
-        callId: followUpCall.id,
-        participantRole: "receiver",
+        event: "participant_joined",
+        room: { name: `call_${followUpCall.id}` },
+        participant: { identity: "receiver:test" },
       })
     );
 

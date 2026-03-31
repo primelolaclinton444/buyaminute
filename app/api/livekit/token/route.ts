@@ -61,9 +61,9 @@ export async function GET(req: Request) {
   }
 
   // Join policy:
-  // - Receiver may join during "ringing" (to pick up / connect).
-  // - Caller may join during "ringing" so they can connect immediately after acceptance,
-  //   and stay connected through "connected".
+  // - Both parties may join during "ringing" (receiver needs to join to accept,
+  //   caller needs to join so they're ready when accepted).
+  // - Both parties may join during "connected" (the live call state).
   const joinableStatuses = new Set(["ringing", "connected"]);
   if (!joinableStatuses.has(call.status)) {
     return jsonError(
@@ -75,10 +75,20 @@ export async function GET(req: Request) {
   }
 
   const roomName = `call_${callId}`;
-
   const role = isCaller ? "caller" : "receiver";
+
+  /**
+   * Identity format: "caller:<userId>" or "receiver:<userId>"
+   *
+   * IMPORTANT: the webhook handler's normalizePayload extracts the role from
+   * the identity string using startsWith("caller") / startsWith("receiver").
+   * This identity format is load-bearing — do not change it without updating
+   * the webhook handler's identity parsing logic.
+   */
+  const identity = `${role}:${auth.user.id}`;
+
   const token = new AccessToken(livekit.apiKey, livekit.apiSecret, {
-    identity: `${role}:${auth.user.id}`,
+    identity,
     name: auth.user.name ?? auth.user.email ?? auth.user.id,
   });
 

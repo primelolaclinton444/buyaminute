@@ -11,10 +11,24 @@ export const USDT_ATOMIC_MULTIPLIER = 10 ** USDT_DECIMALS;
 // Call preview rules
 export const PREVIEW_SECONDS = 30;
 export const PREVIEW_LOCK_HOURS = 24;
-export const CALL_REQUEST_WINDOW_MS = 20_000;
-const ringTimeoutRaw = Number(process.env.RING_TIMEOUT_SECONDS ?? "45");
+
+/**
+ * How long the caller's ring request stays open before auto-expiring.
+ *
+ * Originally 20 seconds — far too short. On mobile, a push notification
+ * can take 5-10 seconds to arrive, and then the receiver still needs to
+ * unlock their phone and tap Accept. 90 seconds is a reasonable window
+ * that matches industry norms (WhatsApp, FaceTime use 90-120s).
+ *
+ * Raise RING_TIMEOUT_SECONDS in tandem — it must always be > this value
+ * divided by 1000 so that a call that expires here also gets a
+ * connect_timeout refund path if the room never connects.
+ */
+export const CALL_REQUEST_WINDOW_MS = 90_000; // 90 seconds
+
+const ringTimeoutRaw = Number(process.env.RING_TIMEOUT_SECONDS ?? "120");
 export const RING_TIMEOUT_SECONDS =
-  Number.isFinite(ringTimeoutRaw) && ringTimeoutRaw > 0 ? ringTimeoutRaw : 45;
+  Number.isFinite(ringTimeoutRaw) && ringTimeoutRaw > 0 ? ringTimeoutRaw : 120;
 
 // Call eligibility
 export const MIN_CALL_BALANCE_SECONDS = 60; // caller must afford at least 1 minute

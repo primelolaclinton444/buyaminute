@@ -13,6 +13,8 @@ import {
 import AuthGuard from "@/components/auth/AuthGuard";
 import styles from "../call.module.css";
 
+const PREVIEW_SECONDS = 30;
+
 type ConnectionStateLabel =
   | "connecting"
   | "connected"
@@ -77,14 +79,12 @@ function ParticipantMedia({
 
     updateTracks();
 
-    // Remote participant track events
     participant.on(ParticipantEvent.TrackPublished, updateTracks);
     participant.on(ParticipantEvent.TrackUnpublished, updateTracks);
     participant.on(ParticipantEvent.TrackSubscribed, updateTracks);
     participant.on(ParticipantEvent.TrackUnsubscribed, updateTracks);
     participant.on(ParticipantEvent.TrackMuted, updateTracks);
     participant.on(ParticipantEvent.TrackUnmuted, updateTracks);
-    // Local participant track events — fire after setCameraEnabled(true) resolves
     participant.on(ParticipantEvent.LocalTrackPublished, updateTracks);
     participant.on(ParticipantEvent.LocalTrackUnpublished, updateTracks);
 
@@ -265,9 +265,6 @@ export default function ActiveCallPage() {
   useEffect(() => {
     if (!room) return;
 
-    // Snapshot all current remote participants — covers the case where the
-    // other side joined the LiveKit room before this effect ran (i.e. the
-    // ParticipantConnected event fired before we subscribed to it).
     const updateParticipants = () => {
       setRemoteParticipants(Array.from(room.remoteParticipants.values()));
     };
@@ -279,13 +276,9 @@ export default function ActiveCallPage() {
     room.on(RoomEvent.ConnectionStateChanged, handleConnectionState);
     room.on(RoomEvent.ParticipantConnected, updateParticipants);
     room.on(RoomEvent.ParticipantDisconnected, updateParticipants);
-    // TrackSubscribed fires when a remote participant's track becomes
-    // available. Listening at the room level catches tracks that arrive
-    // after connect() resolves but before ParticipantConnected was wired up.
     room.on(RoomEvent.TrackSubscribed, updateParticipants);
     room.on(RoomEvent.TrackUnsubscribed, updateParticipants);
 
-    // Run immediately to pick up anyone already in the room.
     updateParticipants();
 
     return () => {
@@ -367,8 +360,7 @@ export default function ActiveCallPage() {
       setRoomName(payload.roomName);
       await activeRoom.connect(livekitUrl, livekitToken);
 
-      // After connect resolves, immediately snapshot remote participants —
-      // the other side may have already joined during the connect() handshake.
+      // Immediately snapshot anyone already in the room when we connect.
       setRemoteParticipants(Array.from(activeRoom.remoteParticipants.values()));
 
       const enableCamera = capturedSummary.mode === "video";
@@ -452,6 +444,16 @@ export default function ActiveCallPage() {
     const seconds = (secondsElapsed % 60).toString().padStart(2, "0");
     return `${minutes}:${seconds}`;
   }, [secondsElapsed]);
+
+  // Compute preview status based on actual elapsed connected time.
+  const previewStatus = useMemo(() => {
+    if (connectionState !== "connected") return "Waiting to connect…";
+    const remaining = Math.max(0, PREVIEW_SECONDS - secondsElapsed);
+    if (remaining > 0) {
+      return `Free preview: ${remaining}s remaining`;
+    }
+    return "Billing active";
+  }, [connectionState, secondsElapsed]);
 
   const counterparty = summary
     ? summary.viewerRole === "caller"
@@ -545,9 +547,16 @@ export default function ActiveCallPage() {
                 <strong>Live timer</strong>
                 <span className={styles.timer}>{formattedTime}</span>
               </div>
-              <div className={styles.status} data-tone="success">
+              <div
+                className={styles.status}
+                data-tone={
+                  connectionState === "connected" && secondsElapsed >= PREVIEW_SECONDS
+                    ? "warning"
+                    : "success"
+                }
+              >
                 <strong>Preview status</strong>
-                <span>30s free preview remaining</span>
+                <span>{previewStatus}</span>
               </div>
               <div className={styles.status} data-tone="warning">
                 <strong>LiveKit room</strong>

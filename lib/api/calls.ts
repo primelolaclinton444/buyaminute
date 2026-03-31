@@ -689,7 +689,7 @@ export async function getCallState({
       });
       await settleEndedCall(call.id);
       outcomeCode = "expired_refunded";
-    } else if (!call.participants?.bothConnectedAt && now > ringTimeoutMs) {
+    } else if (call.status === "ringing" && !call.participants?.bothConnectedAt && now > ringTimeoutMs) {
       updatedCall = await prisma.call.update({
         where: { id: call.id },
         data: {

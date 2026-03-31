@@ -84,8 +84,7 @@ function ParticipantMedia({
     participant.on(ParticipantEvent.TrackUnsubscribed, updateTracks);
     participant.on(ParticipantEvent.TrackMuted, updateTracks);
     participant.on(ParticipantEvent.TrackUnmuted, updateTracks);
-    // Local participant track events — these fire after
-    // localParticipant.setCameraEnabled(true) resolves
+    // Local participant track events — fire after setCameraEnabled(true) resolves
     participant.on(ParticipantEvent.LocalTrackPublished, updateTracks);
     participant.on(ParticipantEvent.LocalTrackUnpublished, updateTracks);
 
@@ -266,6 +265,9 @@ export default function ActiveCallPage() {
   useEffect(() => {
     if (!room) return;
 
+    // Snapshot all current remote participants — covers the case where the
+    // other side joined the LiveKit room before this effect ran (i.e. the
+    // ParticipantConnected event fired before we subscribed to it).
     const updateParticipants = () => {
       setRemoteParticipants(Array.from(room.remoteParticipants.values()));
     };
@@ -277,13 +279,21 @@ export default function ActiveCallPage() {
     room.on(RoomEvent.ConnectionStateChanged, handleConnectionState);
     room.on(RoomEvent.ParticipantConnected, updateParticipants);
     room.on(RoomEvent.ParticipantDisconnected, updateParticipants);
+    // TrackSubscribed fires when a remote participant's track becomes
+    // available. Listening at the room level catches tracks that arrive
+    // after connect() resolves but before ParticipantConnected was wired up.
+    room.on(RoomEvent.TrackSubscribed, updateParticipants);
+    room.on(RoomEvent.TrackUnsubscribed, updateParticipants);
 
+    // Run immediately to pick up anyone already in the room.
     updateParticipants();
 
     return () => {
       room.off(RoomEvent.ConnectionStateChanged, handleConnectionState);
       room.off(RoomEvent.ParticipantConnected, updateParticipants);
       room.off(RoomEvent.ParticipantDisconnected, updateParticipants);
+      room.off(RoomEvent.TrackSubscribed, updateParticipants);
+      room.off(RoomEvent.TrackUnsubscribed, updateParticipants);
       room.localParticipant.trackPublications.forEach((publication) => {
         publication.track?.stop();
       });
@@ -356,6 +366,10 @@ export default function ActiveCallPage() {
 
       setRoomName(payload.roomName);
       await activeRoom.connect(livekitUrl, livekitToken);
+
+      // After connect resolves, immediately snapshot remote participants —
+      // the other side may have already joined during the connect() handshake.
+      setRemoteParticipants(Array.from(activeRoom.remoteParticipants.values()));
 
       const enableCamera = capturedSummary.mode === "video";
       await activeRoom.localParticipant.setMicrophoneEnabled(true);

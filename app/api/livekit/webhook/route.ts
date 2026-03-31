@@ -10,29 +10,68 @@ import { ablyRest } from "@/lib/ably/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function normalizeCallId(value: unknown) {
+/**
+ * LiveKit webhook event names (livekit-server-sdk v2 / @livekit/protocol).
+ *
+ * The SDK's WebhookReceiver.receive() decodes the protobuf and returns an
+ * object whose `.event` field is one of these strings. The old code was
+ * checking for "participant_connected" / "participant_disconnected" which
+ * do NOT exist — causing every event to fall through as "unknown" and
+ * leaving calls stuck in "ringing" forever.
+ *
+ * Correct event names:
+ *   "participant_joined"  — fired when a participant joins the room
+ *   "participant_left"    — fired when a participant leaves the room
+ *   "room_started"        — room created
+ *   "room_finished"       — room destroyed (all participants gone)
+ */
+const PARTICIPANT_JOINED = "participant_joined";
+const PARTICIPANT_LEFT = "participant_left";
+
+function normalizeCallId(value: unknown): string | null {
   if (typeof value !== "string") return null;
+  // LiveKit room names are "call_<id>" — strip the prefix to get the DB id.
+  // But only strip it when it's actually there; plain cuid() ids pass through.
   if (value.startsWith("call_")) return value.slice("call_".length);
   return value;
 }
 
-function normalizePayload(payload: any) {
-  const eventName =
+/**
+ * Extract the fields we care about from whatever shape LiveKit sends.
+ *
+ * LiveKit v2 SDK decodes to an object like:
+ *   { event: "participant_joined", room: { name: "call_<id>", ... },
+ *     participant: { identity: "caller:<userId>", ... } }
+ *
+ * The old normalizePayload also checked payload?.callId / payload?.participantRole
+ * as fallbacks for direct-JSON test payloads (used in tests). We keep those.
+ */
+function normalizePayload(payload: any): {
+  eventName: string;
+  callId: string | null;
+  participantRole: string;
+} {
+  // Primary: real LiveKit SDK payload
+  const eventName: string =
     payload?.event ??
     payload?.name ??
     "unknown";
 
-  const callId = normalizeCallId(
+  // Room name is in payload.room.name for real webhooks
+  const rawCallId: unknown =
+    payload?.room?.name ??
     payload?.callId ??
-      payload?.room?.name ??
-      null
-  );
+    null;
 
-  const participantRole =
+  const callId = normalizeCallId(rawCallId);
+
+  // Identity is "caller:<userId>" or "receiver:<userId>"
+  const identity: string = payload?.participant?.identity ?? "";
+  const participantRole: string =
     payload?.participantRole ??
-    (payload?.participant?.identity?.includes("caller")
+    (identity.startsWith("caller")
       ? "caller"
-      : payload?.participant?.identity?.includes("receiver")
+      : identity.startsWith("receiver")
       ? "receiver"
       : "unknown");
 
@@ -48,11 +87,15 @@ async function publishCallEvent(
     const channel = ablyRest.channels.get(channelName);
     await channel.publish(eventName, data);
   } catch (error) {
-    console.error(`Failed to publish Ably event ${eventName}`, error);
+    console.error(`Failed to publish Ably event ${eventName} on ${channelName}`, error);
   }
 }
 
-async function hasSettledLedgerEntries(callId: string, callerId: string, receiverId: string) {
+async function hasSettledLedgerEntries(
+  callId: string,
+  callerId: string,
+  receiverId: string
+) {
   const settled = await prisma.ledgerEntry.findFirst({
     where: {
       callId,
@@ -68,11 +111,19 @@ async function hasSettledLedgerEntries(callId: string, callerId: string, receive
     },
     select: { id: true },
   });
-
   return Boolean(settled);
 }
 
-async function handleParticipantConnected(callId: string, participantRole: string) {
+/**
+ * Handle participant_joined.
+ *
+ * When BOTH caller and receiver have joined, we:
+ *   1. Set bothConnectedAt on CallParticipant
+ *   2. Determine whether the free preview applies (first call between this pair)
+ *   3. Mark the call as "connected"
+ *   4. Publish call_connected via Ably
+ */
+async function handleParticipantJoined(callId: string, participantRole: string) {
   const now = new Date();
 
   const call = await prisma.call.findUnique({
@@ -82,6 +133,7 @@ async function handleParticipantConnected(callId: string, participantRole: strin
 
   if (!call || call.status === "ended") return;
 
+  // Guard: don't re-process if billing already settled (idempotency)
   const alreadySettled = await hasSettledLedgerEntries(
     callId,
     call.callerId,
@@ -89,6 +141,7 @@ async function handleParticipantConnected(callId: string, participantRole: strin
   );
   if (alreadySettled) return;
 
+  // Ensure CallParticipant row exists
   let participants = call.participants;
   if (!participants) {
     participants = await prisma.callParticipant.create({
@@ -96,21 +149,19 @@ async function handleParticipantConnected(callId: string, participantRole: strin
     });
   }
 
+  // Record which side connected
   const updatePayload: {
     callerConnectedAt?: Date;
     receiverConnectedAt?: Date;
   } = {};
 
-  if (participantRole === "caller") {
-    if (!participants.callerConnectedAt) {
-      updatePayload.callerConnectedAt = now;
-    }
-  } else if (participantRole === "receiver") {
-    if (!participants.receiverConnectedAt) {
-      updatePayload.receiverConnectedAt = now;
-    }
+  if (participantRole === "caller" && !participants.callerConnectedAt) {
+    updatePayload.callerConnectedAt = now;
+  } else if (participantRole === "receiver" && !participants.receiverConnectedAt) {
+    updatePayload.receiverConnectedAt = now;
   } else {
-    return;
+    // Unknown role or already recorded — nothing to do for this side
+    // but we still need to check if both are now connected
   }
 
   if (Object.keys(updatePayload).length > 0) {
@@ -120,35 +171,40 @@ async function handleParticipantConnected(callId: string, participantRole: strin
     });
   }
 
-  const updated = participants;
+  // Re-fetch to get latest state after our update
+  const latestParticipants = await prisma.callParticipant.findUnique({
+    where: { callId },
+  });
 
-  if (
-    updated?.callerConnectedAt &&
-    updated?.receiverConnectedAt &&
-    !updated?.bothConnectedAt
-  ) {
-    await prisma.callParticipant.update({
-      where: { callId },
-      data: { bothConnectedAt: now },
-    });
+  const bothConnected =
+    latestParticipants?.callerConnectedAt &&
+    latestParticipants?.receiverConnectedAt &&
+    !latestParticipants?.bothConnectedAt;
 
+  if (bothConnected) {
+    // Determine preview eligibility
     const hasLock = await hasActivePreviewLock({
       callerId: call.callerId,
       receiverId: call.receiverId,
     });
-
     const previewApplied = !hasLock;
 
-    if (call.status !== "connected" || call.previewApplied !== previewApplied) {
-      await prisma.call.update({
+    // Set bothConnectedAt and update call status + previewApplied atomically
+    await prisma.$transaction([
+      prisma.callParticipant.update({
+        where: { callId },
+        data: { bothConnectedAt: now },
+      }),
+      prisma.call.update({
         where: { id: callId },
         data: {
           status: "connected",
           previewApplied,
         },
-      });
-    }
+      }),
+    ]);
 
+    // Consume preview lock so the next call between this pair is billed from second 1
     if (previewApplied) {
       await consumePreview({
         callerId: call.callerId,
@@ -156,12 +212,13 @@ async function handleParticipantConnected(callId: string, participantRole: strin
       });
     }
 
-    // Always publish call_connected when both parties are first confirmed
-    // connected — regardless of what status was set before this webhook fired.
+    // Notify both parties via Ably
     void publishCallEvent(`call:${callId}`, "call_connected", { callId });
     void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
     void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
   } else if (call.status !== "connected") {
+    // Only one side connected so far — still mark as connected so the token
+    // endpoint allows the other side to join
     await prisma.call.update({
       where: { id: callId },
       data: { status: "connected" },
@@ -173,7 +230,12 @@ async function handleParticipantConnected(callId: string, participantRole: strin
   }
 }
 
-async function handleParticipantDisconnected(callId: string) {
+/**
+ * Handle participant_left / room_finished.
+ *
+ * Any departure ends the call and triggers settlement.
+ */
+async function handleParticipantLeft(callId: string) {
   const call = await prisma.call.findUnique({
     where: { id: callId },
   });
@@ -186,19 +248,14 @@ async function handleParticipantDisconnected(callId: string) {
     call.receiverId
   );
 
-  const updated = await prisma.call.update({
+  await prisma.call.update({
     where: { id: callId },
     data: { status: "ended", endedAt: new Date() },
   });
 
-  if (alreadySettled) {
-    void publishCallEvent(`call:${callId}`, "call_ended", { callId });
-    void publishCallEvent(`user:${call.callerId}`, "call_ended", { callId });
-    void publishCallEvent(`user:${call.receiverId}`, "call_ended", { callId });
-    return;
+  if (!alreadySettled) {
+    await settleEndedCall(callId);
   }
-
-  await settleEndedCall(updated.id);
 
   void publishCallEvent(`call:${callId}`, "call_ended", { callId });
   void publishCallEvent(`user:${call.callerId}`, "call_ended", { callId });
@@ -216,6 +273,7 @@ export async function POST(req: Request) {
     if (apiKey && apiSecret) {
       const receiver = new WebhookReceiver(apiKey, apiSecret);
 
+      // LiveKit sends the signature in the Authorization header
       const auth =
         req.headers.get("authorization") ||
         req.headers.get("x-livekit-signature") ||
@@ -226,8 +284,10 @@ export async function POST(req: Request) {
         return jsonError("Missing signature", 401, "missing_signature");
       }
 
+      // receiver.receive() validates the signature AND decodes the protobuf
       payload = receiver.receive(rawBody, auth);
     } else {
+      // Dev/test path: no credentials configured, accept raw JSON
       payload = JSON.parse(rawBody);
     }
 
@@ -240,22 +300,16 @@ export async function POST(req: Request) {
     });
 
     if (!callId) {
-      return jsonError("Missing call id", 400, "missing_call_id");
+      // Events without a room (e.g. room_started before our call is created)
+      // are not errors — just ignore them.
+      return Response.json({ ok: true, skipped: true });
     }
 
-    // FIX (Bug 2): The original code used createHash("sha256").update(rawBody)
-    // as the fallback event ID. This is dangerous: two distinct events (e.g.
-    // caller_connected on call A and caller_connected on call B at the same
-    // rate, same timestamp) can produce the same JSON body and therefore the
-    // same hash, causing the second event to be silently dropped as a
-    // "duplicate". This breaks bothConnectedAt logic and prevents billing.
-    //
-    // Fix: use a composite key of (callId + eventName + participantRole) plus
-    // a random suffix to guarantee uniqueness while still being deterministic
-    // enough for idempotency within a single webhook delivery attempt.
-    // LiveKit may deliver the same webhook event multiple times (at-least-once
-    // delivery), so we still deduplicate on the LiveKit-provided event ID when
-    // it is present.
+    // Deduplicate: LiveKit guarantees at-least-once delivery.
+    // When we have a real LiveKit event ID use it; otherwise generate a
+    // random suffix so duplicate webhook re-deliveries of the same event
+    // don't get silently dropped (the old sha256-of-body approach caused
+    // two distinct events with the same body to collide).
     const livekitEventId =
       payload?.event?.id ??
       payload?.eventId ??
@@ -276,20 +330,30 @@ export async function POST(req: Request) {
         },
       });
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
-        // Only truly deduplicate when we have a real LiveKit event ID — those
-        // are genuinely idempotent. The random-suffix path above never collides.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        // Only a genuine LiveKit event ID makes this idempotent; the
+        // random-suffix path above never collides.
         return Response.json({ ok: true, deduped: true });
       }
       throw err;
     }
 
-    if (eventName === "participant_connected") {
-      await handleParticipantConnected(callId, participantRole);
+    // Route by correct LiveKit v2 event names
+    if (eventName === PARTICIPANT_JOINED) {
+      await handleParticipantJoined(callId, participantRole);
     }
 
-    if (eventName === "participant_disconnected") {
-      await handleParticipantDisconnected(callId);
+    if (eventName === PARTICIPANT_LEFT) {
+      await handleParticipantLeft(callId);
+    }
+
+    // Also handle "room_finished" — fires when the last participant leaves;
+    // treats it the same as a participant departure.
+    if (eventName === "room_finished") {
+      await handleParticipantLeft(callId);
     }
 
     return Response.json({ ok: true });

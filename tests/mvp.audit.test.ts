@@ -1,6 +1,9 @@
 // ================================
 // BuyAMinute — MVP Audit Gap Tests
 // ================================
+// NOTE: Updated to use correct LiveKit v2 event names:
+//   "participant_joined"  (was "participant_connected")
+//   "participant_left"    (was "participant_disconnected")
 
 import { afterAll, beforeAll, describe, expect, it } from "./test-helpers";
 import { PrismaClient } from "@prisma/client";
@@ -99,25 +102,27 @@ async function seedUsers(callerId: string, receiverId: string, ratePerSecondToke
 }
 
 async function connectCall(callId: string) {
+  // Use correct LiveKit v2 event name: "participant_joined"
   const callerBody = JSON.stringify({
-    event: "participant_connected",
-    room: { name: callId },
-    participant: { identity: "caller" },
+    event: "participant_joined",
+    room: { name: `call_${callId}` },
+    participant: { identity: `caller:test` },
   });
   const receiverBody = JSON.stringify({
-    event: "participant_connected",
-    room: { name: callId },
-    participant: { identity: "receiver" },
+    event: "participant_joined",
+    room: { name: `call_${callId}` },
+    participant: { identity: `receiver:test` },
   });
   await livekitPOST(makeLivekitRequest(callerBody));
   await livekitPOST(makeLivekitRequest(receiverBody));
 }
 
 async function disconnectCall(callId: string) {
+  // Use correct LiveKit v2 event name: "participant_left"
   const body = JSON.stringify({
-    event: "participant_disconnected",
-    room: { name: callId },
-    participant: { identity: "caller" },
+    event: "participant_left",
+    room: { name: `call_${callId}` },
+    participant: { identity: `caller:test` },
   });
   await livekitPOST(makeLivekitRequest(body));
 }
@@ -328,15 +333,17 @@ describe("MVP audit gaps", () => {
     const createJson = (await createRes.json()) as { callId?: string };
     const callId = createJson.callId as string;
 
+    // Send duplicate join events — each has a unique random suffix so only
+    // the first for each role actually records data
     const callerBody = JSON.stringify({
-      event: "participant_connected",
-      room: { name: callId },
-      participant: { identity: "caller" },
+      event: "participant_joined",
+      room: { name: `call_${callId}` },
+      participant: { identity: "caller:test" },
     });
     const receiverBody = JSON.stringify({
-      event: "participant_connected",
-      room: { name: callId },
-      participant: { identity: "receiver" },
+      event: "participant_joined",
+      room: { name: `call_${callId}` },
+      participant: { identity: "receiver:test" },
     });
 
     await livekitPOST(makeLivekitRequest(callerBody));
@@ -347,9 +354,9 @@ describe("MVP audit gaps", () => {
     await setConnectedDuration(callId, 10);
 
     const disconnectBody = JSON.stringify({
-      event: "participant_disconnected",
-      room: { name: callId },
-      participant: { identity: "caller" },
+      event: "participant_left",
+      room: { name: `call_${callId}` },
+      participant: { identity: "caller:test" },
     });
     await livekitPOST(makeLivekitRequest(disconnectBody));
     await livekitPOST(makeLivekitRequest(disconnectBody));

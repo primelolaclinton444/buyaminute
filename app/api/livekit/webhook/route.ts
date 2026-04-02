@@ -12,52 +12,26 @@ export const runtime = "nodejs";
 
 /**
  * LiveKit webhook event names (livekit-server-sdk v2 / @livekit/protocol).
- *
- * The SDK's WebhookReceiver.receive() decodes the protobuf and returns an
- * object whose `.event` field is one of these strings. The old code was
- * checking for "participant_connected" / "participant_disconnected" which
- * do NOT exist — causing every event to fall through as "unknown" and
- * leaving calls stuck in "ringing" forever.
- *
- * Correct event names:
- *   "participant_joined"  — fired when a participant joins the room
- *   "participant_left"    — fired when a participant leaves the room
- *   "room_started"        — room created
- *   "room_finished"       — room destroyed (all participants gone)
  */
 const PARTICIPANT_JOINED = "participant_joined";
 const PARTICIPANT_LEFT = "participant_left";
 
 function normalizeCallId(value: unknown): string | null {
   if (typeof value !== "string") return null;
-  // LiveKit room names are "call_<id>" — strip the prefix to get the DB id.
-  // But only strip it when it's actually there; plain cuid() ids pass through.
   if (value.startsWith("call_")) return value.slice("call_".length);
   return value;
 }
 
-/**
- * Extract the fields we care about from whatever shape LiveKit sends.
- *
- * LiveKit v2 SDK decodes to an object like:
- *   { event: "participant_joined", room: { name: "call_<id>", ... },
- *     participant: { identity: "caller:<userId>", ... } }
- *
- * The old normalizePayload also checked payload?.callId / payload?.participantRole
- * as fallbacks for direct-JSON test payloads (used in tests). We keep those.
- */
 function normalizePayload(payload: any): {
   eventName: string;
   callId: string | null;
   participantRole: string;
 } {
-  // Primary: real LiveKit SDK payload
   const eventName: string =
     payload?.event ??
     payload?.name ??
     "unknown";
 
-  // Room name is in payload.room.name for real webhooks
   const rawCallId: unknown =
     payload?.room?.name ??
     payload?.callId ??
@@ -65,7 +39,6 @@ function normalizePayload(payload: any): {
 
   const callId = normalizeCallId(rawCallId);
 
-  // Identity is "caller:<userId>" or "receiver:<userId>"
   const identity: string = payload?.participant?.identity ?? "";
   const participantRole: string =
     payload?.participantRole ??
@@ -117,122 +90,190 @@ async function hasSettledLedgerEntries(
 /**
  * Handle participant_joined.
  *
- * When BOTH caller and receiver have joined, we:
- *   1. Set bothConnectedAt on CallParticipant
- *   2. Determine whether the free preview applies (first call between this pair)
- *   3. Mark the call as "connected"
- *   4. Publish call_connected via Ably
+ * FIX: The previous implementation read CallParticipant outside a transaction,
+ * then conditionally wrote callerConnectedAt or receiverConnectedAt, then
+ * re-fetched to check bothConnected. When two participant_joined events
+ * arrived near-simultaneously (the normal case — both clients pre-connect
+ * during "ringing"), both reads returned the same stale row (all nulls),
+ * each wrote only their own timestamp, and when each re-fetched they saw
+ * only their own timestamp. Neither event ever set bothConnectedAt.
+ *
+ * Settlement then computed overlapMs = 0 (bothConnectedAt null → fallback
+ * to 0), billableSeconds = 0, and issued a full preauth refund regardless
+ * of how long the call actually lasted.
+ *
+ * THE FIX:
+ * Collapse the entire read-modify-check-write sequence into a single
+ * serializable Prisma transaction using conditional updateMany (WHERE
+ * field IS NULL) for the individual timestamps, then re-read inside the
+ * same transaction so Postgres guarantees we see the committed state from
+ * any concurrent sibling transaction before we evaluate bothConnected.
+ *
+ * Using updateMany with a null-guard WHERE clause is the Prisma equivalent
+ * of UPDATE ... SET col = $now WHERE col IS NULL — it is a no-op if the
+ * column was already written, making it safe to call from both concurrent
+ * webhooks without double-writing or clobbering.
+ *
+ * The bothConnectedAt write is also guarded (WHERE bothConnectedAt IS NULL)
+ * so only the first transaction that sees both timestamps present will
+ * actually commit the write. The second arrives, re-reads, sees
+ * bothConnectedAt already set, and exits cleanly without side-effects.
  */
 async function handleParticipantJoined(callId: string, participantRole: string) {
-  const now = new Date();
-
-  const call = await prisma.call.findUnique({
+  // Fast pre-check outside transaction — avoids locking on already-ended calls.
+  const callPreCheck = await prisma.call.findUnique({
     where: { id: callId },
-    include: { participants: true },
+    select: { status: true, callerId: true, receiverId: true },
   });
 
-  if (!call || call.status === "ended") return;
+  if (!callPreCheck || callPreCheck.status === "ended") return;
 
-  // Guard: don't re-process if billing already settled (idempotency)
+  // Guard: don't re-process if billing already settled (idempotency).
   const alreadySettled = await hasSettledLedgerEntries(
     callId,
-    call.callerId,
-    call.receiverId
+    callPreCheck.callerId,
+    callPreCheck.receiverId,
   );
   if (alreadySettled) return;
 
-  // Ensure CallParticipant row exists
-  let participants = call.participants;
-  if (!participants) {
-    participants = await prisma.callParticipant.create({
-      data: { callId },
-    });
-  }
+  const now = new Date();
 
-  // Record which side connected
-  const updatePayload: {
-    callerConnectedAt?: Date;
-    receiverConnectedAt?: Date;
-  } = {};
+  // ── Atomic read-modify-write inside a serializable transaction ──────────
+  //
+  // All reads and writes in here are serialized by Postgres. Two concurrent
+  // invocations of this function for the same callId will execute their
+  // transactions sequentially (the second blocks until the first commits),
+  // so the second will always see the first's written timestamp when it
+  // re-reads latestParticipants.
+  const { bothJustBecameConnected, previewApplied, callerId, receiverId } =
+    await prisma.$transaction(
+      async (tx) => {
+        // Ensure the CallParticipant row exists (created alongside the Call,
+        // but guard defensively).
+        await tx.callParticipant.upsert({
+          where: { callId },
+          create: { callId },
+          update: {},
+        });
 
-  if (participantRole === "caller" && !participants.callerConnectedAt) {
-    updatePayload.callerConnectedAt = now;
-  } else if (participantRole === "receiver" && !participants.receiverConnectedAt) {
-    updatePayload.receiverConnectedAt = now;
-  } else {
-    // Unknown role or already recorded — nothing to do for this side
-    // but we still need to check if both are now connected
-  }
+        // Write this participant's timestamp only if it is not yet set.
+        // Using updateMany with a null-guard WHERE is the Prisma equivalent
+        // of UPDATE ... SET col = $now WHERE col IS NULL — a no-op when
+        // another concurrent transaction already committed the write.
+        if (participantRole === "caller") {
+          await tx.callParticipant.updateMany({
+            where: { callId, callerConnectedAt: null },
+            data: { callerConnectedAt: now },
+          });
+        } else if (participantRole === "receiver") {
+          await tx.callParticipant.updateMany({
+            where: { callId, receiverConnectedAt: null },
+            data: { receiverConnectedAt: now },
+          });
+        }
 
-  if (Object.keys(updatePayload).length > 0) {
-    participants = await prisma.callParticipant.update({
-      where: { callId },
-      data: updatePayload,
-    });
-  }
+        // Re-read INSIDE the transaction — Postgres guarantees we see the
+        // committed state of any concurrent sibling transaction that already
+        // ran its updateMany above.
+        const latest = await tx.callParticipant.findUnique({
+          where: { callId },
+        });
 
-  // Re-fetch to get latest state after our update
-  const latestParticipants = await prisma.callParticipant.findUnique({
-    where: { callId },
-  });
+        const bothTimestampsPresent =
+          Boolean(latest?.callerConnectedAt) &&
+          Boolean(latest?.receiverConnectedAt);
 
-  const bothConnected =
-    latestParticipants?.callerConnectedAt &&
-    latestParticipants?.receiverConnectedAt &&
-    !latestParticipants?.bothConnectedAt;
+        const bothJustBecameConnected =
+          bothTimestampsPresent && !latest?.bothConnectedAt;
 
-  if (bothConnected) {
-    // Determine preview eligibility
-    const hasLock = await hasActivePreviewLock({
-      callerId: call.callerId,
-      receiverId: call.receiverId,
-    });
-    const previewApplied = !hasLock;
+        // Fetch the call to get caller/receiver IDs and current status.
+        const call = await tx.call.findUnique({
+          where: { id: callId },
+          select: { callerId: true, receiverId: true, status: true },
+        });
 
-    // Set bothConnectedAt and update call status + previewApplied atomically
-    await prisma.$transaction([
-      prisma.callParticipant.update({
-        where: { callId },
-        data: { bothConnectedAt: now },
-      }),
-      prisma.call.update({
-        where: { id: callId },
-        data: {
-          status: "connected",
-          previewApplied,
-        },
-      }),
-    ]);
+        if (!call) {
+          return {
+            bothJustBecameConnected: false,
+            previewApplied: false,
+            callerId: "",
+            receiverId: "",
+          };
+        }
 
-    // Consume preview lock so the next call between this pair is billed from second 1
+        if (bothJustBecameConnected) {
+          // Check preview eligibility. hasActivePreviewLock uses its own
+          // table so it cannot be inside this tx, but it only affects
+          // billing math — not the correctness of bothConnectedAt.
+          const hasLock = await hasActivePreviewLock({
+            callerId: call.callerId,
+            receiverId: call.receiverId,
+          });
+          const preview = !hasLock;
+
+          // Write bothConnectedAt and mark the call connected atomically.
+          // The updateMany null-guard on bothConnectedAt ensures only the
+          // first transaction that reaches this point commits the write.
+          await tx.callParticipant.updateMany({
+            where: { callId, bothConnectedAt: null },
+            data: { bothConnectedAt: now },
+          });
+
+          await tx.call.update({
+            where: { id: callId },
+            data: { status: "connected", previewApplied: preview },
+          });
+
+          return {
+            bothJustBecameConnected: true,
+            previewApplied: preview,
+            callerId: call.callerId,
+            receiverId: call.receiverId,
+          };
+        }
+
+        // Only one side connected so far — ensure call status is "connected"
+        // so the token endpoint allows the other side to join.
+        if (call.status !== "connected") {
+          await tx.call.update({
+            where: { id: callId },
+            data: { status: "connected" },
+          });
+        }
+
+        return {
+          bothJustBecameConnected: false,
+          previewApplied: false,
+          callerId: call.callerId,
+          receiverId: call.receiverId,
+        };
+      },
+      // SERIALIZABLE isolation guarantees the second concurrent transaction
+      // sees the first's committed writes on re-read inside the tx.
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    );
+
+  // Side-effects outside the transaction: preview lock consumption and
+  // Ably publish. These are idempotent / best-effort and do not need to
+  // be inside the transaction.
+  if (bothJustBecameConnected) {
     if (previewApplied) {
-      await consumePreview({
-        callerId: call.callerId,
-        receiverId: call.receiverId,
-      });
+      await consumePreview({ callerId, receiverId });
     }
-
-    // Notify both parties via Ably
     void publishCallEvent(`call:${callId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
-  } else if (call.status !== "connected") {
-    // Only one side connected so far — still mark as connected so the token
-    // endpoint allows the other side to join
-    await prisma.call.update({
-      where: { id: callId },
-      data: { status: "connected" },
-    });
-
+    void publishCallEvent(`user:${callerId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${receiverId}`, "call_connected", { callId });
+  } else if (callerId) {
+    // Single participant connected — still notify so the caller's UI
+    // transitions out of "waiting" state.
     void publishCallEvent(`call:${callId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${call.callerId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${call.receiverId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${callerId}`, "call_connected", { callId });
+    void publishCallEvent(`user:${receiverId}`, "call_connected", { callId });
   }
 }
 
 /**
  * Handle participant_left / room_finished.
- *
  * Any departure ends the call and triggers settlement.
  */
 async function handleParticipantLeft(callId: string) {
@@ -273,7 +314,6 @@ export async function POST(req: Request) {
     if (apiKey && apiSecret) {
       const receiver = new WebhookReceiver(apiKey, apiSecret);
 
-      // LiveKit sends the signature in the Authorization header
       const auth =
         req.headers.get("authorization") ||
         req.headers.get("x-livekit-signature") ||
@@ -284,32 +324,20 @@ export async function POST(req: Request) {
         return jsonError("Missing signature", 401, "missing_signature");
       }
 
-      // receiver.receive() validates the signature AND decodes the protobuf
       payload = receiver.receive(rawBody, auth);
     } else {
-      // Dev/test path: no credentials configured, accept raw JSON
       payload = JSON.parse(rawBody);
     }
 
     const { eventName, callId, participantRole } = normalizePayload(payload);
 
-    console.log("[livekit] verified:", {
-      eventName,
-      callId,
-      participantRole,
-    });
+    console.log("[livekit] verified:", { eventName, callId, participantRole });
 
     if (!callId) {
-      // Events without a room (e.g. room_started before our call is created)
-      // are not errors — just ignore them.
       return Response.json({ ok: true, skipped: true });
     }
 
     // Deduplicate: LiveKit guarantees at-least-once delivery.
-    // When we have a real LiveKit event ID use it; otherwise generate a
-    // random suffix so duplicate webhook re-deliveries of the same event
-    // don't get silently dropped (the old sha256-of-body approach caused
-    // two distinct events with the same body to collide).
     const livekitEventId =
       payload?.event?.id ??
       payload?.eventId ??
@@ -334,14 +362,11 @@ export async function POST(req: Request) {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"
       ) {
-        // Only a genuine LiveKit event ID makes this idempotent; the
-        // random-suffix path above never collides.
         return Response.json({ ok: true, deduped: true });
       }
       throw err;
     }
 
-    // Route by correct LiveKit v2 event names
     if (eventName === PARTICIPANT_JOINED) {
       await handleParticipantJoined(callId, participantRole);
     }
@@ -350,14 +375,24 @@ export async function POST(req: Request) {
       await handleParticipantLeft(callId);
     }
 
-    // Also handle "room_finished" — fires when the last participant leaves;
-    // treats it the same as a participant departure.
     if (eventName === "room_finished") {
       await handleParticipantLeft(callId);
     }
 
     return Response.json({ ok: true });
   } catch (err: any) {
+    // Serializable transactions can abort with a serialization failure
+    // (Postgres error code 40001) when two concurrent transactions conflict.
+    // LiveKit retries webhooks, so returning 503 tells it to retry — the
+    // second attempt will succeed because by then the first has committed.
+    if (err?.code === "P2034") {
+      console.warn("[livekit] serialization conflict, signalling retry", err?.message);
+      return new Response(JSON.stringify({ ok: false, retry: true }), {
+        status: 503,
+        headers: { "content-type": "application/json" },
+      });
+    }
+
     console.error(
       "[livekit] invalid signature or payload:",
       err?.message || err

@@ -160,6 +160,89 @@ function ParticipantMedia({
   );
 }
 
+/* ─── SVG icon components ─────────────────────────────────── */
+
+function IconMic({ crossed }: { crossed?: boolean }) {
+  if (crossed) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
+        <line x1="12" y1="19" x2="12" y2="23" />
+        <line x1="8" y1="23" x2="16" y2="23" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="23" />
+      <line x1="8" y1="23" x2="16" y2="23" />
+    </svg>
+  );
+}
+
+function IconCamera({ crossed }: { crossed?: boolean }) {
+  if (crossed) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23" />
+        <path d="M21 21H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3m3-3h6l2 3h2a2 2 0 0 1 2 2v9.34" />
+        <circle cx="12" cy="13" r="3" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M23 7L16 12 23 17V7z" />
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  );
+}
+
+function IconSpeaker({ muted }: { muted?: boolean }) {
+  if (muted) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+        <line x1="23" y1="9" x2="17" y2="15" />
+        <line x1="17" y1="9" x2="23" y2="15" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+    </svg>
+  );
+}
+
+function IconCaptions() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="5" y1="10" x2="11" y2="10" />
+      <line x1="5" y1="14" x2="19" y2="14" />
+      <line x1="13" y1="10" x2="19" y2="10" />
+    </svg>
+  );
+}
+
+function IconEndCall() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.42 19.42 0 0 1 4.43 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.34 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.32 9.9" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+/* ─── Main page ───────────────────────────────────────────── */
+
 export default function ActiveCallPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -360,7 +443,6 @@ export default function ActiveCallPage() {
       setRoomName(payload.roomName);
       await activeRoom.connect(livekitUrl, livekitToken);
 
-      // Immediately snapshot anyone already in the room when we connect.
       setRemoteParticipants(Array.from(activeRoom.remoteParticipants.values()));
 
       const enableCamera = capturedSummary.mode === "video";
@@ -445,7 +527,6 @@ export default function ActiveCallPage() {
     return `${minutes}:${seconds}`;
   }, [secondsElapsed]);
 
-  // Compute preview status based on actual elapsed connected time.
   const previewStatus = useMemo(() => {
     if (connectionState !== "connected") return "Waiting to connect…";
     const remaining = Math.max(0, PREVIEW_SECONDS - secondsElapsed);
@@ -468,33 +549,33 @@ export default function ActiveCallPage() {
   }
 
   async function handleToggleMic() {
-    const room = roomRef.current;
-    if (!room) return;
+    const currentRoom = roomRef.current;
+    if (!currentRoom) return;
     const nextMuted = !muted;
     setMuted(nextMuted);
-    await room.localParticipant.setMicrophoneEnabled(!nextMuted);
+    await currentRoom.localParticipant.setMicrophoneEnabled(!nextMuted);
   }
 
   async function handleToggleCamera() {
     if (summary?.mode !== "video") return;
-    const room = roomRef.current;
-    if (!room) return;
+    const currentRoom = roomRef.current;
+    if (!currentRoom) return;
     const nextCamera = !cameraOn;
     setCameraOn(nextCamera);
-    await room.localParticipant.setCameraEnabled(nextCamera);
+    await currentRoom.localParticipant.setCameraEnabled(nextCamera);
   }
 
   async function handleEndCall() {
     setConfirmOpen(false);
     setConnectionState("ended");
 
-    const room = roomRef.current;
-    if (room) {
-      room.localParticipant.trackPublications.forEach((publication) => {
+    const currentRoom = roomRef.current;
+    if (currentRoom) {
+      currentRoom.localParticipant.trackPublications.forEach((publication) => {
         publication.track?.stop();
       });
-      await Promise.resolve(room.disconnect());
-      room.removeAllListeners();
+      await Promise.resolve(currentRoom.disconnect());
+      currentRoom.removeAllListeners();
       roomRef.current = null;
       setRoom(null);
     }
@@ -513,6 +594,14 @@ export default function ActiveCallPage() {
 
     router.push(`/call/${id}/receipt`);
   }
+
+  /* derive button states */
+  const micState = muted ? "muted" : undefined;
+  const camState = (summary?.mode !== "video")
+    ? "cam-off"
+    : cameraOn
+    ? undefined
+    : "cam-off";
 
   return (
     <AuthGuard>
@@ -611,58 +700,142 @@ export default function ActiveCallPage() {
             </div>
           </section>
 
+          {/* ── CALL CONTROLS ─────────────────────────────── */}
           <section className={styles.card}>
-            <h2>Call controls</h2>
+            <div className={styles.cardHeader}>
+              <h2>Call controls</h2>
+              {connectionState === "connected" && (
+                <span className={styles.pill} style={{ background: "rgba(130,240,180,0.12)", color: "rgba(130,240,180,0.9)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#82f0b4", display: "inline-block" }} />
+                  {formattedTime}
+                </span>
+              )}
+            </div>
+
             <div className={styles.controls}>
-              <button
-                className={styles.iconButton}
-                data-active={!muted}
-                type="button"
-                aria-label={muted ? "Unmute microphone" : "Mute microphone"}
-                onClick={handleToggleMic}
-              >
-                {muted ? "🔇" : "🎙️"}
-              </button>
-              <button
-                className={styles.iconButton}
-                data-active={cameraOn}
-                type="button"
-                aria-label={cameraOn ? "Turn off camera" : "Turn on camera"}
-                onClick={handleToggleCamera}
-                disabled={summary?.mode !== "video"}
-              >
-                {cameraOn ? "📷" : "🚫"}
-              </button>
-              <button
-                className={styles.iconButton}
-                data-active={speakerOn}
-                type="button"
-                aria-label={speakerOn ? "Mute speaker" : "Enable speaker"}
-                onClick={() => setSpeakerOn((prev) => !prev)}
-              >
-                {speakerOn ? "🔊" : "🔈"}
-              </button>
-              <button
-                className={styles.iconButton}
-                data-active={captionsOn}
-                type="button"
-                aria-label={captionsOn ? "Hide captions" : "Show captions"}
-                onClick={() => setCaptionsOn((prev) => !prev)}
-              >
-                {captionsOn ? "💬" : "💭"}
-              </button>
-              <button
-                className={`${styles.iconButton} ${styles.buttonDanger}`}
-                type="button"
-                aria-label="End call"
-                onClick={() => setConfirmOpen(true)}
-              >
-                ⏹️
-              </button>
+
+              {/* Group 1: mic / camera / speaker */}
+              <div className={styles.controlsGroup}>
+
+                {/* Mic */}
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  data-active={!muted ? "true" : undefined}
+                  data-state={micState}
+                  data-ctrl="mic"
+                  data-tip={muted ? "Unmute microphone" : "Mute microphone"}
+                  aria-label={muted ? "Unmute microphone" : "Mute microphone"}
+                  aria-pressed={!muted}
+                  onClick={handleToggleMic}
+                >
+                  <div className={styles.iconButtonFace}>
+                    <IconMic crossed={muted} />
+                  </div>
+                  <span className={styles.iconButtonLabel}>
+                    {muted ? "Muted" : "Mic on"}
+                  </span>
+                </button>
+
+                {/* Camera */}
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  data-active={cameraOn && summary?.mode === "video" ? "true" : undefined}
+                  data-state={camState}
+                  data-tip={
+                    summary?.mode !== "video"
+                      ? "Voice call — no camera"
+                      : cameraOn
+                      ? "Turn off camera"
+                      : "Turn on camera"
+                  }
+                  aria-label={cameraOn ? "Turn off camera" : "Turn on camera"}
+                  aria-pressed={cameraOn}
+                  onClick={handleToggleCamera}
+                  disabled={summary?.mode !== "video"}
+                >
+                  <div className={styles.iconButtonFace}>
+                    <IconCamera crossed={!cameraOn || summary?.mode !== "video"} />
+                  </div>
+                  <span className={styles.iconButtonLabel}>
+                    {summary?.mode !== "video"
+                      ? "Voice only"
+                      : cameraOn
+                      ? "Camera on"
+                      : "Camera off"}
+                  </span>
+                </button>
+
+                {/* Speaker */}
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  data-active={speakerOn ? "true" : undefined}
+                  data-tip={speakerOn ? "Mute speaker" : "Unmute speaker"}
+                  aria-label={speakerOn ? "Mute speaker" : "Unmute speaker"}
+                  aria-pressed={speakerOn}
+                  onClick={() => setSpeakerOn((prev) => !prev)}
+                >
+                  <div className={styles.iconButtonFace}>
+                    <IconSpeaker muted={!speakerOn} />
+                  </div>
+                  <span className={styles.iconButtonLabel}>
+                    {speakerOn ? "Speaker on" : "Speaker off"}
+                  </span>
+                </button>
+
+              </div>
+
+              {/* Divider */}
+              <div className={styles.controlsDivider} aria-hidden="true" />
+
+              {/* Group 2: captions */}
+              <div className={styles.controlsGroup} style={{ flex: "0 0 auto" }}>
+                <button
+                  className={styles.iconButton}
+                  type="button"
+                  data-active={captionsOn ? "true" : undefined}
+                  data-tip={captionsOn ? "Hide live captions" : "Show live captions"}
+                  aria-label={captionsOn ? "Hide captions" : "Show captions"}
+                  aria-pressed={captionsOn}
+                  onClick={() => setCaptionsOn((prev) => !prev)}
+                >
+                  <div className={styles.iconButtonFace}>
+                    <IconCaptions />
+                  </div>
+                  <span className={styles.iconButtonLabel}>
+                    {captionsOn ? "Captions on" : "Captions"}
+                  </span>
+                </button>
+              </div>
+
+              {/* Divider */}
+              <div className={styles.controlsDivider} aria-hidden="true" />
+
+              {/* Group 3: end call */}
+              <div className={styles.controlsGroup} style={{ flex: "0 0 auto" }}>
+                <button
+                  className={`${styles.iconButton} ${styles.iconButtonEnd}`}
+                  type="button"
+                  data-tip="End call and see receipt"
+                  aria-label="End call"
+                  onClick={() => setConfirmOpen(true)}
+                >
+                  <div className={styles.iconButtonFace}>
+                    <IconEndCall />
+                  </div>
+                  <span className={styles.iconButtonLabel}>End call</span>
+                </button>
+              </div>
+
             </div>
           </section>
+          {/* ── END CALL CONTROLS ─────────────────────────── */}
+
         </div>
 
+        {/* End call confirm modal */}
         {confirmOpen ? (
           <div
             className={styles.modalBackdrop}
@@ -702,6 +875,7 @@ export default function ActiveCallPage() {
           </div>
         ) : null}
 
+        {/* Camera required modal */}
         {cameraPromptOpen ? (
           <div className={styles.modalBackdrop} role="presentation">
             <div

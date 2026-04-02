@@ -10,9 +10,6 @@ import { ablyRest } from "@/lib/ably/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * LiveKit webhook event names (livekit-server-sdk v2 / @livekit/protocol).
- */
 const PARTICIPANT_JOINED = "participant_joined";
 const PARTICIPANT_LEFT = "participant_left";
 
@@ -90,45 +87,24 @@ async function hasSettledLedgerEntries(
 /**
  * Handle participant_joined.
  *
- * FIX: The previous implementation read CallParticipant outside a transaction,
- * then conditionally wrote callerConnectedAt or receiverConnectedAt, then
- * re-fetched to check bothConnected. When two participant_joined events
- * arrived near-simultaneously (the normal case — both clients pre-connect
- * during "ringing"), both reads returned the same stale row (all nulls),
- * each wrote only their own timestamp, and when each re-fetched they saw
- * only their own timestamp. Neither event ever set bothConnectedAt.
+ * Uses a single SERIALIZABLE transaction to atomically write individual
+ * connection timestamps and detect when both participants have joined,
+ * eliminating the race condition where two near-simultaneous webhooks
+ * both read a stale participants row and neither writes bothConnectedAt.
  *
- * Settlement then computed overlapMs = 0 (bothConnectedAt null → fallback
- * to 0), billableSeconds = 0, and issued a full preauth refund regardless
- * of how long the call actually lasted.
- *
- * THE FIX:
- * Collapse the entire read-modify-check-write sequence into a single
- * serializable Prisma transaction using conditional updateMany (WHERE
- * field IS NULL) for the individual timestamps, then re-read inside the
- * same transaction so Postgres guarantees we see the committed state from
- * any concurrent sibling transaction before we evaluate bothConnected.
- *
- * Using updateMany with a null-guard WHERE clause is the Prisma equivalent
- * of UPDATE ... SET col = $now WHERE col IS NULL — it is a no-op if the
- * column was already written, making it safe to call from both concurrent
- * webhooks without double-writing or clobbering.
- *
- * The bothConnectedAt write is also guarded (WHERE bothConnectedAt IS NULL)
- * so only the first transaction that sees both timestamps present will
- * actually commit the write. The second arrives, re-reads, sees
- * bothConnectedAt already set, and exits cleanly without side-effects.
+ * Also handles the new "accepted" status introduced in respondToCall —
+ * calls in "accepted" state are treated identically to "ringing" for
+ * the purposes of participant tracking and status transitions.
  */
 async function handleParticipantJoined(callId: string, participantRole: string) {
-  // Fast pre-check outside transaction — avoids locking on already-ended calls.
   const callPreCheck = await prisma.call.findUnique({
     where: { id: callId },
     select: { status: true, callerId: true, receiverId: true },
   });
 
+  // "accepted" is a valid joinable state — do not skip it.
   if (!callPreCheck || callPreCheck.status === "ended") return;
 
-  // Guard: don't re-process if billing already settled (idempotency).
   const alreadySettled = await hasSettledLedgerEntries(
     callId,
     callPreCheck.callerId,
@@ -138,28 +114,16 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
 
   const now = new Date();
 
-  // ── Atomic read-modify-write inside a serializable transaction ──────────
-  //
-  // All reads and writes in here are serialized by Postgres. Two concurrent
-  // invocations of this function for the same callId will execute their
-  // transactions sequentially (the second blocks until the first commits),
-  // so the second will always see the first's written timestamp when it
-  // re-reads latestParticipants.
   const { bothJustBecameConnected, previewApplied, callerId, receiverId } =
     await prisma.$transaction(
       async (tx) => {
-        // Ensure the CallParticipant row exists (created alongside the Call,
-        // but guard defensively).
         await tx.callParticipant.upsert({
           where: { callId },
           create: { callId },
           update: {},
         });
 
-        // Write this participant's timestamp only if it is not yet set.
-        // Using updateMany with a null-guard WHERE is the Prisma equivalent
-        // of UPDATE ... SET col = $now WHERE col IS NULL — a no-op when
-        // another concurrent transaction already committed the write.
+        // null-guard updateMany — no-op if another concurrent tx already wrote
         if (participantRole === "caller") {
           await tx.callParticipant.updateMany({
             where: { callId, callerConnectedAt: null },
@@ -172,9 +136,7 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
           });
         }
 
-        // Re-read INSIDE the transaction — Postgres guarantees we see the
-        // committed state of any concurrent sibling transaction that already
-        // ran its updateMany above.
+        // Re-read inside the transaction — sees sibling tx's committed writes
         const latest = await tx.callParticipant.findUnique({
           where: { callId },
         });
@@ -186,34 +148,22 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
         const bothJustBecameConnected =
           bothTimestampsPresent && !latest?.bothConnectedAt;
 
-        // Fetch the call to get caller/receiver IDs and current status.
         const call = await tx.call.findUnique({
           where: { id: callId },
           select: { callerId: true, receiverId: true, status: true },
         });
 
         if (!call) {
-          return {
-            bothJustBecameConnected: false,
-            previewApplied: false,
-            callerId: "",
-            receiverId: "",
-          };
+          return { bothJustBecameConnected: false, previewApplied: false, callerId: "", receiverId: "" };
         }
 
         if (bothJustBecameConnected) {
-          // Check preview eligibility. hasActivePreviewLock uses its own
-          // table so it cannot be inside this tx, but it only affects
-          // billing math — not the correctness of bothConnectedAt.
           const hasLock = await hasActivePreviewLock({
             callerId: call.callerId,
             receiverId: call.receiverId,
           });
           const preview = !hasLock;
 
-          // Write bothConnectedAt and mark the call connected atomically.
-          // The updateMany null-guard on bothConnectedAt ensures only the
-          // first transaction that reaches this point commits the write.
           await tx.callParticipant.updateMany({
             where: { callId, bothConnectedAt: null },
             data: { bothConnectedAt: now },
@@ -224,16 +174,11 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
             data: { status: "connected", previewApplied: preview },
           });
 
-          return {
-            bothJustBecameConnected: true,
-            previewApplied: preview,
-            callerId: call.callerId,
-            receiverId: call.receiverId,
-          };
+          return { bothJustBecameConnected: true, previewApplied: preview, callerId: call.callerId, receiverId: call.receiverId };
         }
 
-        // Only one side connected so far — ensure call status is "connected"
-        // so the token endpoint allows the other side to join.
+        // Single participant so far — set to "connected" if not already.
+        // Handles "ringing", "accepted", and idempotently "connected".
         if (call.status !== "connected") {
           await tx.call.update({
             where: { id: callId },
@@ -241,31 +186,19 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
           });
         }
 
-        return {
-          bothJustBecameConnected: false,
-          previewApplied: false,
-          callerId: call.callerId,
-          receiverId: call.receiverId,
-        };
+        return { bothJustBecameConnected: false, previewApplied: false, callerId: call.callerId, receiverId: call.receiverId };
       },
-      // SERIALIZABLE isolation guarantees the second concurrent transaction
-      // sees the first's committed writes on re-read inside the tx.
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
     );
 
-  // Side-effects outside the transaction: preview lock consumption and
-  // Ably publish. These are idempotent / best-effort and do not need to
-  // be inside the transaction.
   if (bothJustBecameConnected) {
     if (previewApplied) {
       await consumePreview({ callerId, receiverId });
     }
-    void publishCallEvent(`call:${callId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${callerId}`, "call_connected", { callId });
-    void publishCallEvent(`user:${receiverId}`, "call_connected", { callId });
-  } else if (callerId) {
-    // Single participant connected — still notify so the caller's UI
-    // transitions out of "waiting" state.
+  }
+
+  // Notify both parties regardless — single or both connected
+  if (callerId) {
     void publishCallEvent(`call:${callId}`, "call_connected", { callId });
     void publishCallEvent(`user:${callerId}`, "call_connected", { callId });
     void publishCallEvent(`user:${receiverId}`, "call_connected", { callId });
@@ -274,7 +207,6 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
 
 /**
  * Handle participant_left / room_finished.
- * Any departure ends the call and triggers settlement.
  */
 async function handleParticipantLeft(callId: string) {
   const call = await prisma.call.findUnique({
@@ -337,7 +269,6 @@ export async function POST(req: Request) {
       return Response.json({ ok: true, skipped: true });
     }
 
-    // Deduplicate: LiveKit guarantees at-least-once delivery.
     const livekitEventId =
       payload?.event?.id ??
       payload?.eventId ??
@@ -350,18 +281,10 @@ export async function POST(req: Request) {
 
     try {
       await prisma.livekitWebhookEvent.create({
-        data: {
-          id: eventKey,
-          callId,
-          eventName,
-          participantRole,
-        },
+        data: { id: eventKey, callId, eventName, participantRole },
       });
     } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         return Response.json({ ok: true, deduped: true });
       }
       throw err;
@@ -381,10 +304,7 @@ export async function POST(req: Request) {
 
     return Response.json({ ok: true });
   } catch (err: any) {
-    // Serializable transactions can abort with a serialization failure
-    // (Postgres error code 40001) when two concurrent transactions conflict.
-    // LiveKit retries webhooks, so returning 503 tells it to retry — the
-    // second attempt will succeed because by then the first has committed.
+    // Serializable tx conflict — LiveKit retries on 503
     if (err?.code === "P2034") {
       console.warn("[livekit] serialization conflict, signalling retry", err?.message);
       return new Response(JSON.stringify({ ok: false, retry: true }), {
@@ -393,10 +313,7 @@ export async function POST(req: Request) {
       });
     }
 
-    console.error(
-      "[livekit] invalid signature or payload:",
-      err?.message || err
-    );
+    console.error("[livekit] invalid signature or payload:", err?.message || err);
     return jsonError("Invalid signature", 401, "invalid_signature");
   }
 }

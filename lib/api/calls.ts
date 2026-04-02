@@ -443,15 +443,6 @@ export async function acceptCall({
     }
   }
 
-  // FIX (Bug 1): Do NOT set status to "connected" here.
-  // The LiveKit webhook owns the ringing → connected transition once both
-  // participants have actually joined the room. Prematurely setting
-  // "connected" here causes the webhook's bothConnectedAt logic to skip
-  // the Ably call_connected publish (because it guards on
-  // `call.status !== "connected"`), leaving the caller stuck.
-  // We only need to record that the receiver accepted so the caller can
-  // fetch a joinable token (joinableStatuses includes "ringing").
-
   return Response.json({ ok: true });
 }
 
@@ -581,16 +572,31 @@ export async function respondToCall({
       return jsonError("Call already ended", 400, "call_ended");
     }
 
-    // FIX (Bug 1): Keep status as "ringing" — the LiveKit webhook is
-    // responsible for transitioning to "connected" once both participants
-    // have actually joined the room. Setting "connected" here breaks the
-    // webhook's guard logic and prevents bothConnectedAt from being set,
-    // which means billing never starts and call_connected is never published.
+    // FIX: Set status to "accepted" immediately on accept so that the
+    // expiry guard in getCallState (which only fires on status="ringing")
+    // can no longer kill the call while participants are navigating to
+    // the call page and waiting for LiveKit to fire participant_joined.
     //
-    // "ringing" is already in joinableStatuses on the token endpoint, so
-    // the caller can still fetch a LiveKit token and connect to the room.
-    // The call status will transition to "connected" naturally when the
-    // LiveKit webhook receives participant_connected for both parties.
+    // Previously status stayed "ringing" after accept, relying entirely
+    // on the LiveKit webhook to transition to "connected". But the webhook
+    // can take 5-30s after accept (token fetch + room join + webhook
+    // delivery), leaving a window where the caller's getCallState polling
+    // would see status="ringing" past T+90s and force-end the call with
+    // endReason="request_expired" before media ever flowed.
+    //
+    // The LiveKit webhook (handleParticipantJoined) checks status before
+    // writing — it uses status !== "connected" to decide whether to update.
+    // "accepted" is not "connected", so the webhook still transitions
+    // correctly to "connected" when participants actually join.
+    //
+    // getCallState's expiry guard checks status === "ringing" only, so
+    // "accepted" is invisible to it — the call is safe until the webhook fires.
+    if (call.status === "ringing") {
+      await prisma.call.update({
+        where: { id: call.id },
+        data: { status: "accepted" },
+      });
+    }
 
     dlog("[ably] publish call_accepted", {
       callId: call.id,
@@ -677,7 +683,23 @@ export async function getCallState({
   const bothConnectedAt = call.participants?.bothConnectedAt ?? null;
 
   if (call.status !== "ended") {
+    // FIX: The expiry guard previously fired on status="ringing" which
+    // included calls that had been accepted but whose LiveKit webhook
+    // hadn't fired yet (normal latency of 5-30s). This caused accepted
+    // calls to be force-ended with "request_expired" before media flowed.
+    //
+    // The guard now only fires when status is STRICTLY "ringing" — meaning
+    // the receiver has never accepted. Once respondToCall(accept) runs, it
+    // sets status="accepted", making this guard a no-op from that point on.
+    //
+    // The connect_timeout guard is similarly scoped: it only fires when
+    // status="ringing" (never accepted) or status="accepted" (accepted but
+    // LiveKit never delivered both participant_joined events within the
+    // ring timeout window — a genuine failure case worth catching).
     if (call.status === "ringing" && now > expiresAtMs) {
+      // Only auto-end calls that were never accepted (status still "ringing").
+      // Accepted calls (status="accepted") are protected — the LiveKit webhook
+      // will transition them to "connected" when participants join.
       updatedCall = await prisma.call.update({
         where: { id: call.id },
         data: {
@@ -689,7 +711,14 @@ export async function getCallState({
       });
       await settleEndedCall(call.id);
       outcomeCode = "expired_refunded";
-    } else if (call.status === "ringing" && !call.participants?.bothConnectedAt && now > ringTimeoutMs) {
+    } else if (
+      // connect_timeout: fires when the call was accepted but LiveKit
+      // never confirmed both participants joined within the ring timeout.
+      // This catches genuine failures (app crash, network loss after accept).
+      (call.status === "ringing" || call.status === "accepted") &&
+      !call.participants?.bothConnectedAt &&
+      now > ringTimeoutMs
+    ) {
       updatedCall = await prisma.call.update({
         where: { id: call.id },
         data: {
@@ -723,14 +752,20 @@ export async function getCallState({
     });
   }
 
+  // "accepted" is an internal transition status. Expose it to the UI as
+  // "ringing" so existing frontend logic (joinable check, redirect logic)
+  // continues to work unchanged. The call is joinable in both states.
+  const exposedStatus =
+    updatedCall.status === "accepted" ? "ringing" : updatedCall.status;
+
   return Response.json({
     call: {
       id: updatedCall.id,
       caller: userMap.get(call.callerId) ?? call.callerId,
       receiver: userMap.get(call.receiverId) ?? call.receiverId,
       mode: updatedCall.mode === "video" ? "video" : "voice",
-      status: updatedCall.status,
-      joinable: ["ringing", "connected"].includes(updatedCall.status),
+      status: exposedStatus,
+      joinable: ["ringing", "accepted", "connected"].includes(updatedCall.status),
       viewerRole,
     },
     outcomeCode,
@@ -769,7 +804,7 @@ export async function endCall({
 
   await settleEndedCall(callId);
 
-  if (call.status === "ringing") {
+  if (call.status === "ringing" || call.status === "accepted") {
     void publishCallEvent(`call:${callId}`, "call_cancelled", { callId });
     void publishCallEvent(`user:${call.callerId}`, "call_cancelled", { callId });
     void publishCallEvent(`user:${call.receiverId}`, "call_cancelled", { callId });

@@ -88,103 +88,39 @@ async function hasSettledLedgerEntries(
 }
 
 /**
- * Atomically update CallParticipant timestamps and detect when both sides
- * have connected, using a single SQL UPDATE with CASE expressions.
- *
- * THE PROBLEM WITH ALL PREVIOUS APPROACHES:
- *
- * Every multi-statement approach (read → write → read, or separate step1/step2
- * updateMany calls) has a race window where two concurrent webhook invocations
- * can each see stale data between their individual statements. In READ COMMITTED
- * isolation, each statement only sees data committed before THAT STATEMENT began.
- * If webhook A's step-1 commit and webhook B's step-2 read happen concurrently,
- * B's step-2 may not see A's write, leaving bothConnectedAt null forever.
- *
- * THE CORRECT FIX:
- *
- * Collapse everything into ONE SQL UPDATE statement with CASE expressions.
- * Postgres evaluates all CASE expressions against the PRE-UPDATE row state
- * atomically within a single statement execution. No inter-statement gap.
- * No race. No transaction overhead. No deadlock risk.
- *
- * The statement does:
- *   - SET callerConnectedAt = $now  WHERE role='caller' AND col IS NULL
- *   - SET receiverConnectedAt = $now  WHERE role='receiver' AND col IS NULL
- *   - SET bothConnectedAt = $now  WHERE both (including this webhook's write)
- *     would be non-null AND bothConnectedAt IS NULL
- *
- * All three assignments are evaluated against the same pre-update snapshot.
- * The bothConnectedAt CASE uses the post-write values of the individual
- * timestamps inline (via nested CASE) so it correctly accounts for the
- * timestamp being set by THIS statement in the same round.
- *
- * RETURNING gives us the post-update values so we can tell whether
- * bothConnectedAt was written by this invocation (vs already set).
- */
-type ParticipantRow = {
-  callerConnectedAt: Date | null;
-  receiverConnectedAt: Date | null;
-  bothConnectedAt: Date | null;
-};
-
-async function atomicUpdateParticipant(
-  callId: string,
-  participantRole: string,
-  now: Date
-): Promise<ParticipantRow> {
-  const isCallerRole = participantRole === "caller";
-  const isReceiverRole = participantRole === "receiver";
-
-  const rows = await prisma.$queryRaw<ParticipantRow[]>`
-    UPDATE "CallParticipant"
-    SET
-      "callerConnectedAt" = CASE
-        WHEN ${isCallerRole} AND "callerConnectedAt" IS NULL THEN ${now}
-        ELSE "callerConnectedAt"
-      END,
-      "receiverConnectedAt" = CASE
-        WHEN ${isReceiverRole} AND "receiverConnectedAt" IS NULL THEN ${now}
-        ELSE "receiverConnectedAt"
-      END,
-      "bothConnectedAt" = CASE
-        WHEN "bothConnectedAt" IS NULL
-          AND (
-            CASE WHEN ${isCallerRole} AND "callerConnectedAt" IS NULL
-                 THEN ${now} ELSE "callerConnectedAt" END
-          ) IS NOT NULL
-          AND (
-            CASE WHEN ${isReceiverRole} AND "receiverConnectedAt" IS NULL
-                 THEN ${now} ELSE "receiverConnectedAt" END
-          ) IS NOT NULL
-        THEN ${now}
-        ELSE "bothConnectedAt"
-      END
-    WHERE "callId" = ${callId}
-    RETURNING
-      "callerConnectedAt",
-      "receiverConnectedAt",
-      "bothConnectedAt"
-  `;
-
-  const row = rows[0];
-  if (!row) {
-    // Row didn't exist — create it and retry once.
-    await prisma.callParticipant.create({ data: { callId } });
-    return atomicUpdateParticipant(callId, participantRole, now);
-  }
-  return row;
-}
-
-/**
  * Handle participant_joined.
  *
- * Uses a single atomic SQL UPDATE (via $queryRaw) to write individual
- * connection timestamps and detect when both participants have joined —
- * all in one round-trip with no inter-statement race window.
+ * THE PROBLEM THIS SOLVES:
+ * Two participant_joined webhooks fire near-simultaneously (normal —
+ * both clients connect to LiveKit during "ringing"/"accepted"). Without
+ * coordination, both webhooks read the same stale CallParticipant row
+ * (all nulls), each writes only its own timestamp, each re-reads and
+ * only sees its own timestamp, neither writes bothConnectedAt.
+ * Settlement computes duration = 0 and issues a full refund.
+ *
+ * APPROACH: SELECT FOR UPDATE inside a READ COMMITTED transaction.
+ *
+ * SELECT FOR UPDATE acquires an exclusive row-level lock on the
+ * CallParticipant row. The second concurrent webhook blocks at this
+ * statement until the first transaction commits. When it proceeds,
+ * it reads the fully committed post-first-transaction state — both
+ * individual timestamps are visible, bothConnectedAt is written.
+ *
+ * This is the standard Postgres pattern for concurrent read-modify-write
+ * on the same row. No SERIALIZABLE isolation (which caused P2034 aborts
+ * and deadlocks with nested prisma client calls). No $queryRaw (which
+ * has column-name casing issues and fragile timestamp comparisons).
+ * Plain READ COMMITTED + row lock. The wait time is microseconds.
+ *
+ * hasActivePreviewLock and consumePreview MUST stay outside the
+ * transaction — they use the global prisma client and touching a
+ * second table inside a locked transaction risks deadlock if another
+ * request locks that table first.
  */
 async function handleParticipantJoined(callId: string, participantRole: string) {
   const now = new Date();
 
+  // Pre-check outside transaction — fast exit for already-ended calls.
   const call = await prisma.call.findUnique({
     where: { id: callId },
     select: { status: true, callerId: true, receiverId: true },
@@ -201,19 +137,63 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
   );
   if (alreadySettled) return;
 
-  // Single atomic UPDATE — no race condition possible.
-  const result = await atomicUpdateParticipant(callId, participantRole, now);
+  // ── Locked read-modify-write ──────────────────────────────────────────
+  // The SELECT FOR UPDATE on CallParticipant serializes concurrent webhook
+  // invocations for the same call. The second blocks until the first
+  // commits, then reads the updated row with both timestamps present.
+  const bothJustBecameConnected = await prisma.$transaction(async (tx) => {
+    // Acquire exclusive lock on this row.
+    // If another webhook invocation holds this lock, we wait here (microseconds).
+    await tx.$queryRaw`
+      SELECT 1 FROM "CallParticipant" WHERE "callId" = ${callId} FOR UPDATE
+    `;
 
-  const bothJustBecameConnected =
-    result.bothConnectedAt !== null &&
-    // Distinguish "written by this invocation" from "was already set":
-    // bothConnectedAt equals `now` only if this statement wrote it.
-    // Using time equality is safe here because `now` is captured once
-    // per webhook invocation and the write is idempotent if re-run.
-    result.bothConnectedAt.getTime() === now.getTime();
+    // Ensure the row exists (defensive — created with the call).
+    let row = await tx.callParticipant.findUnique({ where: { callId } });
+    if (!row) {
+      row = await tx.callParticipant.create({ data: { callId } });
+    }
+
+    // Build the update — only set timestamps that aren't already set.
+    const updateData: {
+      callerConnectedAt?: Date;
+      receiverConnectedAt?: Date;
+      bothConnectedAt?: Date;
+    } = {};
+
+    if (participantRole === "caller" && !row.callerConnectedAt) {
+      updateData.callerConnectedAt = now;
+    }
+    if (participantRole === "receiver" && !row.receiverConnectedAt) {
+      updateData.receiverConnectedAt = now;
+    }
+
+    // Compute what the timestamps will be after this update.
+    const effectiveCaller = updateData.callerConnectedAt ?? row.callerConnectedAt;
+    const effectiveReceiver = updateData.receiverConnectedAt ?? row.receiverConnectedAt;
+
+    // Write bothConnectedAt if both sides are now present and it isn't set yet.
+    // The row lock guarantees no concurrent writer can have set either
+    // individual timestamp between our SELECT and this point.
+    const willSetBoth = Boolean(effectiveCaller) && Boolean(effectiveReceiver) && !row.bothConnectedAt;
+    if (willSetBoth) {
+      updateData.bothConnectedAt = now;
+    }
+
+    if (Object.keys(updateData).length > 0) {
+      await tx.callParticipant.update({
+        where: { callId },
+        data: updateData,
+      });
+    }
+
+    return willSetBoth;
+  });
+  // ── End locked transaction ────────────────────────────────────────────
 
   if (bothJustBecameConnected) {
-    // Preview check must be outside any transaction — uses global prisma.
+    // Preview check and consumePreview are outside the transaction —
+    // they use the global prisma client and must not run inside a locked tx.
     const hasLock = await hasActivePreviewLock({
       callerId: call.callerId,
       receiverId: call.receiverId,
@@ -239,10 +219,14 @@ async function handleParticipantJoined(callId: string, participantRole: string) 
     return;
   }
 
-  // Only one side connected so far (or duplicate event).
-  // Ensure call status is "connected" so the token endpoint allows joining.
-  // Handles "ringing", "accepted", and is idempotent on "connected".
-  if (call.status !== "connected") {
+  // Only one side connected so far (or duplicate event for a side already recorded).
+  // Ensure call.status is "connected" so the token endpoint allows joining.
+  // Re-read status from DB here — don't use the cached pre-transaction value.
+  const fresh = await prisma.call.findUnique({
+    where: { id: callId },
+    select: { status: true },
+  });
+  if (fresh && fresh.status !== "connected" && fresh.status !== "ended") {
     await prisma.call.update({
       where: { id: callId },
       data: { status: "connected" },

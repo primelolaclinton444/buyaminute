@@ -60,11 +60,15 @@ export async function GET(req: Request) {
     return jsonError("Unauthorized", 403, "forbidden", debugDetails);
   }
 
-  // Join policy:
-  // - Both parties may join during "ringing" (receiver needs to join to accept,
-  //   caller needs to join so they're ready when accepted).
-  // - Both parties may join during "connected" (the live call state).
-  const joinableStatuses = new Set(["ringing", "connected"]);
+  // "accepted" is added here because respondToCall(accept) now sets
+  // call.status = "accepted" immediately (instead of leaving it as
+  // "ringing") to prevent the expiry guard in getCallState from killing
+  // the call while participants are navigating to the call page.
+  //
+  // Without "accepted" in this set, both clients would receive a 403
+  // "call_not_joinable" response, never connect to the LiveKit room,
+  // and the call would time out after 120s with a full refund.
+  const joinableStatuses = new Set(["ringing", "accepted", "connected"]);
   if (!joinableStatuses.has(call.status)) {
     return jsonError(
       `Call is not joinable (status=${call.status})`,

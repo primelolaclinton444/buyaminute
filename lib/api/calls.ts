@@ -716,6 +716,7 @@ export async function getCallState({
       // never confirmed both participants joined within the ring timeout.
       // This catches genuine failures (app crash, network loss after accept).
       (call.status === "ringing" || call.status === "accepted") &&
+      call.status !== "connected" &&   // ← never timeout a call already marked connected
       !call.participants?.bothConnectedAt &&
       now > ringTimeoutMs
     ) {

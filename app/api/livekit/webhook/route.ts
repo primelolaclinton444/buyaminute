@@ -292,7 +292,7 @@ export async function POST(req: Request) {
 
       // receiver.receive() validates the signature AND decodes the protobuf
       payload = receiver.receive(rawBody, auth);
-      console.log("[livekit] raw payload:", JSON.stringify(payload));
+      payload = JSON.parse(rawBody);
     } else {
       // Dev/test path: no credentials configured, accept raw JSON
       payload = JSON.parse(rawBody);

@@ -29,6 +29,6 @@ export default function RootLayout({
 
 function NavConditional() {
   const pathname = usePathname();
-  if (pathname === "/") return null;
+  if (pathname === "/" || pathname === "/main") return null;
   return <Nav />;
 }

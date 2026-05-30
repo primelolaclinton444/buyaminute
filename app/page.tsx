@@ -31,7 +31,7 @@ const archivo = Archivo({
 });
 
 // ─── Narrative Beat (renders in both layouts; dark vs light via CSS scope) ────
-function NarrativeBeat({ beat }: { beat: (typeof BEATS)[number] }) {
+function NarrativeBeat({ beat, mobile = false }: { beat: (typeof BEATS)[number]; mobile?: boolean }) {
   return (
     <div className={`beat${beat.active ? " active" : ""}`}>
       <div className="beat-index">{beat.index}</div>
@@ -58,7 +58,7 @@ function NarrativeBeat({ beat }: { beat: (typeof BEATS)[number] }) {
             {beat.meta.map((m) => (
               <div key={m.label} className="beat-meta-item">
                 <div className="beat-meta-val">{m.value}</div>
-                <div className="beat-meta-lbl">{m.label}</div>
+                <div className="beat-meta-lbl">{mobile && m.mobileLabel ? m.mobileLabel : m.label}</div>
               </div>
             ))}
           </div>
@@ -125,13 +125,13 @@ export default function OrientationPage() {
           background: #000;
           color: #e8e4df;
           height: 100dvh;
+          overflow: hidden;
           display: flex;
           flex-direction: column;
-          overflow-x: hidden;
           position: relative;
         }
         @media (max-width: 900px) {
-          .bam-root { height: auto; min-height: 100dvh; background: #fdfcfa; color: #1a1816; }
+          .bam-root { height: auto; min-height: 100dvh; overflow: visible; overflow-x: hidden; background: #fdfcfa; color: #1a1816; }
         }
 
         /* ── Keyframes ───────────────────────────────────────────────── */
@@ -226,7 +226,6 @@ export default function OrientationPage() {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
           min-height: 0;
-          height: calc(100dvh - 48px);
         }
 
         .bam-panel {
@@ -330,15 +329,15 @@ export default function OrientationPage() {
         /* ══════════════════════════════════════════════════════════════ */
         /*  NARRATIVE BEATS — dark base (desktop)                        */
         /* ══════════════════════════════════════════════════════════════ */
-        .bam-narrative { display: flex; flex-direction: column; border: 1px solid #1a1a1a; margin-bottom: 20px; }
-        .beat { padding: 10px 14px; border-bottom: 1px solid #111; display: flex; gap: 12px; align-items: flex-start; }
+        .bam-narrative { display: flex; flex-direction: column; border: 1px solid #2a2a2a; margin-bottom: 20px; }
+        .beat { padding: 10px 14px; border-bottom: 1px solid #1e1e1e; display: flex; gap: 12px; align-items: flex-start; }
         .beat:last-child { border-bottom: none; }
-        .beat-index { font-family: var(--font-playfair), 'Playfair Display', serif; font-style: italic; font-size: 18px; color: #222; line-height: 1; flex-shrink: 0; width: 18px; text-align: right; margin-top: 1px; }
+        .beat-index { font-family: var(--font-playfair), 'Playfair Display', serif; font-style: italic; font-size: 18px; color: #555; line-height: 1; flex-shrink: 0; width: 18px; text-align: right; margin-top: 1px; }
         .beat.active .beat-index { color: #8b5cf6; }
         .beat-content { flex: 1; }
-        .beat-label { font-size: 7px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #444; margin-bottom: 5px; display: block; }
+        .beat-label { font-size: 7px; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #555; margin-bottom: 5px; display: block; }
         .beat.active .beat-label { color: #8b5cf6; }
-        .beat-text { font-size: 11px; color: #a39990; line-height: 1.5; font-weight: 300; }
+        .beat-text { font-size: 11px; color: #b8b0a8; line-height: 1.5; font-weight: 300; }
         .beat.active .beat-text { color: #c8c0bb; }
         .beat-text strong { color: #e8e4df; font-weight: 600; }
         .beat-quote { font-family: var(--font-playfair), 'Playfair Display', serif; font-style: italic; font-size: 12px; color: #c8c0bb; line-height: 1.5; margin-top: 6px; display: block; }
@@ -627,7 +626,7 @@ export default function OrientationPage() {
             {MARKET.headlinePrefix} <em>{MARKET.headlineEm}</em>
           </h2>
           <div className="bam-narrative">
-            {BEATS.map((beat) => <NarrativeBeat key={beat.index} beat={beat} />)}
+            {BEATS.map((beat) => <NarrativeBeat key={beat.index} beat={beat} mobile />)}
           </div>
           <div className="bam-mkt-body-m">
             {MARKET.body.map((p, i) => <p key={i}>{p}</p>)}

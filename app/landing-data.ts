@@ -121,7 +121,7 @@ export const BEATS: BeatData[] = [
     label: "The Outcome",
     text: "They talk. The meter runs.",
     meta: [
-      { value: "8m 42s", label: "Call duration"  },
+      { value: "8m 42s", label: "Duration"       },
       { value: "$52.20", label: "Kayla earned"   },
       { value: "$7.80",  label: "Mark refunded"  },
     ],

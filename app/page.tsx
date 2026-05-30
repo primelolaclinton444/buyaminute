@@ -125,13 +125,10 @@ export default function OrientationPage() {
           background: #000;
           color: #e8e4df;
           height: 100dvh;
-          overflow: hidden;
+          overflow-x: hidden;
           display: flex;
           flex-direction: column;
           position: relative;
-        }
-        @media (max-width: 900px) {
-          .bam-root { height: auto; min-height: 100dvh; overflow: visible; overflow-x: hidden; background: #fdfcfa; color: #1a1816; }
         }
 
         /* ── Keyframes ───────────────────────────────────────────────── */
@@ -170,8 +167,6 @@ export default function OrientationPage() {
           padding: 0 32px;
           align-items: center;
           background: #0a0a0a;
-          position: sticky;
-          top: 0;
           z-index: 100;
           flex-shrink: 0;
         }
@@ -198,7 +193,10 @@ export default function OrientationPage() {
         .bam-nav-btn.primary { color: #e8e4df; }
 
         @media (max-width: 900px) {
+          .bam-root { height: auto; min-height: 100dvh; overflow: visible; overflow-x: hidden; background: #fdfcfa; color: #1a1816; }
           .bam-nav {
+            position: sticky;
+            top: 0;
             height: 52px;
             background: #f9f7f4;
             border-bottom: 1px solid #e8e4df;
@@ -217,7 +215,7 @@ export default function OrientationPage() {
         /* ══════════════════════════════════════════════════════════════ */
         .bam-desktop { display: none; }
         @media (min-width: 901px) {
-          .bam-desktop { display: flex; flex: 1; flex-direction: column; }
+          .bam-desktop { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
           .bam-mobile  { display: none !important; }
         }
 
@@ -226,6 +224,7 @@ export default function OrientationPage() {
           display: grid;
           grid-template-columns: 1fr 1fr 1fr;
           min-height: 0;
+          overflow: hidden;
         }
 
         .bam-panel {

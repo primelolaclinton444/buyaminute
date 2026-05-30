@@ -8,6 +8,7 @@ export interface StatData {
   value: string;
   label: string;
   sub: string;
+  mobileLabel?: string;
 }
 
 export interface BeatData {
@@ -15,8 +16,8 @@ export interface BeatData {
   label: string;
   text?: string;
   quote?: string;
-  quoteHighlight?: string; // the <em> portion inside the quote
-  meta?: Array<{ value: string; label: string }>;
+  quoteHighlight?: string;
+  meta?: Array<{ value: string; label: string; mobileLabel?: string }>;
   tag?: string;
   active?: boolean;
 }
@@ -121,7 +122,7 @@ export const BEATS: BeatData[] = [
     label: "The Outcome",
     text: "They talk. The meter runs.",
     meta: [
-      { value: "8m 42s", label: "Duration"       },
+      { value: "8m 42s", label: "Call duration", mobileLabel: "Duration" },
       { value: "$52.20", label: "Kayla earned"   },
       { value: "$7.80",  label: "Mark refunded"  },
     ],

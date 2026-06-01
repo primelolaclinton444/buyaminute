@@ -47,10 +47,23 @@ const css = `
   .bam-pr-busy .bam-pr-status-dot { background: #fbbf24; }
   .bam-pr-offline { background: rgba(255,255,255,0.05); color: rgba(245,247,255,0.35); border: 1px solid rgba(255,255,255,0.08); }
   .bam-pr-offline .bam-pr-status-dot { background: rgba(245,247,255,0.25); }
-  .bam-pr-rate { font-size: 0.9rem; font-weight: 700; color: #f5f7ff; }
-  .bam-pr-rate span { font-size: 0.75rem; font-weight: 400; color: rgba(245,247,255,0.4); margin-left: 2px; }
+  .bam-pr-rate {
+    font-size: 2rem; font-weight: 800; color: #f5f7ff;
+    letter-spacing: -0.03em; line-height: 1;
+  }
+  .bam-pr-rate span {
+    font-size: 0.85rem; font-weight: 400;
+    color: rgba(245,247,255,0.45); margin-left: 4px; letter-spacing: 0;
+  }
   .bam-pr-response { font-size: 0.8rem; color: rgba(245,247,255,0.4); }
-  .bam-pr-earnings { font-size: 0.8rem; color: rgba(196,181,253,0.7); }
+  .bam-pr-earnings {
+    font-size: 1rem; font-style: italic;
+    font-family: Georgia, "Times New Roman", serif;
+    color: rgba(196,181,253,0.85); letter-spacing: 0.01em; line-height: 1.4;
+  }
+  .bam-pr-fomo-block {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 4px;
+  }
   .bam-pr-tagline { font-size: 0.95rem; color: rgba(245,247,255,0.6); line-height: 1.6; }
   .bam-pr-ctas { display: flex; gap: 10px; flex-wrap: wrap; }
   .bam-pr-btn {
@@ -380,10 +393,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     <div className="bam-pr-handle">@{profile.username}</div>
                     <div className="bam-pr-meta">
                       <StatusBadge status={profile.status} />
-                      <span className="bam-pr-rate">${profile.rate.toFixed(2)}<span>/ min</span></span>
                       {profile.responseTime ? (
                         <span className="bam-pr-response">Responds {profile.responseTime}</span>
                       ) : null}
+                    </div>
+                    <div className="bam-pr-fomo-block">
+                      <span className="bam-pr-rate">${profile.rate.toFixed(2)}<span>/ min</span></span>
                       {earningsLine ? (
                         <span className="bam-pr-earnings">{earningsLine}</span>
                       ) : null}

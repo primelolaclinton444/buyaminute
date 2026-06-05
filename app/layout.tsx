@@ -5,6 +5,7 @@ import Nav from "@/components/Nav";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import AblyRealtimeProvider from "@/components/realtime/AblyRealtimeProvider";
 import PresencePing from "@/components/presence/PresencePing";
+import IncomingCallListener from "@/components/realtime/IncomingCallListener";
 import { usePathname } from "next/navigation";
 
 export default function RootLayout({
@@ -18,6 +19,7 @@ export default function RootLayout({
         <AuthProvider>
           <AblyRealtimeProvider>
             <PresencePing />
+            <IncomingCallListener />
             <NavConditional />
             {children}
           </AblyRealtimeProvider>

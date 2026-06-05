@@ -1,17 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import { CALL_REQUEST_WINDOW_MS } from "@/lib/constants";
 
-// Pages where we suppress the overlay — either they handle incoming calls
-// themselves (/call/incoming) or showing it would be disruptive (/call/[id])
-const SUPPRESS_PATHS = ["/call/incoming"];
-const SUPPRESS_PATTERN = /^\/call\/[^/]+$/; // matches /call/[id]
-
-/* ─── types ──────────────────────────────────────────────── */
 type IncomingRequest = {
   id: string;
   caller: string;
@@ -21,12 +15,10 @@ type IncomingRequest = {
   summary: string;
 };
 
-/* ─── audio ──────────────────────────────────────────────────
- * Strategy: create and RESUME AudioContext on the first user
- * gesture anywhere on the document. Store it in a module-level
- * singleton so it stays unlocked for the lifetime of the session.
- * When a call arrives the context is already live — no gesture needed.
- * ─────────────────────────────────────────────────────────── */
+/* ── audio ───────────────────────────────────────────────────
+   Module-level singleton — primed on first user gesture so
+   it's unlocked before any call arrives.
+──────────────────────────────────────────────────────────── */
 let sharedCtx: AudioContext | null = null;
 let ctxUnlocked = false;
 
@@ -38,8 +30,6 @@ function getAudioContext(): AudioContext | null {
   return sharedCtx;
 }
 
-// Call this once — attaches a one-time document listener that
-// resumes the AudioContext on the first user interaction.
 function primeAudioContext() {
   if (ctxUnlocked || typeof document === "undefined") return;
   const unlock = () => {
@@ -58,147 +48,136 @@ function primeAudioContext() {
   document.addEventListener("touchstart", unlock, true);
 }
 
-function playTone(ctx: AudioContext, freq: number, startTime: number, duration: number) {
+function playTone(ctx: AudioContext, freq: number, start: number, dur: number) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "sine";
   osc.frequency.value = freq;
-  gain.gain.setValueAtTime(0.15, startTime);
-  gain.gain.setValueAtTime(0.15, startTime + duration - 0.05);
-  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  gain.gain.setValueAtTime(0.15, start);
+  gain.gain.setValueAtTime(0.15, start + dur - 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + dur);
   osc.connect(gain);
   gain.connect(ctx.destination);
-  osc.start(startTime);
-  osc.stop(startTime + duration);
+  osc.start(start);
+  osc.stop(start + dur);
 }
 
-// US-style two-tone ring: 440Hz+480Hz for 2s, silence for 4s
 function playRingtone() {
   const ctx = getAudioContext();
-  if (!ctx) return;
-  if (ctx.state === "suspended") {
-    // Context not yet unlocked — can't play, will be silent
-    return;
-  }
+  if (!ctx || ctx.state === "suspended") return;
   const now = ctx.currentTime;
   playTone(ctx, 440, now, 2);
   playTone(ctx, 480, now, 2);
 }
 
-/* ─── CSS ────────────────────────────────────────────────── */
+/* ── CSS ─────────────────────────────────────────────────── */
 const css = `
-  .icl-overlay {
-    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
-    z-index: 9999; width: calc(100% - 32px); max-width: 480px;
-    animation: icl-slide-up 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  .icl-backdrop {
+    position: fixed; inset: 0; z-index: 9998;
+    background: rgba(3,5,15,0.75); backdrop-filter: blur(6px);
   }
-  @keyframes icl-slide-up {
-    from { opacity: 0; transform: translateX(-50%) translateY(24px); }
-    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .icl-overlay {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    z-index: 9999; padding: 16px;
+    display: flex; justify-content: center;
+    animation: icl-up 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  @keyframes icl-up {
+    from { opacity:0; transform: translateY(40px); }
+    to   { opacity:1; transform: translateY(0); }
   }
   .icl-card {
-    background: rgba(8,12,28,0.97);
-    border: 1px solid rgba(74,222,128,0.4);
-    border-radius: 20px;
-    padding: 0;
-    box-shadow: 0 0 0 1px rgba(74,222,128,0.1), 0 24px 60px rgba(0,0,0,0.7);
+    width: 100%; max-width: 480px;
+    background: #080c1c;
+    border: 1.5px solid rgba(74,222,128,0.5);
+    border-radius: 24px;
+    box-shadow: 0 0 0 1px rgba(74,222,128,0.1), 0 32px 80px rgba(0,0,0,0.8);
     overflow: hidden;
     font-family: -apple-system, 'Inter', system-ui, sans-serif;
   }
   .icl-top {
-    padding: 18px 20px 14px;
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
+    padding: 20px 22px 16px;
+    display: flex; align-items: center; gap: 14px;
   }
   .icl-avatar {
-    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+    width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
     background: rgba(74,222,128,0.15);
-    border: 1.5px solid rgba(74,222,128,0.35);
+    border: 2px solid rgba(74,222,128,0.4);
     display: flex; align-items: center; justify-content: center;
-    font-size: 1.1rem; font-weight: 700; color: #4ade80;
-    letter-spacing: 0.02em;
+    font-size: 1.15rem; font-weight: 700; color: #4ade80;
   }
   .icl-info { flex: 1; min-width: 0; }
   .icl-eyebrow {
     font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-    letter-spacing: 0.1em; color: #4ade80; margin-bottom: 3px;
+    letter-spacing: 0.1em; color: #4ade80; margin-bottom: 4px;
     display: flex; align-items: center; gap: 6px;
   }
   .icl-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
+    width: 7px; height: 7px; border-radius: 50%; background: #4ade80;
     animation: icl-pulse 1.4s ease-in-out infinite;
   }
   @keyframes icl-pulse {
-    0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.6); }
-    50%      { box-shadow: 0 0 0 5px rgba(74,222,128,0); }
+    0%,100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.7); }
+    50%      { box-shadow: 0 0 0 6px rgba(74,222,128,0); }
   }
   .icl-caller {
-    font-size: 1.1rem; font-weight: 700; color: #f5f7ff;
+    font-size: 1.2rem; font-weight: 700; color: #f5f7ff;
     letter-spacing: -0.01em; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }
   .icl-meta {
-    font-size: 0.78rem; color: rgba(245,247,255,0.5); margin-top: 3px;
-    display: flex; align-items: center; gap: 8px;
+    font-size: 0.8rem; color: rgba(245,247,255,0.5);
+    margin-top: 3px; display: flex; align-items: center; gap: 8px;
   }
-  .icl-rate {
-    font-size: 0.82rem; font-weight: 700; color: #f5f7ff;
-  }
+  .icl-rate { font-size: 0.85rem; font-weight: 700; color: #f5f7ff; }
   .icl-mode {
     font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
     background: rgba(124,92,255,0.15); color: #c4b5fd;
     border: 1px solid rgba(124,92,255,0.25);
   }
-  .icl-timer-wrap {
+  .icl-timer {
     flex-shrink: 0; display: flex; flex-direction: column;
     align-items: center; gap: 2px;
   }
-  .icl-ring { position: relative; width: 44px; height: 44px; }
-  .icl-ring-svg { transform: rotate(-90deg); }
-  .icl-ring-track { fill: none; stroke: rgba(74,222,128,0.12); stroke-width: 3; }
+  .icl-ring { position: relative; width: 48px; height: 48px; }
+  .icl-ring svg { transform: rotate(-90deg); }
+  .icl-ring-track { fill: none; stroke: rgba(74,222,128,0.15); stroke-width: 3; }
   .icl-ring-fill  { fill: none; stroke: #4ade80; stroke-width: 3; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
   .icl-ring-num {
     position: absolute; inset: 0; display: flex; align-items: center;
-    justify-content: center; font-size: 0.78rem; font-weight: 700;
+    justify-content: center; font-size: 0.8rem; font-weight: 700;
     color: #4ade80; font-variant-numeric: tabular-nums;
   }
   .icl-timer-label { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(245,247,255,0.3); }
-  .icl-divider { height: 1px; background: rgba(74,222,128,0.1); margin: 0 20px; }
+  .icl-divider { height: 1px; background: rgba(74,222,128,0.12); }
   .icl-actions {
-    padding: 14px 20px 18px;
+    padding: 16px 22px 20px;
     display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   }
-  .icl-btn {
-    padding: 13px 16px; border-radius: 999px; border: none;
-    font-size: 0.88rem; font-weight: 700; font-family: inherit;
-    cursor: pointer; display: flex; align-items: center;
-    justify-content: center; gap: 6px;
-    transition: opacity 0.15s ease, transform 0.15s ease;
-  }
-  .icl-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
-  .icl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .icl-btn-accept {
+  .icl-accept {
+    padding: 15px; border-radius: 999px; border: none;
+    font-size: 0.95rem; font-weight: 700; font-family: inherit; cursor: pointer;
     background: linear-gradient(120deg, #4ade80 0%, #22d3ee 100%);
-    color: #0b1f0f;
-    box-shadow: 0 6px 20px rgba(74,222,128,0.3);
+    color: #041a0a;
+    box-shadow: 0 8px 24px rgba(74,222,128,0.35);
+    transition: opacity 0.15s, transform 0.15s;
   }
-  .icl-btn-decline {
-    background: rgba(255,255,255,0.06);
+  .icl-accept:hover:not(:disabled) { opacity: 0.9; transform: translateY(-1px); }
+  .icl-accept:disabled { opacity: 0.4; cursor: not-allowed; }
+  .icl-decline {
+    padding: 15px; border-radius: 999px;
+    font-size: 0.95rem; font-weight: 600; font-family: inherit; cursor: pointer;
+    background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.12);
     color: rgba(245,247,255,0.6);
+    transition: opacity 0.15s, transform 0.15s;
   }
-  .icl-dismiss {
-    position: absolute; top: 12px; right: 14px;
-    background: none; border: none; cursor: pointer;
-    color: rgba(245,247,255,0.25); font-size: 0.9rem; line-height: 1;
-    padding: 4px;
-  }
-  .icl-dismiss:hover { color: rgba(245,247,255,0.55); }
+  .icl-decline:hover:not(:disabled) { opacity: 0.8; transform: translateY(-1px); }
+  .icl-decline:disabled { opacity: 0.4; cursor: not-allowed; }
 `;
 
 const WINDOW_SECS = Math.floor(CALL_REQUEST_WINDOW_MS / 1000);
-const CIRCUMFERENCE = 2 * Math.PI * 19; // r=19
+const CIRC = 2 * Math.PI * 20;
 
 function initials(name: string) {
   const parts = name.trim().split(/\s+/);
@@ -210,130 +189,100 @@ export default function IncomingCallListener() {
   const { session, status } = useAuth();
   const { client } = useAbly();
   const router = useRouter();
-  const pathname = usePathname();
 
   const userId = session?.user?.id ?? "";
-
-  // Suppress overlay on call pages
-  const isSuppressed =
-    SUPPRESS_PATHS.some((p) => pathname === p) ||
-    SUPPRESS_PATTERN.test(pathname);
 
   const [request, setRequest] = useState<IncomingRequest | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(WINDOW_SECS);
   const [responding, setResponding] = useState(false);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const didRespondRef = useRef(false);
-  const ringtoneIntervalRef = useRef<number | null>(null);
+  const ringtoneRef = useRef<number | null>(null);
 
-  /* ── load the latest pending request ── */
+  /* ── prime audio on mount ── */
+  useEffect(() => { primeAudioContext(); }, []);
+
+  /* ── request notification permission on mount ── */
+  useEffect(() => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+  }, []);
+
+  const stopRingtone = () => {
+    if (ringtoneRef.current) { window.clearInterval(ringtoneRef.current); ringtoneRef.current = null; }
+  };
+
   const loadRequest = useCallback(async () => {
     try {
       const res = await fetch("/api/calls/incoming");
       if (!res.ok) return;
       const data = await res.json() as { requests: IncomingRequest[] };
-      const pending = data.requests.find((r) => r.status === "pending") ?? null;
-      setRequest(pending);
+      const pending = data.requests[0] ?? null;
       if (pending) {
-        const secs = Math.max(
-          0,
-          Math.floor((new Date(pending.expiresAt).getTime() - Date.now()) / 1000)
-        );
+        const secs = Math.max(0, Math.floor((new Date(pending.expiresAt).getTime() - Date.now()) / 1000));
         setSecondsLeft(secs);
         didRespondRef.current = false;
       }
+      setRequest(pending);
     } catch {}
   }, []);
 
-  /* ── start/stop ringtone ── */
-  function startRingtone() {
-    playRingtone();
-    // Re-trigger every 6s (2s ring + 4s silence)
-    ringtoneIntervalRef.current = window.setInterval(playRingtone, 6000);
-  }
-
-  function stopRingtone() {
-    if (ringtoneIntervalRef.current) {
-      window.clearInterval(ringtoneIntervalRef.current);
-      ringtoneIntervalRef.current = null;
-    }
-  }
-
-  /* ── Prime AudioContext on mount so it's unlocked before a call arrives ── */
-  useEffect(() => { primeAudioContext(); }, []);
-
-  /* ── Notification permission — check on mount, request if default ── */
-  useEffect(() => {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setNotifPermission("unsupported");
-      return;
-    }
-    setNotifPermission(Notification.permission);
-    // If never asked before, request proactively so receivers are ready
-    if (Notification.permission === "default") {
-      void Notification.requestPermission().then((perm) => {
-        setNotifPermission(perm);
-      });
-    }
-  }, []);
-
-
-  /* ── Ably subscription ── */
+  /* ── Ably subscription (primary) ── */
   useEffect(() => {
     if (!userId || !client || status !== "authenticated") return;
-
     const channel = client.channels.get(`user:${userId}`);
 
     const handleIncoming = () => {
       void loadRequest();
-      startRingtone();
-
-      // Rich browser notification — fires after we have the full request data
-      void fetch("/api/calls/incoming").then(async (res) => {
-        if (!res.ok) return;
-        const data = await res.json() as { requests: IncomingRequest[] };
-        const req = data.requests.find((r) => r.status === "pending");
-        if (!req) return;
-
-        if (
-          typeof window !== "undefined" &&
-          "Notification" in window &&
-          Notification.permission === "granted"
-        ) {
+      playRingtone();
+      ringtoneRef.current = window.setInterval(playRingtone, 6000);
+      if ("Notification" in window && Notification.permission === "granted") {
+        void fetch("/api/calls/incoming").then(async (r) => {
+          if (!r.ok) return;
+          const d = await r.json() as { requests: IncomingRequest[] };
+          const req = d.requests[0];
+          if (!req) return;
           new Notification(`📞 ${req.caller} is calling`, {
-            body: `${req.ratePerMinute} · ${req.mode === "video" ? "📹 Video" : "🎤 Voice"} · ${WINDOW_SECS}s to accept`,
+            body: `${req.ratePerMinute} · ${req.mode === "video" ? "Video" : "Voice"} · ${WINDOW_SECS}s to accept`,
             tag: "incoming-call",
             requireInteraction: true,
-            silent: false,
           });
-        }
-      });
+        });
+      }
     };
 
     channel.subscribe("incoming_call", handleIncoming);
-
     return () => {
       channel.unsubscribe("incoming_call", handleIncoming);
       stopRingtone();
     };
   }, [client, userId, status, loadRequest]);
 
-  /* ── countdown timer ── */
+  /* ── Polling fallback (catches missed Ably events) ── */
+  useEffect(() => {
+    if (!userId || status !== "authenticated") return;
+    // Poll every 4 seconds — fast enough to catch a 90s window
+    const interval = window.setInterval(() => {
+      // Only poll if no request is currently showing
+      // to avoid interrupting an active overlay
+      setRequest((current) => {
+        if (!current) void loadRequest();
+        return current;
+      });
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [userId, status, loadRequest]);
+
+  /* ── countdown ── */
   useEffect(() => {
     if (!request) return;
-    if (secondsLeft <= 0) {
-      setRequest(null);
-      stopRingtone();
-      return;
-    }
+    if (secondsLeft <= 0) { setRequest(null); stopRingtone(); return; }
     const t = window.setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => window.clearTimeout(t);
   }, [request, secondsLeft]);
 
-  /* ── cleanup ringtone when request dismissed ── */
-  useEffect(() => {
-    if (!request) stopRingtone();
-  }, [request]);
+  /* ── stop ringtone when dismissed ── */
+  useEffect(() => { if (!request) stopRingtone(); }, [request]);
 
   /* ── respond ── */
   async function respond(action: "accept" | "decline") {
@@ -341,7 +290,6 @@ export default function IncomingCallListener() {
     didRespondRef.current = true;
     setResponding(true);
     stopRingtone();
-
     try {
       const res = await fetch("/api/calls/respond", {
         method: "POST",
@@ -351,11 +299,7 @@ export default function IncomingCallListener() {
       const payload = await res.json().catch(() => null) as { redirectTo?: string | null } | null;
       setRequest(null);
       if (payload?.redirectTo) {
-        if (action === "accept") {
-          router.push(payload.redirectTo);
-        } else {
-          router.replace(payload.redirectTo);
-        }
+        action === "accept" ? router.push(payload.redirectTo) : router.replace(payload.redirectTo);
       }
     } catch {
       didRespondRef.current = false;
@@ -363,76 +307,45 @@ export default function IncomingCallListener() {
     }
   }
 
-  if (!request || isSuppressed) return null;
+  if (!request) return null;
 
-  const ringOffset = CIRCUMFERENCE * (1 - secondsLeft / WINDOW_SECS);
-  const pct = Math.round((secondsLeft / WINDOW_SECS) * 100);
+  const offset = CIRC * (1 - secondsLeft / WINDOW_SECS);
 
   return (
     <>
       <style>{css}</style>
-      <div className="icl-overlay" role="dialog" aria-modal="false" aria-label="Incoming call">
+      {/* backdrop dims the page so receiver can't miss it */}
+      <div className="icl-backdrop" onClick={() => {}} />
+      <div className="icl-overlay" role="alertdialog" aria-modal="true" aria-label="Incoming call">
         <div className="icl-card">
-          <button
-            className="icl-dismiss"
-            type="button"
-            onClick={() => { setRequest(null); stopRingtone(); }}
-            aria-label="Dismiss"
-          >
-            ✕
-          </button>
-
           <div className="icl-top">
             <div className="icl-avatar">{initials(request.caller)}</div>
-
             <div className="icl-info">
-              <div className="icl-eyebrow">
-                <span className="icl-dot" />
-                Incoming call
-              </div>
+              <div className="icl-eyebrow"><span className="icl-dot" />Incoming call</div>
               <div className="icl-caller">@{request.caller}</div>
               <div className="icl-meta">
                 <span className="icl-rate">{request.ratePerMinute}</span>
                 <span className="icl-mode">{request.mode === "video" ? "Video" : "Voice"}</span>
               </div>
             </div>
-
-            <div className="icl-timer-wrap">
+            <div className="icl-timer">
               <div className="icl-ring">
-                <svg className="icl-ring-svg" width="44" height="44" viewBox="0 0 44 44">
-                  <circle className="icl-ring-track" cx="22" cy="22" r="19" />
-                  <circle
-                    className="icl-ring-fill"
-                    cx="22" cy="22" r="19"
-                    strokeDasharray={CIRCUMFERENCE}
-                    strokeDashoffset={ringOffset}
-                  />
+                <svg width="48" height="48" viewBox="0 0 48 48">
+                  <circle className="icl-ring-track" cx="24" cy="24" r="20" />
+                  <circle className="icl-ring-fill" cx="24" cy="24" r="20"
+                    strokeDasharray={CIRC} strokeDashoffset={offset} />
                 </svg>
                 <div className="icl-ring-num">{secondsLeft}</div>
               </div>
-              <div className="icl-timer-label">secs left</div>
+              <div className="icl-timer-label">secs</div>
             </div>
           </div>
-
           <div className="icl-divider" />
-
           <div className="icl-actions">
-            <button
-              className="icl-btn icl-btn-accept"
-              type="button"
-              onClick={() => respond("accept")}
-              disabled={responding}
-              aria-label="Accept call"
-            >
-              {responding ? "Connecting…" : "Accept"}
+            <button className="icl-accept" onClick={() => respond("accept")} disabled={responding}>
+              {responding ? "Connecting…" : "✓ Accept"}
             </button>
-            <button
-              className="icl-btn icl-btn-decline"
-              type="button"
-              onClick={() => respond("decline")}
-              disabled={responding}
-              aria-label="Decline call"
-            >
+            <button className="icl-decline" onClick={() => respond("decline")} disabled={responding}>
               Decline
             </button>
           </div>

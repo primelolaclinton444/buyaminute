@@ -767,6 +767,7 @@ export async function getCallState({
       status: exposedStatus,
       joinable: ["ringing", "accepted", "connected"].includes(updatedCall.status),
       viewerRole,
+      ratePerSecondTokens: updatedCall.ratePerSecondTokens,
     },
     outcomeCode,
     redirectTo:

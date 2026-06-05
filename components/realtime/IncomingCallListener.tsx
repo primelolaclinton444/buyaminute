@@ -1,10 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useAbly } from "@/components/realtime/AblyRealtimeProvider";
 import { CALL_REQUEST_WINDOW_MS } from "@/lib/constants";
+
+// Pages where we suppress the overlay — either they handle incoming calls
+// themselves (/call/incoming) or showing it would be disruptive (/call/[id])
+const SUPPRESS_PATHS = ["/call/incoming"];
+const SUPPRESS_PATTERN = /^\/call\/[^/]+$/; // matches /call/[id]
 
 /* ─── types ──────────────────────────────────────────────── */
 type IncomingRequest = {
@@ -16,39 +21,68 @@ type IncomingRequest = {
   summary: string;
 };
 
-/* ─── audio synthesiser — no file needed ─────────────────── */
-function playRingtone(audioCtxRef: React.MutableRefObject<AudioContext | null>) {
-  try {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new AudioContext();
-    }
-    const ctx = audioCtxRef.current;
+/* ─── audio ──────────────────────────────────────────────────
+ * Strategy: create and RESUME AudioContext on the first user
+ * gesture anywhere on the document. Store it in a module-level
+ * singleton so it stays unlocked for the lifetime of the session.
+ * When a call arrives the context is already live — no gesture needed.
+ * ─────────────────────────────────────────────────────────── */
+let sharedCtx: AudioContext | null = null;
+let ctxUnlocked = false;
 
-    // Two-tone ringtone pattern: 480Hz + 620Hz for 2s, silence 4s (like a real phone)
-    const pattern = [
-      { freq: [480, 620], duration: 2 },
-      { freq: [], duration: 4 },
-    ];
-
-    let offset = ctx.currentTime;
-    pattern.forEach(({ freq, duration }) => {
-      freq.forEach((f) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = f;
-        gain.gain.setValueAtTime(0.18, offset);
-        gain.gain.exponentialRampToValueAtTime(0.001, offset + duration);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(offset);
-        osc.stop(offset + duration);
-      });
-      offset += duration;
-    });
-  } catch {
-    // AudioContext blocked (e.g. no user gesture yet) — silent fail
+function getAudioContext(): AudioContext | null {
+  if (typeof window === "undefined") return null;
+  if (!sharedCtx) {
+    try { sharedCtx = new AudioContext(); } catch { return null; }
   }
+  return sharedCtx;
+}
+
+// Call this once — attaches a one-time document listener that
+// resumes the AudioContext on the first user interaction.
+function primeAudioContext() {
+  if (ctxUnlocked || typeof document === "undefined") return;
+  const unlock = () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === "suspended") {
+      void ctx.resume().then(() => { ctxUnlocked = true; });
+    } else {
+      ctxUnlocked = true;
+    }
+    document.removeEventListener("click", unlock, true);
+    document.removeEventListener("keydown", unlock, true);
+    document.removeEventListener("touchstart", unlock, true);
+  };
+  document.addEventListener("click", unlock, true);
+  document.addEventListener("keydown", unlock, true);
+  document.addEventListener("touchstart", unlock, true);
+}
+
+function playTone(ctx: AudioContext, freq: number, startTime: number, duration: number) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0.15, startTime);
+  gain.gain.setValueAtTime(0.15, startTime + duration - 0.05);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+// US-style two-tone ring: 440Hz+480Hz for 2s, silence for 4s
+function playRingtone() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    // Context not yet unlocked — can't play, will be silent
+    return;
+  }
+  const now = ctx.currentTime;
+  playTone(ctx, 440, now, 2);
+  playTone(ctx, 480, now, 2);
 }
 
 /* ─── CSS ────────────────────────────────────────────────── */
@@ -176,14 +210,20 @@ export default function IncomingCallListener() {
   const { session, status } = useAuth();
   const { client } = useAbly();
   const router = useRouter();
+  const pathname = usePathname();
 
   const userId = session?.user?.id ?? "";
+
+  // Suppress overlay on call pages
+  const isSuppressed =
+    SUPPRESS_PATHS.some((p) => pathname === p) ||
+    SUPPRESS_PATTERN.test(pathname);
 
   const [request, setRequest] = useState<IncomingRequest | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(WINDOW_SECS);
   const [responding, setResponding] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   const didRespondRef = useRef(false);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const ringtoneIntervalRef = useRef<number | null>(null);
 
   /* ── load the latest pending request ── */
@@ -207,12 +247,9 @@ export default function IncomingCallListener() {
 
   /* ── start/stop ringtone ── */
   function startRingtone() {
-    playRingtone(audioCtxRef);
-    // Re-trigger every 6 seconds (matches the 2s ring + 4s silence pattern)
-    ringtoneIntervalRef.current = window.setInterval(
-      () => playRingtone(audioCtxRef),
-      6000
-    );
+    playRingtone();
+    // Re-trigger every 6s (2s ring + 4s silence)
+    ringtoneIntervalRef.current = window.setInterval(playRingtone, 6000);
   }
 
   function stopRingtone() {
@@ -221,6 +258,25 @@ export default function IncomingCallListener() {
       ringtoneIntervalRef.current = null;
     }
   }
+
+  /* ── Prime AudioContext on mount so it's unlocked before a call arrives ── */
+  useEffect(() => { primeAudioContext(); }, []);
+
+  /* ── Notification permission — check on mount, request if default ── */
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotifPermission("unsupported");
+      return;
+    }
+    setNotifPermission(Notification.permission);
+    // If never asked before, request proactively so receivers are ready
+    if (Notification.permission === "default") {
+      void Notification.requestPermission().then((perm) => {
+        setNotifPermission(perm);
+      });
+    }
+  }, []);
+
 
   /* ── Ably subscription ── */
   useEffect(() => {
@@ -232,21 +288,26 @@ export default function IncomingCallListener() {
       void loadRequest();
       startRingtone();
 
-      // Browser notification if permitted
-      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-        // We fire notification after loading the request data
-        void fetch("/api/calls/incoming").then(async (res) => {
-          if (!res.ok) return;
-          const data = await res.json() as { requests: IncomingRequest[] };
-          const req = data.requests.find((r) => r.status === "pending");
-          if (!req) return;
-          new Notification(`${req.caller} is calling`, {
-            body: `${req.ratePerMinute} · ${req.mode === "video" ? "Video" : "Voice"} call · ${WINDOW_SECS}s to accept`,
+      // Rich browser notification — fires after we have the full request data
+      void fetch("/api/calls/incoming").then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json() as { requests: IncomingRequest[] };
+        const req = data.requests.find((r) => r.status === "pending");
+        if (!req) return;
+
+        if (
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          new Notification(`📞 ${req.caller} is calling`, {
+            body: `${req.ratePerMinute} · ${req.mode === "video" ? "📹 Video" : "🎤 Voice"} · ${WINDOW_SECS}s to accept`,
             tag: "incoming-call",
             requireInteraction: true,
+            silent: false,
           });
-        });
-      }
+        }
+      });
     };
 
     channel.subscribe("incoming_call", handleIncoming);
@@ -302,7 +363,7 @@ export default function IncomingCallListener() {
     }
   }
 
-  if (!request) return null;
+  if (!request || isSuppressed) return null;
 
   const ringOffset = CIRCUMFERENCE * (1 - secondsLeft / WINDOW_SECS);
   const pct = Math.round((secondsLeft / WINDOW_SECS) * 100);

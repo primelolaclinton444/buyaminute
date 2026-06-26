@@ -55,13 +55,18 @@ function base58check(payload: Uint8Array): string {
   full.set(payload);
   full.set(checksum, payload.length);
 
-  let num = 0n;
-  for (const b of full) num = num * 256n + BigInt(b);
+  // BigInt() calls (not 0n/256n literals) so this compiles on any tsc target.
+  const ZERO = BigInt(0);
+  const BASE = BigInt(58);
+  const BYTE = BigInt(256);
+
+  let num = ZERO;
+  for (const b of full) num = num * BYTE + BigInt(b);
 
   let out = "";
-  while (num > 0n) {
-    const r = Number(num % 58n);
-    num /= 58n;
+  while (num > ZERO) {
+    const r = Number(num % BASE);
+    num = num / BASE;
     out = BASE58_ALPHABET[r] + out;
   }
   // Preserve leading zero bytes as '1' (not reachable for 0x41-prefixed

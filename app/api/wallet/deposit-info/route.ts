@@ -1,11 +1,11 @@
 // ================================
 // BuyAMinute — Wallet Deposit Info API (Secured)
-// Phase 9
+// Phase 1: auto-provisions a derived deposit address on first view.
 // ================================
 
-import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { jsonError } from "@/lib/api/errors";
+import { getOrCreateDepositAddress } from "@/lib/tron/provisionDepositAddress";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,21 +14,19 @@ export async function GET() {
   const auth = await requireAuth();
   if (!auth.ok) return auth.response;
 
-  const depositAddress = await prisma.depositAddress.findUnique({
-    where: { userId: auth.user.id },
-  });
+  try {
+    const address = await getOrCreateDepositAddress(auth.user.id);
 
-  if (!depositAddress) {
+    return Response.json({
+      network: "USDT (TRC20)",
+      address,
+      memo: null,
+    });
+  } catch (err: any) {
     return jsonError(
-      "Deposit address not available yet. Contact support to assign one.",
-      404,
-      "deposit_address_missing"
+      err?.message || "Could not provision a deposit address",
+      500,
+      "deposit_address_error"
     );
   }
-
-  return Response.json({
-    network: "USDT (TRC20)",
-    address: depositAddress.tronAddress,
-    memo: null,
-  });
 }

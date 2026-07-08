@@ -94,6 +94,7 @@ export type WalletSummary = {
     amountTokens?: number;
     createdAt?: string;
     processedAt?: string | null;
+    txHash?: string | null;
   };
 };
 

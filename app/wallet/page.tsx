@@ -10,6 +10,7 @@ import {
   type WalletTransaction,
   type WalletTransactionType,
 } from "@/lib/api";
+import { QRCodeSVG } from "qrcode.react";
 
 const toUsd = (tokens: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
@@ -151,6 +152,15 @@ const css = `
     display: flex; justify-content: flex-end; gap: 10px;
     padding: 16px 24px; border-top: 1px solid rgba(124,92,255,0.12);
   }
+  .bam-wl-qr-wrap {
+    display: flex; justify-content: center; padding: 16px;
+    background: #ffffff; border-radius: 14px; margin-bottom: 10px;
+  }
+  .bam-wl-receipt-link {
+    display: inline-block; margin-top: 6px; font-size: 0.82rem; font-weight: 600;
+    color: #67e8f9; text-decoration: none;
+  }
+  .bam-wl-receipt-link:hover { text-decoration: underline; }
   .bam-wl-address-box {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
     padding: 14px 16px; border-radius: 12px;
@@ -411,6 +421,16 @@ export default function WalletPage() {
                 <div className="bam-wl-info-card">
                   <div className="bam-wl-info-title">Withdrawals</div>
                   <div className="bam-wl-info-strong">{withdrawalStatus}</div>
+                  {summary.latestWithdrawal.status === "sent" && summary.latestWithdrawal.txHash ? (
+                    <a
+                      className="bam-wl-receipt-link"
+                      href={`https://tronscan.org/#/transaction/${summary.latestWithdrawal.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View receipt on Tronscan ↗
+                    </a>
+                  ) : null}
                   <div className="bam-wl-info-body">
                     {summary.withdrawalAddressOnFile
                       ? "Withdrawal address on file."
@@ -546,7 +566,7 @@ export default function WalletPage() {
               <button className="bam-wl-modal-close" onClick={() => setShowWithdrawModal(false)} aria-label="Close">✕</button>
             </div>
             <div className="bam-wl-modal-body">
-              <p className="bam-wl-info-body">Withdraw to your USDT (TRC20) address on file. Requests are processed manually.</p>
+              <p className="bam-wl-info-body">Withdraw to your USDT (TRC20) address on file. Requests are reviewed and sent within 24 hours — you&apos;ll get an on-chain receipt link once it&apos;s paid.</p>
               <div className="bam-wl-input-field">
                 <label className="bam-wl-input-label" htmlFor="withdraw-amount">Amount (tokens)</label>
                 <input
@@ -594,6 +614,9 @@ export default function WalletPage() {
                     {depositInfo.memo ? (
                       <span className="bam-wl-info-body">Memo: {depositInfo.memo}</span>
                     ) : null}
+                  </div>
+                  <div className="bam-wl-qr-wrap">
+                    <QRCodeSVG value={depositInfo.address} size={168} bgColor="#ffffff" fgColor="#05070f" level="M" />
                   </div>
                   <div className="bam-wl-address-box">
                     <span className="bam-wl-address">{maskAddress(depositInfo.address)}</span>

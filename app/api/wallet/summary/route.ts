@@ -40,6 +40,7 @@ export async function GET() {
             amountTokens: true,
             createdAt: true,
             processedAt: true,
+            txHash: true,
           },
         }),
         tx.depositAddress.findUnique({
@@ -70,6 +71,7 @@ export async function GET() {
           amountTokens: latestWithdrawal.amountTokens,
           createdAt: latestWithdrawal.createdAt.toISOString(),
           processedAt: latestWithdrawal.processedAt?.toISOString() ?? null,
+          txHash: latestWithdrawal.txHash ?? null,
         }
       : { status: "none" },
   });

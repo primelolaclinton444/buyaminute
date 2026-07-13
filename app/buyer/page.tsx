@@ -8,18 +8,18 @@
  *   - color tokens: #f4ead2 cream · #72d7ff cyan · #00ff88 green · #e9b949 gold · #ff7ab8 pink
  *   - single inline <style> block, "bam-" class prefix, no external deps
  *
- * Routing (mirrors the existing buyer page):
- *   goBrowse  → /browse   (call anyone / live now)
- *   goSignup  → /signup   (post an offer / get started)
- *   goLogin   → buildAuthRedirect (sign in)
- *   goMain    → /main     (how it works)
+ * Routing:
+ *   goBrowse       → /browse     (call anyone / live now — public)
+ *   goSignup       → /signup     (logged-out: send first offer / post an offer)
+ *   gated("/...")  → real route if logged in, else /signup (soft gate)
+ *
+ * The app shell renders the global nav; this page does not render its own.
  */
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Playfair_Display } from "next/font/google";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { buildAuthRedirect } from "@/components/auth/AuthGuard";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -245,21 +245,24 @@ function fmtMoney(c: number) {
 
 export default function BuyerPage() {
   const router = useRouter();
-  const pathname = usePathname();
-  const auth = useAuth() as {
-    expired?: boolean;
-    user?: unknown;
-    isAuthenticated?: boolean;
-  };
-  const expired = Boolean(auth.expired);
-  /* Logged-in when the auth context exposes a user / isAuthenticated.
-     Adjust the field names to match your AuthProvider if different. */
-  const loggedIn = Boolean(auth.user ?? auth.isAuthenticated);
+  const auth = useAuth() as Record<string, unknown>;
+  /* Robust logged-in detection: your AuthProvider only surfaced `expired`
+     in the original file, so we defensively check the common session field
+     names. If your provider uses a different one, add it to this list. */
+  const loggedIn = Boolean(
+    auth.user ??
+      auth.currentUser ??
+      auth.session ??
+      auth.isAuthenticated ??
+      auth.authenticated ??
+      auth.isLoggedIn ??
+      auth.loggedIn ??
+      auth.profile ??
+      auth.account,
+  );
 
   const goBrowse = () => router.push("/browse");
   const goSignup = () => router.push("/signup");
-  const goLogin = () => router.push(buildAuthRedirect({ pathname, expired }));
-  const goMain = () => router.push("/main");
 
   /* Logged-out clicks on gated actions route to signup; logged-in go straight. */
   const gated = useCallback(
@@ -665,18 +668,8 @@ export default function BuyerPage() {
         }
       `}</style>
 
-      {/* NAV */}
-      <nav className="bam-nav">
-        <div className="bam-logo">BuyAMinute</div>
-        <div className="bam-navlinks">
-          <button type="button" onClick={goMain}>
-            For buyers
-          </button>
-          <button type="button" className="a" onClick={goLogin}>
-            Sign in
-          </button>
-        </div>
-      </nav>
+      {/* NOTE: the app shell renders the global nav. This page intentionally
+         does NOT render its own nav to avoid a duplicate bar. */}
 
       {/* ══════════ PANEL 00 ══════════ */}
       <section className="bam-p0">

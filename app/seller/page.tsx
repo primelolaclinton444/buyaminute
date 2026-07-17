@@ -25,7 +25,7 @@
  * duplicate bar. If this route is excluded from the global nav, re-add one here.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Playfair_Display } from "next/font/google";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -185,6 +185,20 @@ const TACTICS: Tactic[] = [
 
 const TICKS = [1, 25, 100, 250, 500];
 
+/* ── Console shortcuts (logged-in sellers) ────────────────
+ * TODO: confirm these routes against your app. Only /browse and /signup are
+ * verified from the existing pages; the rest are placeholders — swap them for
+ * your real seller paths (receiver dashboard, invite composer, wallet, etc).
+ */
+type Shortcut = { label: string; hint: string; route: string; icon: string };
+const SHORTCUTS: Shortcut[] = [
+  { label: "Go live", hint: "Set your rate \u00b7 open your line", route: "/receiver", icon: "\u25C9" },
+  { label: "Send an invite", hint: "Paid call invitation \u00b7 anyone", route: "/invite", icon: "+" },
+  { label: "Call requests", hint: "Who wants you on the line", route: "/requests", icon: "\u25A3" },
+  { label: "My earnings", hint: "Balance \u00b7 payouts \u00b7 withdraw", route: "/wallet", icon: "\u25CE" },
+  { label: "Browse live", hint: "See who else is on the line", route: "/browse", icon: "\u25C8" },
+];
+
 function fmtClock(s: number) {
   const m = Math.floor(s / 60);
   const x = s % 60;
@@ -197,15 +211,39 @@ function money(n: number) {
   });
 }
 
-type ModalId = "1" | "2" | "3" | "live" | "calc" | null;
+type ModalId = "1" | "2" | "3" | "live" | "calc" | "console" | null;
 
 export default function SellerPage() {
   const router = useRouter();
   const pathname = usePathname();
-  const { expired } = useAuth();
+  const auth = useAuth() as Record<string, unknown>;
+  const expired = Boolean(auth.expired);
+
+  /* Robust logged-in detection: the AuthProvider only surfaced `expired` where
+     we could see it, so check every common session field. If yours uses a name
+     outside this list, replace the whole expression with that one field. */
+  const loggedIn = Boolean(
+    auth.user ??
+      auth.currentUser ??
+      auth.session ??
+      auth.isAuthenticated ??
+      auth.authenticated ??
+      auth.isLoggedIn ??
+      auth.loggedIn ??
+      auth.profile ??
+      auth.account,
+  );
 
   const goSignup = () => router.push("/signup");
   const goLogin = () => router.push(buildAuthRedirect({ pathname, expired }));
+
+  /* Logged-out clicks on gated actions fall back to signup. */
+  const gated = useCallback(
+    (route: string) => {
+      router.push(loggedIn ? route : "/signup");
+    },
+    [loggedIn, router],
+  );
 
   /* ── meter ── */
   const [rate, setRate] = useState(12);
@@ -269,6 +307,67 @@ export default function SellerPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [modal]);
+
+  /* ── console (command palette) — logged-in only ── */
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return SHORTCUTS;
+    return SHORTCUTS.filter(
+      (s) =>
+        s.label.toLowerCase().includes(q) || s.hint.toLowerCase().includes(q),
+    );
+  }, [query]);
+  useEffect(() => {
+    setActive(0);
+  }, [query]);
+
+  const openConsole = () => {
+    setQuery("");
+    setActive(0);
+    setModal("console");
+  };
+  const runShortcut = useCallback(
+    (s: Shortcut) => {
+      setModal(null);
+      router.push(s.route);
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    if (modal !== "console") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive((a) => Math.min(a + 1, filtered.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive((a) => Math.max(a - 1, 0));
+      } else if (e.key === "Enter" && filtered[active]) {
+        e.preventDefault();
+        runShortcut(filtered[active]);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal, filtered, active, runShortcut]);
+
+  /* ⌘K / Ctrl+K opens the console for logged-in sellers */
+  useEffect(() => {
+    if (!loggedIn) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setQuery("");
+        setActive(0);
+        setModal("console");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [loggedIn]);
 
   /* ── earn calculator ── */
   const [cRate, setCRate] = useState(8);
@@ -414,6 +513,25 @@ export default function SellerPage() {
         .sel-cta.ghost .sel-cl{color:#f4ead2}
         .sel-ca{font-family:ui-monospace,monospace;font-style:normal;opacity:.7}
         .sel-cta.full{grid-column:1/-1}
+        .sel-kbd{font-size:11px;letter-spacing:.08em;border:1px solid rgba(233,185,73,.4);border-radius:6px;padding:3px 7px;opacity:1}
+
+        /* command palette */
+        .sel-pal{width:100%;max-width:520px;background:linear-gradient(180deg,#100c07,#06050a);border:1px solid rgba(233,185,73,.4);border-radius:18px;box-shadow:0 40px 100px rgba(0,0,0,.75);animation:sel-pop .24s cubic-bezier(.2,.8,.2,1);overflow:hidden;margin:auto}
+        .sel-pal-s{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid rgba(233,185,73,.2)}
+        .sel-pal-ic{color:rgba(255,207,77,.8);font-family:ui-monospace,monospace;font-size:14px}
+        .sel-pal-in{flex:1;background:none;border:0;outline:0;color:#f4ead2;font-family:var(--font-playfair-sel),Georgia,serif;font-style:italic;font-size:18px;letter-spacing:-.01em}
+        .sel-pal-in::placeholder{color:rgba(244,234,210,.35)}
+        .sel-pal-esc{font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.16em;color:rgba(244,234,210,.4);border:1px solid rgba(244,234,210,.15);border-radius:5px;padding:3px 7px;text-transform:uppercase}
+        .sel-pal-l{padding:8px;max-height:56vh;overflow-y:auto}
+        .sel-pal-i{display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:12px;cursor:pointer;border:1px solid transparent;background:none;width:100%;text-align:left;font-family:inherit;transition:background .12s,border-color .12s}
+        .sel-pal-i:hover,.sel-pal-i.on{background:rgba(233,185,73,.1);border-color:rgba(233,185,73,.3)}
+        .sel-pal-ii{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-family:ui-monospace,monospace;font-size:15px;color:#ffcf4d;background:rgba(233,185,73,.1);border:1px solid rgba(233,185,73,.35);flex-shrink:0}
+        .sel-pal-lab{font-style:italic;font-size:17px;color:#f4ead2;letter-spacing:-.01em;line-height:1.2;display:block}
+        .sel-pal-h{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:.08em;color:rgba(244,234,210,.42);text-transform:uppercase;margin-top:2px;display:block}
+        .sel-pal-e{margin-left:auto;font-family:ui-monospace,monospace;font-size:10px;color:rgba(255,207,77,.7);opacity:0;transition:opacity .12s}
+        .sel-pal-i.on .sel-pal-e{opacity:1}
+        .sel-pal-none{padding:28px 18px;text-align:center;font-style:italic;font-size:14px;color:rgba(244,234,210,.4)}
+        .sel-pal-f{padding:11px 16px;border-top:1px solid rgba(233,185,73,.16);display:flex;justify-content:space-between;font-family:ui-monospace,monospace;font-size:9px;letter-spacing:.14em;color:rgba(244,234,210,.4);text-transform:uppercase}
 
         .sel-ov{position:fixed;inset:0;z-index:9999;background:rgba(2,2,2,.88);backdrop-filter:blur(12px);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;animation:sel-ov .2s ease;overflow-y:auto}
         .sel-modal{width:100%;max-width:560px;background:linear-gradient(180deg,#100c07,#06050a);border:1px solid rgba(233,185,73,.35);border-radius:24px;padding:28px;box-shadow:0 40px 100px rgba(0,0,0,.75);animation:sel-pop .28s cubic-bezier(.2,.8,.2,1);position:relative;margin:auto}
@@ -694,14 +812,29 @@ export default function SellerPage() {
             </button>
 
             <div className="sel-ctas">
-              <button className="sel-cta gold" onClick={goSignup}>
-                <span className="sel-ck">&#9670; Be available</span>
-                <span className="sel-cl"><span>Start earning</span><span className="sel-ca">&rarr;</span></span>
-              </button>
-              <button className="sel-cta ghost" onClick={goLogin}>
-                <span className="sel-ck">&#9671; Returning</span>
-                <span className="sel-cl"><span>Log in</span><span className="sel-ca">&rarr;</span></span>
-              </button>
+              {loggedIn ? (
+                <>
+                  <button className="sel-cta gold" onClick={() => gated("/receiver")}>
+                    <span className="sel-ck">&#9670; Open your line</span>
+                    <span className="sel-cl"><span>Go live now</span><span className="sel-ca">&rarr;</span></span>
+                  </button>
+                  <button className="sel-cta ghost" onClick={openConsole}>
+                    <span className="sel-ck">&#9671; Welcome back</span>
+                    <span className="sel-cl"><span>Your console</span><span className="sel-ca sel-kbd">&#8984;K</span></span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="sel-cta gold" onClick={goSignup}>
+                    <span className="sel-ck">&#9670; Be available</span>
+                    <span className="sel-cl"><span>Start earning</span><span className="sel-ca">&rarr;</span></span>
+                  </button>
+                  <button className="sel-cta ghost" onClick={goLogin}>
+                    <span className="sel-ck">&#9671; Returning</span>
+                    <span className="sel-cl"><span>Log in</span><span className="sel-ca">&rarr;</span></span>
+                  </button>
+                </>
+              )}
               <button className="sel-cta ghost full" onClick={() => setModal("calc")}>
                 <span className="sel-ck">&#9671; Do the math</span>
                 <span className="sel-cl"><span>Calculate your potential income</span><span className="sel-ca">&rarr;</span></span>
@@ -743,10 +876,17 @@ export default function SellerPage() {
               {openTactic.kickLead}
               <span className="g sel-metal">{openTactic.kickAccent}</span>
             </div>
-            <button className="sel-mcta" onClick={goSignup}>
-              <span>Start earning</span>
-              <span className="ar">&rarr;</span>
-            </button>
+            {loggedIn ? (
+              <button className="sel-mcta" onClick={() => gated("/invite")}>
+                <span>Send an invite</span>
+                <span className="ar">&rarr;</span>
+              </button>
+            ) : (
+              <button className="sel-mcta" onClick={goSignup}>
+                <span>Start earning</span>
+                <span className="ar">&rarr;</span>
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -846,6 +986,59 @@ export default function SellerPage() {
               <div className="sel-result-l">Potential monthly income</div>
               <div className="sel-result-v">${monthly.toLocaleString()}</div>
               <div className="sel-result-s">at your rate, before fees</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════ CONSOLE / COMMAND PALETTE (logged-in) ══════ */}
+      {modal === "console" && (
+        <div
+          className="sel-ov"
+          onClick={() => setModal(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Seller console"
+          style={{ paddingTop: "12vh" }}
+        >
+          <div className="sel-pal" onClick={(e) => e.stopPropagation()}>
+            <div className="sel-pal-s">
+              <span className="sel-pal-ic">&#9670;</span>
+              <input
+                className="sel-pal-in"
+                autoFocus
+                placeholder="Jump to&hellip; go live, invite, earnings"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              <span className="sel-pal-esc">Esc</span>
+            </div>
+            <div className="sel-pal-l">
+              {filtered.length === 0 ? (
+                <div className="sel-pal-none">
+                  Nothing matches &ldquo;{query}&rdquo;
+                </div>
+              ) : (
+                filtered.map((s, i) => (
+                  <button
+                    key={s.route}
+                    className={`sel-pal-i ${i === active ? "on" : ""}`}
+                    onMouseEnter={() => setActive(i)}
+                    onClick={() => runShortcut(s)}
+                  >
+                    <span className="sel-pal-ii">{s.icon}</span>
+                    <span>
+                      <span className="sel-pal-lab">{s.label}</span>
+                      <span className="sel-pal-h">{s.hint}</span>
+                    </span>
+                    <span className="sel-pal-e">&#8629;</span>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="sel-pal-f">
+              <span>&#8593;&#8595; navigate &middot; &#8629; open</span>
+              <span>Seller console</span>
             </div>
           </div>
         </div>

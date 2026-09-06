@@ -567,7 +567,7 @@ export default function ReceiverPage() {
         <main className="bam-rv-page">
 
           <header>
-            <h1 className="bam-rv-heading">Welcome to your dashboard!</h1>
+            <h1 className="bam-rv-heading">Welcome to your dashboard</h1>
             <p className="bam-rv-sub">Your earnings, availability, and incoming activity.</p>
           </header>
 

@@ -172,8 +172,8 @@ function WhereToInner() {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthed, session } = useAuth();
-
+  const { status, session } = useAuth();
+  const isAuthed = status === "authenticated";
   const [open, setOpen] = useState(false);
   const [snap, setSnap] = useState<Snapshot>(EMPTY);
   const [loaded, setLoaded] = useState(false);

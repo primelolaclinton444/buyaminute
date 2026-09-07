@@ -290,9 +290,8 @@ export async function POST(req: Request) {
         return jsonError("Missing signature", 401, "missing_signature");
       }
 
-      // receiver.receive() validates the signature AND decodes the protobuf
+      // receiver.receive() validates the signature AND decodes the payload.
       payload = receiver.receive(rawBody, auth);
-      payload = JSON.parse(rawBody);
     } else {
       // Dev/test path: no credentials configured, accept raw JSON
       payload = JSON.parse(rawBody);

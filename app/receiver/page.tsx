@@ -10,6 +10,12 @@ import {
 import AuthGuard from "@/components/auth/AuthGuard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { PING_QUESTION_LABELS, PING_RESPONSE_LABELS } from "@/lib/pings";
+import {
+  hasAskedMicrophone,
+  requestNotifications,
+  shouldOfferNotifications,
+  warmMicrophone,
+} from "@/lib/permissions";
 
 /* ─── types ─────────────────────────────────────────────── */
 type AvailabilityPing = {
@@ -489,10 +495,30 @@ export default function ReceiverPage() {
     else { setIsAvailable(false); void save(false); }
   }
 
-  function confirmGoLive() {
-    setIsAvailable(true);
+  /* Both browser permissions are asked here and nowhere else.
+     This is the only moment in the product where someone has
+     explicitly declared "I want calls to reach me", which is the
+     justification the browser is looking for.
+
+     Order matters: microphone first, notifications second, both
+     inside the same click. Flipping them lets the notification
+     dialog consume the user gesture, after which some browsers
+     treat the getUserMedia call as un-gestured and reject it.
+
+     Warming the mic here is the important half — without it the
+     seller meets a permission dialog at call/[id] with a caller
+     already connected and the clock about to start. */
+  async function confirmGoLive() {
     setShowGoLiveModal(false);
+    setIsAvailable(true);
     void save(true);
+
+    try {
+      if (!hasAskedMicrophone()) await warmMicrophone();
+      if (shouldOfferNotifications()) await requestNotifications();
+    } catch {
+      /* A refused permission must never block going live. */
+    }
   }
 
   /* ── ping respond ── */
@@ -567,7 +593,7 @@ export default function ReceiverPage() {
         <main className="bam-rv-page">
 
           <header>
-            <h1 className="bam-rv-heading">Welcome to your dashboard</h1>
+            <h1 className="bam-rv-heading">Welcome to your dashboard!</h1>
             <p className="bam-rv-sub">Your earnings, availability, and incoming activity.</p>
           </header>
 
@@ -886,7 +912,7 @@ export default function ReceiverPage() {
             </div>
             <div className="bam-rv-modal-body">
               <div className="bam-rv-modal-rate">${ratePerMinuteUsd}<span>/ min</span></div>
-              <p className="bam-rv-modal-text">You'll start receiving paid call requests immediately. You can go offline anytime.</p>
+              <p className="bam-rv-modal-text">You&apos;ll start receiving paid call requests immediately. You can go offline anytime. Your browser will ask for microphone and notification access so calls can actually reach you.</p>
             </div>
             <div className="bam-rv-modal-actions">
               <button className="bam-rv-modal-go" type="button" onClick={confirmGoLive}>Go live at ${ratePerMinuteUsd}/min</button>

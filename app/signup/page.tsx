@@ -247,7 +247,7 @@ export default function SignupPage() {
     setLoading(true);
     try {
       await signup({ name, email, password });
-      router.replace("/wallet");
+      router.replace("/receiver?welcome=1");
     } catch (err) {
       const apiError = err as ApiError;
       setError(apiError.message ?? "Unable to sign up.");
